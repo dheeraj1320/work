@@ -1,0 +1,70 @@
+[
+  {
+    "id": "e874cefe-bc32-443e-882d-2cc3047badce",
+    "type": "tab",
+    "label": "Preprocessor Execution",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "80da4d06.d55a2",
+    "type": "inject",
+    "z": "e874cefe-bc32-443e-882d-2cc3047badce",
+    "name": "Input",
+    "topic": "Input",
+    "payload": "{}",
+    "payloadType": "json",
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "x": 90,
+    "y": 120,
+    "wires": [
+      [
+        "07304729.12345"
+      ]
+    ]
+  },
+  {
+    "id": "07304729.12345",
+    "type": "function",
+    "z": "e874cefe-bc32-443e-882d-2cc3047badce",
+    "name": "Set error in form field",
+    "func": "try { console.log( ':::::::::::::::::::::::::::::: msg data :::::', msg.payload.apiRequestBody, ); const input = msg.payload.apiRequestBody; AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; let formFieldsQuery = `SELECT DISTINCT rel2.CHILDITEMID AS FORM_FIELD_IDS FROM infoorigin_home_md.CONFIGITEMRELATION rel1 LEFT JOIN infoorigin_home_md.CONFIGITEMRELATION rel2 ON rel1.CHILDITEMID = rel2.PARENTITEMID WHERE rel1.PARENTITEMID = 'c2282b7c-e978-4ac7-adee-cf0ba228fee2' AND rel1.RELATIONTYPE = 'Form_FormSection' AND rel1.ISDELETED = 0 AND rel2.ISDELETED = 0`; let formFieldsData = await serviceOrchestrator.selectRecordsUsingQuery( 'INFOAPPS_MD', formFieldsQuery, input ); console.log(formFieldsData); msg.payload.result = {}; msg.payload.result.navigation = {}; msg.payload.result.navigation.operationType = 'GenerateExcelDocument'; msg.payload.result.documentData = { Sheet1: [ ['Name', 'Age', 'City'], ['John', 25, 'New York'], ['Alice', 30, 'Los Angeles'], ['Bob', 22, 'Chicago'], ], Sheet2: [ ['Product', 'Price', 'Quantity'], ['Laptop', 800, 5], ['Phone', 500, 8], ['Tablet', 300, 10], ], }; msg.payload.result.documentName = 'asdf'; msg.payload.result.message = 'Document Downloaded'; msg.payload.result.mode = 'Enable Message'; node.send(msg); return; } catch (t) { console.log('Errorr Occured', t.message); return; }",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 300,
+    "y": 120,
+    "wires": [
+      [
+        "d0bc38b2.f067c"
+      ]
+    ]
+  },
+  {
+    "id": "a169b948.7886b",
+    "type": "catch",
+    "z": "e874cefe-bc32-443e-882d-2cc3047badce",
+    "name": "Catch Exceptions",
+    "scope": null,
+    "uncaught": false,
+    "x": 520,
+      "y": 220,
+    "wires": [
+      [
+        "d0bc38b2.f067c"
+      ]
+    ]
+  },
+  {
+    "id": "d0bc38b2.f067c",
+    "type": "finish",
+    "z": "e874cefe-bc32-443e-882d-2cc3047badce",
+    "name": "finish",
+    "targetType": "msg",
+    "x": 760,
+    "y": 120,
+    "wires": []
+  }
+]

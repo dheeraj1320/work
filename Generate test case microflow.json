@@ -1,0 +1,97 @@
+[
+    {
+        "id": "e874cefe-bc32-443e-882d-2cc3047badce",
+        "type": "tab",
+        "label": "Preprocessor Execution",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "80da4d06.d55a2",
+        "type": "inject",
+        "z": "e874cefe-bc32-443e-882d-2cc3047badce",
+        "name": "Input",
+        "topic": "Input",
+        "payload": "{}",
+        "payloadType": "json",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 90,
+        "y": 120,
+        "wires": [
+            [
+                "07304729.12345"
+            ]
+        ]
+    }, {
+        "id": "07304729.12345",
+        "type": "function",
+        "z": "e874cefe-bc32-443e-882d-2cc3047badce",
+        "name": "Prepare Data For Attachment",
+        "func": "try{msg.payload.result={},msg.payload.result.documentName='Upload data template',msg.payload.documentData={};msg.payload.result.mode='Enable Message';let a={'Test data name':[['a','b','c'],['d','e','f'],['g','h','i']]};Object.assign(msg.payload.documentData,a),msg.payload.result.message='Document Downloaded',msg.payload.templateFile='Feature_Management_Test_Case_Template.xlsm',node.send(msg)}catch(a){console.log('Errorr Occured',a.message);return;}",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 300,
+        "y": 120,
+        "wires": [
+            [
+                "07304729.12348"
+            ]
+        ]
+    }, {
+        "id": "07304729.12348",
+        "type": "readExcelFileDataNode",
+        "z": "e874cefe-bc32-443e-882d-2cc3047badce",
+        "name": "Read Excel from S3",
+        "outputs": 1,
+        "x": 500,
+        "y": 220,
+        "wires": [
+            [
+                "07308229.12345"
+            ]
+        ]
+    },
+    {
+        "id": "07308229.12345",
+        "type": "function",
+        "z": "e874cefe-bc32-443e-882d-2cc3047badce",
+        "name": "Prepare Data For Attachment",
+        "func": "try {msg.payload.result.navigation = {}; msg.payload.result.navigation.operationType = 'GenerateExcelTemplateDocument'; node.send(msg) } catch (t) { console.log('Errorr Occured', t.message); return; };",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 300,
+        "y": 120,
+        "wires": [
+            [
+                "d0bc38b2.f067c"
+            ]
+        ]
+    }, {
+        "id": "a169b948.7886b",
+        "type": "catch",
+        "z": "e874cefe-bc32-443e-882d-2cc3047badce",
+        "name": "Catch Exceptions",
+        "scope": null,
+        "uncaught": false,
+        "x": 520,
+        "y": 220,
+        "wires": [
+            [
+                "d0bc38b2.f067c"
+            ]
+        ]
+    },
+    {
+        "id": "d0bc38b2.f067c",
+        "type": "finish",
+        "z": "e874cefe-bc32-443e-882d-2cc3047badce",
+        "name": "finish",
+        "targetType": "msg",
+        "x": 760,
+        "y": 120,
+        "wires": []
+    }
+  ]

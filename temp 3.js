@@ -35,30 +35,28 @@ try {
   });
   const formFieldsString = `'${formFieldsArray.join(`','`)}'`;
   console.log('form field array :::::: ', formFieldsArray);
-  const fieldsDataQuery = `SELECT prop2.PROPERTYVALUE FORM_FIELD_ORDER, item.ITEMNAME AS FORM_FIELD_NAME, prop1.PROPERTYVALUE AS FORM_FIELD_TYPE, prop3.PROPERTYVALUE AS DBCODE FROM CONFIGITEMPROPERTY prop1 JOIN CONFIGITEMPROPERTY prop2 ON prop1.ITEMID = prop2.ITEMID LEFT JOIN CONFIGITEM item ON item.ITEMID = prop1.ITEMID LEFT JOIN CONFIGITEMRELATION rel ON rel.PARENTITEMID = item.ITEMID LEFT JOIN CONFIGITEMPROPERTY prop3 ON rel.CHILDITEMID = prop3.ITEMID WHERE prop1.ITEMID IN (${formFieldsString}) AND prop1.PROPERTYNAME = 'TYPE' AND prop1.PROPERTYVALUE not in('Label', 'Hiddenfield') AND prop2.PROPERTYNAME = 'ORDER' AND prop3.PROPERTYNAME = 'DBCODE' ORDER BY cast(FORM_FIELD_ORDER as unsigned);`;
+  const fieldsDataQuery = `SELECT prop2.PROPERTYVALUE FORM_FIELD_ORDER, item.ITEMNAME AS FORM_FIELD_NAME, prop1.PROPERTYVALUE AS FORM_FIELD_TYPE, prop3.PROPERTYVALUE AS DBCODE FROM CONFIGITEMPROPERTY prop1 JOIN CONFIGITEMPROPERTY prop2 ON prop1.ITEMID = prop2.ITEMID LEFT JOIN CONFIGITEM item ON item.ITEMID = prop1.ITEMID LEFT JOIN CONFIGITEMRELATION rel ON rel.PARENTITEMID = item.ITEMID LEFT JOIN CONFIGITEMPROPERTY prop3 ON rel.CHILDITEMID = prop3.ITEMID WHERE prop1.ITEMID IN (${formFieldsString}) AND prop1.PROPERTYNAME = 'TYPE' AND prop1.PROPERTYVALUE not in('Label', 'Hiddenfield') AND prop2.PROPERTYNAME = 'ORDER' AND prop3.PROPERTYNAME = 'DBCODE' AND DATALENGTH(prop3.PROPERTYVALUE) > 0  ORDER BY cast(FORM_FIELD_ORDER as unsigned);`;
   let fieldsData = await serviceOrchestrator.selectRecordsUsingQuery(
     'INFOAPPS_MD',
     fieldsDataQuery,
     input
   );
   console.log('fieldS DATA :::::: ', fieldsData);
-
-  const formFieldNames = ['Form Field'];
-  const DBCodes = ['DBCODE'];
-
+  const formFieldNames = [];
+  const DBCodes = [];
   fieldsData.map((field) => {
-    formFieldNames.push(field.FORM_FIELD_NAME);
-    DBCodes.push(field.DBCODE);
+    if (!DBCodes.includes(field.DBCODE)) {
+      formFieldNames.push(camelCaseString(field.FORM_FIELD_NAME));
+      DBCodes.push(field.DBCODE);
+    }
   });
-
-  const excelData = [formFieldNames, DBCodes];
-
+  const excelData = [formFieldNames];
   msg.payload.result = {};
   msg.payload.result.navigation = {};
   msg.payload.result.navigation.operationType = 'GenerateExcelDocument';
-  msg.payload.result.documentData = {
-    'Data Upload Template': excelData,
-  };
+  msg.payload.result.documentData = { 'Data Upload Template': excelData };
+  msg.payload.result.documentHeaders = { 'Data Upload Template': excelData };
+  console.log(msg.payload.result.documentData);
   msg.payload.result.documentName = `Insert ${camelCaseString(
     tableName[0].TABLE_NAME
   )} Template`;

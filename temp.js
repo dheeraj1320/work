@@ -9,7 +9,10 @@ try {
       dataSetUIViewQuery,
       input
     );
-  let ConfigItemQuery = `SELECT DISTINCT ci.ITEMID as CONFIG_ID, ci.ITEMNAME as CONFIG_NAME, ci.ITEMTYPE as CONFIG_TYPE FROM infoorigin_home_md.CONFIGITEM ci JOIN infoorigin_home_md.CONFIGITEMRELATION cir1 ON cir1.CHILDITEMID = ci.ITEMID JOIN infoorigin_home_md.CONFIGITEMRELATION cir2 ON cir2.CHILDITEMID = cir1.PARENTITEMID JOIN infoorigin_home_md.CONFIGITEM ci2 ON cir2.PARENTITEMID IN ('${dataSetUIViewQueryData['DATA_SET_UI_VIEW_CONFIG_ITEM_ID']}') WHERE ci.ITEMTYPE = 'LogicalColumn' AND ci.ISDELETED = 0 AND ci2.ISDELETED = 0 AND cir1.ISDELETED = 0 AND cir2.ISDELETED = 0 ORDER BY ci.INSERT_TS;`;
+  let ConfigItemQuery = `SELECT DISTINCT ci.ITEMID as CONFIG_ID, ci.ITEMNAME as CONFIG_NAME, ci.ITEMTYPE as CONFIG_TYPE FROM 
+infoorigin_home_md.CONFIGITEM ci JOIN infoorigin_home_md.CONFIGITEMRELATION cir1 ON cir1.CHILDITEMID = ci.ITEMID 
+WHERE cir1.PARENTITEMID IN ('${dataSetUIViewQueryData['DATA_SET_UI_VIEW_CONFIG_ITEM_ID']}') and 
+ ci.ITEMTYPE = 'LogicalEntity' AND ci.ISDELETED = 0 AND cir1.ISDELETED = 0;`;
   let ConfigItemQueryData = JSON.parse(
     JSON.stringify(
       await serviceOrchestrator.selectRecordsUsingQuery(

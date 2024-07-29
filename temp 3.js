@@ -1,72 +1,41 @@
-/*Convert string into camel case*/ function camelCaseString(stringData) {
-  let toLowerDStringData = stringData.toLowerCase();
-  const words = toLowerDStringData.split('_');
-  for (let i = 0; i < words.length; i++) {
-    words[i] = words[i][0]
-      ? words[i][0].toUpperCase() + words[i].substr(1)
-      : '';
-  }
-  return words.join(' ');
-}
 try {
-  console.log(
-    ':::::::::::::::::::::::::::::: msg data :::::',
-    msg.payload.apiRequestBody
-  );
-  const input = msg.payload.apiRequestBody;
-  AppengProcessConfig = global.get('AppengProcessConfig');
+  let atr = msg.payload.referenceData;
+  let AppengProcessConfig = global.get('AppengProcessConfig');
   const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
-  let tableNameQuery = `SELECT prop.PROPERTYVALUE AS TABLE_NAME FROM CONFIGITEMRELATION rel LEFT JOIN CONFIGITEMPROPERTY prop ON rel.CHILDITEMID = prop.ITEMID WHERE rel.PARENTITEMID = 'c2282b7c-e978-4ac7-adee-cf0ba228fee2' AND rel.RELATIONTYPE = 'Form_LogicalEntity' AND prop.PROPERTYNAME = 'DBTYPENAME'`;
-  let tableName = await serviceOrchestrator.selectRecordsUsingQuery(
-    'INFOAPPS_MD',
-    tableNameQuery,
-    input
+  const allCandidateQuery = `SELECT 'AllCandidate_Chasing' as Chasing_Tab, cc.CANDIDATE_CHASING_UUID,cc.REQUIREMENT_UUID,cc.CANDIDATE_CHASING_ID,concat(rt.REQUIREMENT_ID, ' - ',COALESCE(rt.PSTN_TITLE,''),' - ',COALESCE(rt.CITY,''),(', '),COALESCE(st.STATE_CODE,'')) as REQUIREMENT_ID,cc.SOURCE_UUID,cc.CANDIDATE_NAME,cc.CANDIDATE_PHONE_NUMBER,cc.CANDIDATE_EMAIL_ADDRESS,cc.CANDIDATE_CHASING_OWNER, cc.LATEST_CANDIDATE_CHASING_REMARK as Candidate_Chasing_Remark ,cc.TASK_UUID,cc.ACTIVITY_UUID,cc.PORTAL_UUID,cc.COUNTRY_UUID,cc.AE_INSERT_ID,cc.AE_INSERT_TS,cc.AE_UPDATE_ID,cc.AE_UPDATE_TS,cc.AE_TRANSACTION_ID, concat(COALESCE(tk.TASK_ID,''),COALESCE(concat(' - ',ac.ACTVTY_ID),'')) as TASK_ACTIVITY, cc.MY_TAGS, cc.LINKEDIN_ID as LNKDN_ID,cc.LINKEDIN_ID FROM REQUIREMENT rt,STATE st, CANDIDATE_CHASING cc LEFT JOIN TASK tk ON cc.TASK_UUID = tk.TASK_UUID LEFT JOIN ACTIVITY ac ON cc.ACTIVITY_UUID = ac.ACTIVITY_UUID where cc.REQUIREMENT_UUID = rt.REQUIREMENT_UUID and st.STATE_UUID = rt.STATE and cc.COUNTRY_UUID in (${atr.APP_LOGGED_IN_USER_CONTEXT_COUNTRY_ID}) order by cc.CANDIDATE_CHASING_ID desc `;
+  let allCandidateData = await serviceOrchestrator.selectRecordsUsingQuery(
+    'PRIMARYSPRINGSO',
+    allCandidateQuery,
+    atr
   );
-  console.log('form name queryjfnvkf :::: ', tableName);
-  let formFieldsQuery = `SELECT DISTINCT rel2.CHILDITEMID AS FORM_FIELD_ID FROM CONFIGITEMRELATION rel1 LEFT JOIN CONFIGITEMRELATION rel2 ON rel1.CHILDITEMID = rel2.PARENTITEMID WHERE rel1.PARENTITEMID = 'c2282b7c-e978-4ac7-adee-cf0ba228fee2' AND rel1.RELATIONTYPE = 'Form_FormSection' AND rel1.ISDELETED = 0 AND rel2.ISDELETED = 0`;
-  let formFieldsData = await serviceOrchestrator.selectRecordsUsingQuery(
-    'INFOAPPS_MD',
-    formFieldsQuery,
-    input
-  );
-  const formFieldsArray = [];
-  formFieldsData.map((field) => {
-    formFieldsArray.push(field.FORM_FIELD_ID);
-  });
-  const formFieldsString = `'${formFieldsArray.join(`','`)}'`;
-  console.log('form field array :::::: ', formFieldsArray);
-  const fieldsDataQuery = `SELECT prop2.PROPERTYVALUE FORM_FIELD_ORDER, item.ITEMNAME AS FORM_FIELD_NAME, prop1.PROPERTYVALUE AS FORM_FIELD_TYPE, prop3.PROPERTYVALUE AS DBCODE FROM CONFIGITEMPROPERTY prop1 JOIN CONFIGITEMPROPERTY prop2 ON prop1.ITEMID = prop2.ITEMID LEFT JOIN CONFIGITEM item ON item.ITEMID = prop1.ITEMID LEFT JOIN CONFIGITEMRELATION rel ON rel.PARENTITEMID = item.ITEMID LEFT JOIN CONFIGITEMPROPERTY prop3 ON rel.CHILDITEMID = prop3.ITEMID WHERE prop1.ITEMID IN (${formFieldsString}) AND prop1.PROPERTYNAME = 'TYPE' AND prop1.PROPERTYVALUE not in('Label', 'Hiddenfield') AND prop2.PROPERTYNAME = 'ORDER' AND prop3.PROPERTYNAME = 'DBCODE' AND DATALENGTH(prop3.PROPERTYVALUE) > 0  ORDER BY cast(FORM_FIELD_ORDER as unsigned);`;
-  let fieldsData = await serviceOrchestrator.selectRecordsUsingQuery(
-    'INFOAPPS_MD',
-    fieldsDataQuery,
-    input
-  );
-  console.log('fieldS DATA :::::: ', fieldsData);
-  const formFieldNames = [];
-  const DBCodes = [];
-  fieldsData.map((field) => {
-    if (!DBCodes.includes(field.DBCODE)) {
-      formFieldNames.push(camelCaseString(field.FORM_FIELD_NAME));
-      DBCodes.push(field.DBCODE);
+  let allCandidateParsedData = JSON.parse(JSON.stringify(allCandidateData));
+  let filteredData = allCandidateParsedData.map((data) => {
+    if (data.LNKDN_ID) {
+      if (
+        !data.LNKDN_ID.toLowerCase().startsWith('https://www.linkedin.com') &&
+        !data.LNKDN_ID.toLowerCase().startsWith('http://www.linkedin.com')
+      ) {
+        return {
+          ...data,
+          LNKDN_ID: `<a href='https://www.linkedin.com' target='_blank'><img src='https://application-attachment.s3.amazonaws.com/linkedinIcon.png' style='width:32px;margin-top:-6px;margin-left:-7px;'></a>`,
+        };
+      }
+      return {
+        ...data,
+        LNKDN_ID: `<a href='${data.LNKDN_ID}' target='_blank'><img src='https://application-attachment.s3.amazonaws.com/linkedinIcon.png' style='width:32px;margin-top:-6px;margin-left:-7px;'></a>`,
+      };
+    } else {
+      return { ...data, LNKDN_ID: '' };
     }
   });
-  const excelData = [formFieldNames];
-  msg.payload.result = {};
-  msg.payload.result.navigation = {};
-  msg.payload.result.navigation.operationType = 'GenerateExcelDocument';
-  msg.payload.result.documentData = { 'Data Upload Template': excelData };
-  msg.payload.result.documentHeaders = { 'Data Upload Template': excelData };
-  console.log(msg.payload.result.documentData);
-  msg.payload.result.documentName = `Insert ${camelCaseString(
-    tableName[0].TABLE_NAME
-  )} Template`;
-  msg.payload.result.message = `${camelCaseString(
-    tableName[0].TABLE_NAME
-  )} Template Downloaded`;
-  msg.payload.result.mode = 'Enable Message';
-  node.send(msg);
-  return;
-} catch (t) {
-  console.log('Errorr Occured', t.message);
-  return;
+  msg.payload.result = { gridData: filteredData };
+  console.log(
+    'condidate data::::::',
+    allCandidateData,
+    'atr == = =>>> ',
+    atr.APP_LOGGED_IN_USER_CONTEXT_COUNTRY_ID
+  );
+} catch (a) {
+  node.error(a, msg);
 }
+return msg;

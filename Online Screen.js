@@ -13,6 +13,8 @@ let configpropertyList = [];
 let configrelationList = [];
 let configItemList = [];
 let onlineScreenUIComponentArray = [];
+let onlineScreenUIViewChildItems = [];
+
 // Function to create the config item
 function createConfigItem(itemName, itemType, projectId, releaseName, isGenerateId) {
   const configItem = {};
@@ -92,7 +94,6 @@ function updateConfigItemProperty(list, property) {
 
 
 // Function to delete the configitem, configprivilege, configproperty, configrelation and OnlineScreenUIView
-
 function deleteRecords(key, value, deleteType, releaseName) {
   const deleteParamenter = {};
   deleteParamenter[key] = value;
@@ -108,6 +109,8 @@ function deleteRecords(key, value, deleteType, releaseName) {
     configrelationList.push(deleteParamenter);
   } else if (deleteType === "ONLINE_SCREEN_UI_VIEW") {
     onlineScreenUIComponentArray.push(deleteParamenter);
+  } else if (deleteType === "ONLINE_SCREEN_UI_VIEW_CHILD_ITEMS") {
+    onlineScreenUIViewChildItems.push(deleteParamenter);
   }
 }
 
@@ -321,6 +324,8 @@ const deleteChildConfiguration = async (parentId, activeReleaseName, storeConfig
     storeConfigItemRelation.push(getParentRelationQueryData[0].RELATIONID);
   }
 
+  const portalCardChildComponents = [];
+
   // Recusion function to fetch the child element by using parent id 
   const fetchChildElements = async (parentId, activeReleaseName) => {
     try {
@@ -353,15 +358,21 @@ const deleteChildConfiguration = async (parentId, activeReleaseName, storeConfig
             // Checking property exist or not by checking the result length
             if (getPropertyQueryData && getPropertyQueryData.length) {
               // Iterating the result of property
+              let obj = {};
               for (let property of getPropertyQueryData) {
                 if (['COMPONENT_ID'].includes(property.PROPERTYNAME)) {
                   if (!storeConfigItemRelation.includes(element.RELATIONID)) {
                     storeConfigItemRelation.push(element.RELATIONID)
                   }
+                  obj[property.PROPERTYNAME] = property.PROPERTYVALUE
                   // Calling the function in recursion to get the parent child result
                   await fetchChildElements(property.PROPERTYVALUE, activeReleaseName);
                 }
+                if (['TYPE'].includes(property.PROPERTYNAME)) {
+                  obj[property.PROPERTYNAME] = property.PROPERTYVALUE
+                }
               }
+              portalCardChildComponents.push(obj);
             }
           }
           if (element.CHILDITEMID) {
@@ -378,7 +389,7 @@ const deleteChildConfiguration = async (parentId, activeReleaseName, storeConfig
     }
   }
   await fetchChildElements(parentId, activeReleaseName)
-  return null;
+  return portalCardChildComponents;
 }
 
 // Function to link the add portal with add button of grid
@@ -455,6 +466,58 @@ async function showAndHideExpandColumn(inputData, isVisible) {
     }
   }
 }
+
+const checkMenuTreeOuterLayer = (tree, key) => {
+  let found = false;
+  let updatedTree = []
+  for (const node of tree) {
+    if (node.onlineScreenUUID === key) {
+      found = true;
+    }else{
+      updatedTree.push(node);
+    }
+  }
+  if(found == true) return updatedTree;
+
+  return found;
+};
+
+const deleteTreeNode = (tree, key) => {
+  const upatedNode = [];
+
+  for (const node of tree) {
+    if (node.onlineScreenUUID === key) {
+      return true;
+    }
+
+    let found = false;
+    if (node.children && node.children.length !== 0) {
+      found = deleteTreeNode(node.children, key);
+
+      if (found === true) {
+        const newNodes = [];
+        for (const child of node.children) {
+          if (child.onlineScreenUUID !== key) {
+            newNodes.push(child);
+          }
+        }
+        const copied = JSON.parse(JSON.stringify(node));
+        copied.children = newNodes;
+        upatedNode.push(copied);
+      } else if (found !== false) {
+        const copied = JSON.parse(JSON.stringify(node));
+        copied.children = found;
+
+        upatedNode.push(copied);
+      } else if (found === false) {
+        upatedNode.push(node);
+      }
+    } else {
+      upatedNode.push(node);
+    }
+  }
+  return upatedNode;
+};
 
 // Firing the query to get the active release
 let getActiveReleaseQuery = `SELECT CONFIG_RELEASE_NAME FROM CONFIG_RELEASE where STATUS='Active'`;
@@ -976,11 +1039,227 @@ if (input.compositeEntityAction === 'Save') {
       }
     }
   }
+} else if (input.compositeEntityAction === 'Delete'){ // This will execute when 'Delete Online Screen' is clicked from the edit form
+
+  const storeConfigItemRelation = [], storeConfigItem = [];
+  
+  // portal card child components except add form 
+  let portalCardChildComponents = await deleteChildConfiguration(input.PORTAL_CONFIG_ITEM_UUID, activeReleaseName, storeConfigItemRelation, storeConfigItem);
+
+  // Portal datagrids
+  const portalDataGrids = portalCardChildComponents.filter(child => child.TYPE === 'PortalDataGrid');
+  const portalDataGridString = portalDataGrids.map(dg => `'${dg.COMPONENT_ID}'`).join(",");
+  
+  const dataGridQuery = `select PROPERTYVALUE from CONFIGITEMPROPERTY where ITEMID in(${portalDataGridString}) AND PROPERTYNAME = 'DATAGRID_ID'`;
+  let dataGridQueryData = await serviceOrchestrator.selectRecordsUsingQuery("INFOAPPS_MD", dataGridQuery, input);
+
+  const dataGridsItemId = dataGridQueryData.map(prop => `'${prop.PROPERTYVALUE}'`).join(",");
+  
+  let addFormPortalData = [];
+  if(dataGridQueryData && dataGridQueryData.length){    
+    const addFormPortalQuery = `SELECT distinct item.ITEMID AS PORTAL_ID FROM CONFIGITEMRELATION rel1 JOIN CONFIGITEMRELATION rel2 ON rel1.CHILDITEMID = rel2.PARENTITEMID JOIN CONFIGITEMPROPERTY prop ON rel2.CHILDITEMID = prop.ITEMID JOIN CONFIGITEM item ON item.ITEMID = prop.PROPERTYVALUE WHERE rel1.PARENTITEMID IN (${dataGridsItemId}) AND rel1.RELATIONTYPE = 'DataGrid_ButtonPanel' AND prop.PROPERTYNAME = 'PORTAL_ID' AND item.CONFIG_RELEASE_NAME = '${input.CONFIG_RELEASE_NAME}' AND item.PROJECTID = :PROJECTID`
+    addFormPortalData = await serviceOrchestrator.selectRecordsUsingQuery("INFOAPPS_MD", addFormPortalQuery, input);
+    const addFormPortals = addFormPortalData.map(por => `'${por.PORTAL_ID}'`).join(",");
+
+  }
+  
+  //^ Deleting all ONLINE_SCREEN_UI_VIEW records for all the entities
+  // Fetching portalforms for all add forms
+  const addPortalForms = [];
+  for (const data of addFormPortalData) {
+    const childComponents = await deleteChildConfiguration(data.PORTAL_ID, activeReleaseName, storeConfigItemRelation, storeConfigItem);
+    if(childComponents && childComponents.length){
+      childComponents.forEach(comp => {
+        if(comp.TYPE === "PortalForm"){
+          addPortalForms.push(comp);
+        }
+      })
+    }
+  }
+  portalCardChildComponents = portalCardChildComponents.concat(addPortalForms);
+  const portalFormsPortalDataGrids = portalCardChildComponents.filter(child => child.TYPE === 'PortalDataGrid' || child.TYPE === 'PortalForm');
+  const portalFormsPortalDataGridsString = portalFormsPortalDataGrids.map(comp => `'${comp.COMPONENT_ID}'`).join(",");
+
+  // Fetching config item ids of forms and datagrids of all the entities
+  const formsAndDataGridsQuery = `SELECT PROPERTYVALUE FROM CONFIGITEMPROPERTY WHERE ITEMID IN (${portalFormsPortalDataGridsString}) AND PROPERTYNAME IN ('FORM_ID', 'DATAGRID_ID')`
+  const formsAndDatagridsData = await serviceOrchestrator.selectRecordsUsingQuery("INFOAPPS_MD", formsAndDataGridsQuery, input);
+  const formsAndDatagridsString = formsAndDatagridsData.map(comp => `'${comp.PROPERTYVALUE}'`).join(",");
+
+  // Fetching DATA_SET_UI_VIEW_UUID and DATA_SET_UUID of all the entities
+  const dataSetQuery = `SELECT DATA_SET_UI_VIEW_UUID, DATA_SET_UUID FROM info_apps.DATA_SET_UI_VIEW WHERE DATA_SET_UI_VIEW_CONFIG_ITEM_ID IN (${formsAndDatagridsString})`;
+  const dataSetData =  await serviceOrchestrator.selectRecordsUsingQuery("INFO_APPS", dataSetQuery, input);
+  const dataSetUiViewUuids = dataSetData.map(record => record.DATA_SET_UI_VIEW_UUID);
+  const dataSetUuidsString = dataSetData.map(record => `'${record.DATA_SET_UUID}'`).join(",");
+
+  // Fetching the DATA_SET_RELATIONSHIP_UI_VIEW_UUID for all relations
+  const dataSetRelationQuery = `SELECT relview.DATA_SET_RELATIONSHIP_UI_VIEW_UUID FROM DATA_SET_RELATIONSHIP_UI_VIEW relview JOIN DATA_SET_RELATIONSHIP rel ON relview.DATA_SET_RELATIONSHIP_UUID = rel.DATA_SET_RELATIONSHIP_UUID WHERE rel.DATA_SET_PARENT_UUID in (${dataSetUuidsString})`;
+  const dataSetRelationData = await serviceOrchestrator.selectRecordsUsingQuery("INFO_APPS", dataSetRelationQuery, input);
+  const dataSetRelationUiViewUuid = dataSetRelationData.map(record => record.DATA_SET_RELATIONSHIP_UI_VIEW_UUID);
+
+  // Putting together all UI_VIEW_UUIDs
+  const uiViewUuids = [...dataSetUiViewUuids,...dataSetRelationUiViewUuid];
+  const uiViewUuidsString = uiViewUuids.map(id => `'${id}'`).join(",");
+
+  // deleting all ONLINE_SCREEN_UI_VIEWs 
+  const onlineScreenUIViewQuery = `SELECT ONLINE_SCREEN_UI_VIEW_UUID FROM ONLINE_SCREEN_UI_VIEW where UI_VIEW_UUID  in(${uiViewUuidsString}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID and PROCESS_UUID=:PROCESS_UUID`;
+  const onlineScreenUIViewQueryData = await serviceOrchestrator.selectRecordsUsingQuery("INFO_APPS", onlineScreenUIViewQuery, input);
+  const onlineScreenUIViewString = onlineScreenUIViewQueryData.map(view => `'${view.ONLINE_SCREEN_UI_VIEW_UUID}'`).join(',');
+
+  for (let key in onlineScreenUIViewQueryData) {
+    deleteRecords('ONLINE_SCREEN_UI_VIEW_UUID', onlineScreenUIViewQueryData[key].ONLINE_SCREEN_UI_VIEW_UUID, 'ONLINE_SCREEN_UI_VIEW', input['CONFIG_RELEASE_NAME']);
+  }
+
+  if(onlineScreenUIViewQueryData && onlineScreenUIViewQueryData.length){
+    const childItemsQuery = `SELECT child.ONLINE_SCREEN_UI_VIEW_CHILD_ITEMS_UUID FROM ONLINE_SCREEN_UI_VIEW_CHILD_ITEMS child JOIN ONLINE_SCREEN_UI_VIEW ui ON child.ONLINE_SCREEN_UI_VIEW_UUID = ui.ONLINE_SCREEN_UI_VIEW_UUID WHERE ui.PROCESS_UUID = :PROCESS_UUID`;
+    const childItemsData = await serviceOrchestrator.selectRecordsUsingQuery("INFO_APPS", childItemsQuery, input);
+
+    for (let key in childItemsData) {
+      deleteRecords('ONLINE_SCREEN_UI_VIEW_CHILD_ITEMS_UUID', childItemsData[key].ONLINE_SCREEN_UI_VIEW_CHILD_ITEMS_UUID, 'ONLINE_SCREEN_UI_VIEW_CHILD_ITEMS', input['CONFIG_RELEASE_NAME']);
+    }
+  }
+
+  //^ Hiding the expand datagrid column for parent datagrids
+  if(dataGridQueryData && dataGridQueryData.length){
+
+    let expandDatagridQuery = `SELECT DISTINCT item.ITEMID AS DATAGRID_COLUMN_ID FROM CONFIGITEMRELATION rel JOIN CONFIGITEM item ON rel.CHILDITEMID = item.ITEMID JOIN CONFIGITEMPROPERTY prop ON item.ITEMID = prop.ITEMID WHERE rel.PARENTITEMID IN (${dataGridsItemId}) AND item.ITEMNAME = 'Expand' AND item.ITEMTYPE = 'DataGridColumn' AND item.CONFIG_RELEASE_NAME = '${input.CONFIG_RELEASE_NAME}' AND item.PROJECTID = :PROJECTID`;
+
+    let expandDatagridQueryData = await serviceOrchestrator.selectRecordsUsingQuery("INFOAPPS_MD", expandDatagridQuery, input);
+    if (expandDatagridQueryData && expandDatagridQueryData.length) {
+      // updateConfigItemProperty(expandDatagridQueryData, { "IS_VISIBLE": '0' });
+      console.log("expand query data = == ==  >", expandDatagridQueryData);
+      for (const dgCol of expandDatagridQueryData) {
+        let expandPropertyQuery = `SELECT PROPERTYID, PROPERTYNAME, PROPERTYVALUE, ITEMID, ISDELETED FROM CONFIGITEMPROPERTY where ITEMID = '${dgCol.DATAGRID_COLUMN_ID}' AND PROPERTYNAME='IS_VISIBLE'`
+        let expandPropertyQueryData = await serviceOrchestrator.selectRecordsUsingQuery("INFOAPPS_MD", expandPropertyQuery, input);
+        if(expandPropertyQueryData && expandPropertyQueryData.length){
+          updateConfigItemProperty(expandPropertyQueryData, { "IS_VISIBLE": '0' });
+          console.log("updating expadn :::::::::::  ", expandPropertyQueryData);
+
+        } else {
+          
+          createConfigItemProperty({ "IS_VISIBLE": '0' }, dgCol.DATAGRID_COLUMN_ID);
+          console.log("inserting expadn :::::::::::  ", { "IS_VISIBLE": '0' }, dgCol.DATAGRID_COLUMN_ID);
+          console.log(" this is prop after insert ", configpropertyList);
+        }
+      }
+    }
+  }
+
+  //^ Deleting Menu and it's relations
+  // Query to fetch the menu item id for main online screen
+  const menuItemQuery = `SELECT item.ITEMID AS MENU_ID FROM CONFIGITEMPROPERTY prop JOIN CONFIGITEM item ON prop.ITEMID = item.ITEMID WHERE prop.PROPERTYVALUE = '${input.PORTAL_CONFIG_ITEM_UUID}' AND item.CONFIG_RELEASE_NAME = '${input.CONFIG_RELEASE_NAME}' AND item.PROJECTID = :PROJECTID`;
+  let menuItemData = await serviceOrchestrator.selectRecordsUsingQuery("INFOAPPS_MD", menuItemQuery, input);
+
+  // Query to fetch menu relation data
+  if(menuItemData && menuItemData.length){
+    for (const data of menuItemData) {
+      const menuRelationQuery = `SELECT RELATIONID FROM CONFIGITEMRELATION WHERE CHILDITEMID = '${data.MENU_ID}' AND CONFIG_RELEASE_NAME = '${input.CONFIG_RELEASE_NAME}'`;
+      const menuRelationData = await serviceOrchestrator.selectRecordsUsingQuery("INFOAPPS_MD", menuRelationQuery, input);
+
+      storeConfigItem.push(data.MENU_ID);
+      if(menuRelationData && menuRelationData.length){
+        menuRelationData.forEach(rel => storeConfigItemRelation.push(rel.RELATIONID))
+      }
+    }
+  }
+
+  //^ Altering menu tree
+  // Fetching the menus tree data
+  const menuJsonQuery = `SELECT * FROM MENU_DATA where FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  const menuJsonQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery("INFO_APPS", menuJsonQuery, input);
+
+  let menuTree = [];
+  if (menuJsonQueryData && Object.keys(menuJsonQueryData).length) {
+    const parsedMenuJson = JSON.parse(menuJsonQueryData.MENU_JSON);
+
+    const foundInOuterLayer = checkMenuTreeOuterLayer(parsedMenuJson, input.PROCESS_UUID);
+    if(foundInOuterLayer){
+      menuTree = foundInOuterLayer
+    } else {
+      menuTree = deleteTreeNode(parsedMenuJson, input.PROCESS_UUID);
+    }
+
+    input['MENU_JSON'] = JSON.stringify(menuTree);
+  }
+
+  //^ Remove email template button from edit form
+  const portalForms = portalCardChildComponents.filter(child => child.TYPE === 'PortalForm');
+  const portalFormsString = portalForms.map(pf => `'${pf.COMPONENT_ID}'`).join(",");
+
+  const editFormIdsQuery = `SELECT PROPERTYVALUE FROM CONFIGITEMPROPERTY WHERE ITEMID in (${portalFormsString}) AND PROPERTYNAME = 'FORM_ID';`
+  const editFormIdsData = await serviceOrchestrator.selectRecordsUsingQuery("INFOAPPS_MD", editFormIdsQuery, input);
+  
+  const editFormIdsString = editFormIdsData.map(id => `'${id.PROPERTYVALUE}'`).join(",");
+  console.log("editFormIdsString :::::: === >>> ", editFormIdsString);
+  
+  const emailTemplateButtons = `SELECT rel2.CHILDITEMID AS MENUBUTTON_ID, rel2.RELATIONID AS BUTTONPANEL_MENUBUTTON, rel3.CHILDITEMID AS BUTTON_ID, rel3.RELATIONID AS MENUBUTTON_BUTTON FROM CONFIGITEMRELATION rel1 JOIN CONFIGITEMRELATION rel2 ON rel1.CHILDITEMID = rel2.PARENTITEMID JOIN CONFIGITEMRELATION rel3 ON rel2.CHILDITEMID = rel3.PARENTITEMID WHERE rel1.PARENTITEMID in (${editFormIdsString}) AND rel1.RELATIONTYPE = 'Form_ButtonPanel' AND rel2.RELATIONTYPE = 'ButtonPanel_MenuButton'`;
+  const emailTemplateButtonsData = await serviceOrchestrator.selectRecordsUsingQuery("INFOAPPS_MD", emailTemplateButtons, input);
+  console.log("email tepmplate buttons :::::: === >>> ", emailTemplateButtonsData);
+
+  if(emailTemplateButtonsData && emailTemplateButtonsData.length){
+    emailTemplateButtonsData.forEach(data => {
+      if(!storeConfigItem.includes(data.MENUBUTTON_ID)){
+        storeConfigItem.push(data.MENUBUTTON_ID)
+      }
+      if(!storeConfigItem.includes(data.BUTTON_ID)){
+        storeConfigItem.push(data.BUTTON_ID)
+      }
+      if(!storeConfigItemRelation.includes(data.BUTTONPANEL_MENUBUTTON)){
+        storeConfigItemRelation.push(data.BUTTONPANEL_MENUBUTTON)
+      }
+      if(!storeConfigItemRelation.includes(data.MENUBUTTON_BUTTON)){
+        storeConfigItemRelation.push(data.MENUBUTTON_BUTTON)
+      }
+    })
+  }
+
+  //^ Removing email template column data preprocessor
+  const preProcessorQuery = `SELECT RELATIONID, CHILDITEMID AS PRE_PROCESSOR_ID FROM CONFIGITEMRELATION WHERE PARENTITEMID IN (${editFormIdsString}) AND RELATIONTYPE = 'Form_ColumnDataPreprocessor'`;
+  const preProcessorData = await serviceOrchestrator.selectRecordsUsingQuery("INFOAPPS_MD", preProcessorQuery, input);
+  
+  if(preProcessorData && preProcessorData.length){
+    preProcessorData.forEach(data => {
+      if(!storeConfigItem.includes(data.PRE_PROCESSOR_ID)){
+        storeConfigItem.push(data.PRE_PROCESSOR_ID)
+      }
+      if(!storeConfigItemRelation.includes(data.RELATIONID)){
+        storeConfigItemRelation.push(data.RELATIONID)
+      }
+    })
+  }
+
+  //^ Logic to iterate over store config item and store config item relation
+  for (let key in storeConfigItem) {
+    deleteRecords('ITEMID', storeConfigItem[key], 'CONFIGITEM', input['CONFIG_RELEASE_NAME']);
+  };
+  let configItemIdString;
+  if (storeConfigItem && storeConfigItem.length) {
+    configItemIdString = storeConfigItem.map((item) =>`'${item}'`).join(",");
+  }
+
+  const configItemPrivilegeQuery = `select PRIVILEGEID from CONFIGITEMPRIVILEGE where ITEMID in(${configItemIdString})`
+  let configItemPrivilegeQueryData = await serviceOrchestrator.selectRecordsUsingQuery("INFOAPPS_MD", configItemPrivilegeQuery, input);
+  let configItemPrivilegeQueryDataRecords = JSON.parse(JSON.stringify(configItemPrivilegeQueryData));
+
+  for (let key in configItemPrivilegeQueryDataRecords) {
+    deleteRecords('PRIVILEGEID', configItemPrivilegeQueryDataRecords[key].PRIVILEGEID, 'CONFIGITEMPRIVILEGE', input['CONFIG_RELEASE_NAME']);
+  };
+  const configItemPropertyQuery = `select PROPERTYID from CONFIGITEMPROPERTY where ITEMID in(${configItemIdString})`;
+  let configItemPropertyQueryData = await serviceOrchestrator.selectRecordsUsingQuery("INFOAPPS_MD", configItemPropertyQuery, input);
+  let configItemPropertyQueryDataRecords = JSON.parse(JSON.stringify(configItemPropertyQueryData));
+  for (let key in configItemPropertyQueryDataRecords) {
+    deleteRecords('PROPERTYID', configItemPropertyQueryDataRecords[key].PROPERTYID, 'CONFIGITEMPROPERTY', input['CONFIG_RELEASE_NAME']);
+  };
+
+  for (let key in storeConfigItemRelation) {
+    deleteRecords('RELATIONID', storeConfigItemRelation[key], 'CONFIGITEMRELATION', input['CONFIG_RELEASE_NAME']);
+  };
+
 }
 
-//appeng linking with generated data
+//^ appeng linking with generated data
 input["AppEngChildEntity:CONFIGITEM"] = configItemList;
 input["AppEngChildEntity:CONFIGITEMPROPERTY"] = configpropertyList;
 input["AppEngChildEntity:CONFIGITEMPRIVILEGE"] = configprivilegeList;
 input["AppEngChildEntity:CONFIGITEMRELATION"] = configrelationList;
 input["AppEngChildEntity:ONLINE_SCREEN_UI_VIEW"] = onlineScreenUIComponentArray;
+input["AppEngChildEntity:ONLINE_SCREEN_UI_VIEW_CHILD_ITEMS"] = onlineScreenUIViewChildItems;

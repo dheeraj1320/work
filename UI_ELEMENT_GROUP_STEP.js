@@ -1,6 +1,16 @@
 let uiElementGroupStepList = [];
 let uiElementGroupStepAttributeValueList = [];
-console.log("########################",input)
+
+let functionUiElementGroupStepList = [];
+let functionUiElementGroupStepAttributeValueList = [];
+
+let testCaseUiElementGroupStepList = [];
+let testCaseUiElementGroupStepAttributeValueList = [];
+
+let testCaseFunctionUiElementGroupStepList = [];
+let testCaseFunctionUiElementGroupStepAttributeValueList = [];
+
+
 async function fetchStepDefinitionTemplateVerbiage(stepDefTemplateVerbiageId) {
     const StepDefinitionTemplateVerbiageQuery = `SELECT * FROM STEP_DEFINITION_TEMPLATE_VERBIAGE where STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = ${stepDefTemplateVerbiageId}`;
     let StepDefinitionTemplateVerbiageQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", StepDefinitionTemplateVerbiageQuery, input);
@@ -8,12 +18,12 @@ async function fetchStepDefinitionTemplateVerbiage(stepDefTemplateVerbiageId) {
 }
 
 function isDataAvailable(str) {
-    if(str === null || str === undefined || str.trim() === '' || str === 'null' || str === 'undefined'){
-       return false;
+    if (str === null || str === undefined || str.trim() === '' || str === 'null' || str === 'undefined') {
+        return false;
     } else {
-       return true;
+        return true;
     }
- }
+}
 
 async function createUiElementGroupStepAttributeValue() {
     let StepDefinitionTemplateVerbiageQueryData = await fetchStepDefinitionTemplateVerbiage("'" + input['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'] + "'");
@@ -78,11 +88,26 @@ async function createUiElementGroupStepAttributeValue() {
         }
     }
 }
-function deleteRecords(key, value) {
+function deleteRecords(key, value, type) {
     const deleteParamenter = {};
     deleteParamenter[key] = value;
     deleteParamenter["compositeEntityAction"] = "Delete";
-    uiElementGroupStepAttributeValueList.push(deleteParamenter)
+    if(type == 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE'){
+        uiElementGroupStepAttributeValueList.push(deleteParamenter)
+    } else if(type== 'FUNCTION_UI_ELEMENT_GROUP_STEP'){
+        functionUiElementGroupStepList.push(deleteParamenter)
+    } else if(type== 'TEST_CASE_UI_ELEMENT_GROUP_STEP'){
+        testCaseUiElementGroupStepList.push(deleteParamenter)
+    } else if(type== 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP'){
+        testCaseFunctionUiElementGroupStepList.push(deleteParamenter)
+    } else if(type== 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE'){
+        functionUiElementGroupStepAttributeValueList.push(deleteParamenter)
+    } else if(type== 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE'){
+        testCaseUiElementGroupStepAttributeValueList.push(deleteParamenter)
+    } else if(type== 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE'){
+        testCaseFunctionUiElementGroupStepAttributeValueList.push(deleteParamenter)
+    }
+    
 }
 
 async function deleteUiElementGroupStepAttributeData(uiElementGroupStepStr) {
@@ -90,7 +115,7 @@ async function deleteUiElementGroupStepAttributeData(uiElementGroupStepStr) {
     let testCaseStepAttributeValueQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", uiElementGroupStepAttributeValueQuery, input);
 
     for (let attributeData of testCaseStepAttributeValueQueryData) {
-        deleteRecords('UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID', attributeData['UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID']);
+        deleteRecords('UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID', attributeData['UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID'], 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE');
     }
 }
 async function processUiElementGroupStep(element, verbale) {
@@ -172,6 +197,7 @@ async function processUiElementGroupStep(element, verbale) {
 
 async function processUiElements() {
     const quotedStrings = [];
+    const quotedStep_VerbiageStrings = [];
     const stringsArray = input['UI_ELEMENTS'].split(',');
     for (const str of stringsArray) {
         quotedStrings.push(`'${str}'`);
@@ -179,25 +205,75 @@ async function processUiElements() {
     let uiElementsUUID = quotedStrings.join(',');
     let uiElementQuery = `SELECT UI_ELEMENT_UUID, UI_ELEMENT_TYPE FROM UI_ELEMENT WHERE UI_ELEMENT_UUID IN (${uiElementsUUID})`;
 
-    
-    let stepDefTemplateVerbaleQuery = `SELECT * FROM STEP_DEFINITION_TEMPLATE_VERBIAGE WHERE IS_ACTIVE_STEP_DEFINITION_TEMPLATE_VERBIAGE="Yes"`;
-    
+
+    let step_verbiage_array = [];
+
+    for (let i = 0; i < input['AppEngChildEntity:UI_ELEMENT_GROUP_STEP_CHILD_OF_UI_ELEMENT_GROUP_STEP'].length; i++) {
+        step_verbiage_array.push(input['AppEngChildEntity:UI_ELEMENT_GROUP_STEP_CHILD_OF_UI_ELEMENT_GROUP_STEP'][i].STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID);
+    }
+
+    for (const str of step_verbiage_array) {
+        quotedStep_VerbiageStrings.push(`'${str}'`);
+    }
+    let stepDefVerbiageUUID = quotedStep_VerbiageStrings.join(',');
+
+    stepDefVerbiageUUID = stepDefVerbiageUUID ? stepDefVerbiageUUID : `' '`;
+
+    let stepDefTemplateVerbaleQuery = `SELECT * FROM STEP_DEFINITION_TEMPLATE_VERBIAGE WHERE IS_ACTIVE_STEP_DEFINITION_TEMPLATE_VERBIAGE="Yes" and STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID IN (${stepDefVerbiageUUID})`;
+
     let stepDefTemplateVerbaleQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", stepDefTemplateVerbaleQuery, input);
+
     let uiElementQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", uiElementQuery, input);
 
-    for (let element of uiElementQueryData) {
-        let uiElementTypeQuery = `SELECT UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_UUID='${element['UI_ELEMENT_TYPE']}'`;
-        let uiElementTypeQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery("PRIMARYSPRINGFM", uiElementTypeQuery, input);
-
-        for (let verbale of stepDefTemplateVerbaleQueryData) {
-            if (input['UI_ELEMENT_STEP_FILTER_TYPE'] === 'User Input' && uiElementTypeQueryData['UI_ELEMENT_TYPE_NAME'] === verbale['APPLICABLE_UI_ELEMENT_TYPE']) {
-                await processUiElementGroupStep(element, verbale);
-            } else if (input['UI_ELEMENT_STEP_FILTER_TYPE'] !== 'User Input') {
-                await processUiElementGroupStep(element, verbale);
+    if (stepDefTemplateVerbaleQueryData && uiElementQueryData && uiElementQueryData.length && stepDefTemplateVerbaleQueryData.length) {
+        for (let element of uiElementQueryData) {
+            let uiElementTypeQuery = `SELECT UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_UUID='${element['UI_ELEMENT_TYPE']}'`;
+            let uiElementTypeQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery("PRIMARYSPRINGFM", uiElementTypeQuery, input);
+            for (let verbale of stepDefTemplateVerbaleQueryData) {
+                if (input['UI_ELEMENT_STEP_FILTER_TYPE'] === 'User Input' && uiElementTypeQueryData['UI_ELEMENT_TYPE_NAME'] === verbale['APPLICABLE_UI_ELEMENT_TYPE']) {
+                    await processUiElementGroupStep(element, verbale);
+                } else if (input['UI_ELEMENT_STEP_FILTER_TYPE'] !== 'User Input') {
+                    await processUiElementGroupStep(element, verbale);
+                }
             }
         }
     }
+
 }
+async function deletefunctionUiElementGroupStep(functionUiElementGroupStepStr) {
+    deleteRecords('FUNCTION_UI_ELEMENT_GROUP_STEP_UUID', functionUiElementGroupStepStr, 'FUNCTION_UI_ELEMENT_GROUP_STEP');
+}
+async function deletefunctionUiElementGroupStepAttributeData(functionUiElementGroupStepStr) {
+    const functionUiElementGroupStepAttributeValueQuery = `SELECT * FROM FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE where FUNCTION_UI_ELEMENT_GROUP_STEP_UUID in(${functionUiElementGroupStepStr}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+    let functionUiElementGroupStepAttributeValueQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", functionUiElementGroupStepAttributeValueQuery, input);
+
+    for (let attributeData of functionUiElementGroupStepAttributeValueQueryData) {
+        deleteRecords('FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID', attributeData['FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID'], 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE');
+    }
+}
+async function deleteTestCaseUiElementGroupStep(testCaseIiElementGroupStepStr) {
+    deleteRecords('TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID', testCaseIiElementGroupStepStr, 'TEST_CASE_UI_ELEMENT_GROUP_STEP');
+}
+async function deleteTestCaseUiElementGroupStepAttributeData(testCaseIiElementGroupStepStr) {
+    const testCaseUiElementGroupStepAttributeValueQuery = `SELECT * FROM TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE where TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID in(${testCaseIiElementGroupStepStr}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+    let testCaseUiElementGroupStepAttributeValueQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", testCaseUiElementGroupStepAttributeValueQuery, input);
+
+    for (let attributeData of testCaseUiElementGroupStepAttributeValueQueryData) {
+        deleteRecords('TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID', attributeData['TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID'], 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE');
+    }
+}
+async function deleteTestCaseFunctionUiElementGroupStep(testCaseFunctionUiElementGroupStepStr) {
+    deleteRecords('TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID', testCaseFunctionUiElementGroupStepStr, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP');
+}
+async function deleteTestCaseFunctionUiElementGroupStepAttributeData(testCaseFunctionUiElementGroupStepStr) {
+    const testCaseFunctionUiElementGroupStepAttributeValueQuery = `SELECT * FROM TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE where TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID in(${testCaseFunctionUiElementGroupStepStr}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+    let testCaseFunctionUiElementGroupStepAttributeValueQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", testCaseFunctionUiElementGroupStepAttributeValueQuery, input);
+
+    for (let attributeData of testCaseFunctionUiElementGroupStepAttributeValueQueryData) {
+        deleteRecords('TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID', attributeData['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID'], 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE');
+    }
+}
+
 // the below if block will exist when action is Update
 if (input.compositeEntityAction === 'Save') {
     await processUiElements();
@@ -208,8 +284,43 @@ if (input.compositeEntityAction === 'Save') {
     }
 } else if (input.compositeEntityAction == 'Delete') {
     await deleteUiElementGroupStepAttributeData("'" + input['UI_ELEMENT_GROUP_STEP_UUID'] + "'");
+
+    let stepUsedInFunctionQuery = `SELECT * FROM FUNCTION_UI_ELEMENT_GROUP_STEP where UI_ELEMENT_GROUP_STEP_UUID=:UI_ELEMENT_GROUP_STEP_UUID;`;
+    let stepUsedInFunctionQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", stepUsedInFunctionQuery, input);
+    if(stepUsedInFunctionQueryData && stepUsedInFunctionQueryData.length > 0){
+        for(let step of stepUsedInFunctionQueryData){
+            deletefunctionUiElementGroupStep(step['FUNCTION_UI_ELEMENT_GROUP_STEP_UUID']);
+            deletefunctionUiElementGroupStepAttributeData("'" + step['FUNCTION_UI_ELEMENT_GROUP_STEP_UUID'] + "'");
+        }
+    }
+
+    let stepUsedInTestCaseQuery = `SELECT * FROM TEST_CASE_UI_ELEMENT_GROUP_STEP where UI_ELEMENT_GROUP_STEP_UUID=:UI_ELEMENT_GROUP_STEP_UUID;`;
+    let stepUsedInTestCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", stepUsedInTestCaseQuery, input);
+    if(stepUsedInTestCaseQueryData && stepUsedInTestCaseQueryData.length > 0){
+        for(let step of stepUsedInTestCaseQueryData){
+            deleteTestCaseUiElementGroupStep(step['TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID']);
+            deleteTestCaseUiElementGroupStepAttributeData("'" + step['TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID'] + "'");
+        }
+    }
+
+    let stepUsedInTestCaseFunctionQuery = `SELECT * FROM TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP where UI_ELEMENT_GROUP_STEP_UUID=:UI_ELEMENT_GROUP_STEP_UUID;`;
+    let stepUsedInTestCaseFunctionQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", stepUsedInTestCaseFunctionQuery, input);
+    if(stepUsedInTestCaseFunctionQueryData && stepUsedInTestCaseFunctionQueryData.length > 0){
+        for(let step of stepUsedInTestCaseFunctionQueryData){
+            deleteTestCaseFunctionUiElementGroupStep(step['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID']);
+            deleteTestCaseFunctionUiElementGroupStepAttributeData("'" + step['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID'] + "'");
+        }
+    }
 }
-console.log("###########uiElementGroupStepList",uiElementGroupStepList);
-console.log("###########uiElementGroupStepAttributeValueList",uiElementGroupStepAttributeValueList);
+
 input["AppEngChildEntity:UI_ELEMENT_GROUP_STEP_CHILD_OF_UI_ELEMENT_GROUP_STEP"] = uiElementGroupStepList;
 input["AppEngChildEntity:UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE"] = uiElementGroupStepAttributeValueList;
+
+input["AppEngChildEntity:FUNCTION_UI_ELEMENT_GROUP_STEP"] = functionUiElementGroupStepList;
+input["AppEngChildEntity:FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE"] = functionUiElementGroupStepAttributeValueList;
+
+input["AppEngChildEntity:TEST_CASE_UI_ELEMENT_GROUP_STEP"] = testCaseUiElementGroupStepList;
+input["AppEngChildEntity:TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE"] = testCaseUiElementGroupStepAttributeValueList;
+
+input["AppEngChildEntity:TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP"] = testCaseFunctionUiElementGroupStepList;
+input["AppEngChildEntity:TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE"] = testCaseFunctionUiElementGroupStepAttributeValueList;

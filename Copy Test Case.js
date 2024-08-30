@@ -147,7 +147,11 @@ if (input.compositeEntityAction == 'Copy' || input.compositeEntityAction == 'Cop
     let spilData = testCaseName.split('- Copy');
     let serchedData = spilData[0].trim();
 
-    const testCaseQuery = `SELECT * FROM TEST_CASE where TEST_CASE_NAME LIKE ${"'%" + serchedData + "%'"} and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID and TEST_SET_UUID=:TEST_SET_UUID`;
+    if(serchedData.includes("'")){
+        serchedData = serchedData.split("'").join("''");
+    }
+
+    const testCaseQuery = `SELECT * FROM TEST_CASE where TEST_CASE_NAME LIKE '%${serchedData}%' and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID and TEST_SET_UUID=:TEST_SET_UUID`;
     let testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", testCaseQuery, input);
 
     if (input['ORIGINAL_TEST_SET_UUID'] == input['TEST_SET_UUID']) {
@@ -380,7 +384,12 @@ if (input.compositeEntityAction == 'Copy' || input.compositeEntityAction == 'Cop
     let spilData = testCaseName.split('- Copy');
 
     let serchedData = spilData[0].trim();
-    const functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION where FUNCTION_NAME LIKE ${"'%" + serchedData + "%'"} and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+
+    if(serchedData.includes("'")){
+        serchedData = serchedData.split("'").join("''");
+    }
+
+    const functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION where FUNCTION_NAME LIKE '%${serchedData}%' and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
     let functionQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", functionQuery, input);
 
     // copyCount = functionQueryData.length != 0 ? functionQueryData.length - 1 : ''

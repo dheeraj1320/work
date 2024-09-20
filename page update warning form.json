@@ -1,0 +1,284 @@
+[
+    {
+        "id": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "type": "tab",
+        "label": "Inbound Service Flow",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "80da4d06.d55a2",
+        "type": "inject",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Input",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "Input",
+        "payload": "{}",
+        "payloadType": "json",
+        "x": 110,
+        "y": 120,
+        "wires": [
+            [
+                "1085dd3d.647cc3"
+            ]
+        ]
+    },
+    {
+        "id": "1085dd3d.647cc3",
+        "type": "switch",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "",
+        "property": "payload",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "hask",
+                "v": "entityName",
+                "vt": "str"
+            },
+            {
+                "t": "else"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 230,
+        "y": 120,
+        "wires": [
+            [
+                "235cddsd.0d2423"
+            ],
+            [
+                "28147205.c984be"
+            ]
+        ]
+    },
+    {
+        "id": "235cddsd.0d2423",
+        "type": "generateRequestBody",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Create Request Body",
+        "outputs": 1,
+        "x": 450,
+        "y": 60,
+        "wires": [
+            [
+                "28147205.c984be"
+            ]
+        ]
+    },
+    {
+        "id": "28147205.c984be",
+        "type": "toLogicalData",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Transform to Logical Data",
+        "outputs": 1,
+        "x": 740,
+        "y": 120,
+        "wires": [
+            [
+                "dd6550d4.e2bce"
+            ]
+        ]
+    },
+    {
+        "id": "dd6550d4.e2bce",
+        "type": "validateData",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Validate Data",
+        "outputs": 1,
+        "x": 1000,
+        "y": 120,
+        "wires": [
+            [
+                "5d38e157.b4d7e"
+            ]
+        ]
+    },
+    {
+        "id": "5d38e157.b4d7e",
+        "type": "function",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Ckeck to Open Warning Modal",
+        "func": "try { console.log('Update Modal Action Flow'); let input = msg.payload.apiRequestBody.baseEntity.records; console.log('inputtttttt', input); let AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; let QuerytoFetchNavigationStep = `select VIEW_NAVIGATION_STEP_UUID from VIEW_NAVIGATION_STEP where VIEW_UUID in (select VIEW_UUID from PAGE_VIEW where PAGE_UUID='${input[0]['PAGE_UUID']}' AND IS_DEFAULT_VIEW = 'Yes') AND FUNCTIONAL_AREA_UUID = '${input[0]['APP_LOGGED_IN_FUNTIONAL_AREA_ID']}'`; let QuerytoFetchNavigationStepData = await serviceOrchestrator.selectRecordsUsingQuery( 'PRIMARYSPRINGFM', QuerytoFetchNavigationStep, input[0] ); let QuerytoFetchNavigationStepRecords = JSON.parse(JSON.stringify(QuerytoFetchNavigationStepData)); console.log('length', QuerytoFetchNavigationStepRecords.length); if (input[0]['PAGE_ACCESS_RELATIVE_URL']) { if (QuerytoFetchNavigationStepRecords.length > 0) { console.log('Action Flow Called'); msg.payload['isOpenModal'] = true; } else { msg.payload['isOpenModal'] = false; } } else { msg.payload.result = { formData: input }; msg.payload['isOpenModal'] = false; } console.log('msg:::::::::::::::::::', msg.payload['isOpenModal']); node.send(msg); } catch (error) { console.log('Errorr Occured ', error.message); } return;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 170,
+        "y": 200,
+        "wires": [
+            [
+                "5d38e157.b4r7e"
+            ]
+        ]
+    },
+    {
+        "id": "5d38e157.b4r7e",
+        "type": "switch",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "isOpenModal",
+        "property": "payload.isOpenModal",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": true
+            },
+            {
+                "t": false
+            }
+        ],
+        "checkall": true,
+        "repair": false,
+        "outputs": 2,
+        "x": 390,
+        "y": 200,
+        "wires": [
+            [
+                "82b2328.c756dd"
+            ],
+            [
+                "15d3d01.01e563"
+            ]
+        ]
+    },
+    {
+        "id": "166e2a96.294bc5",
+        "type": "setMasterEntity",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Set Master Physical Entity",
+        "outputs": 1,
+        "x": 650,
+        "y": 260,
+        "wires": [
+            [
+                "1ad49873.0d4c38"
+            ]
+        ]
+    },
+    {
+        "id": "1ad49873.0d4c38",
+        "type": "processPhysicalData",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Process Physical Data",
+        "outputs": 1,
+        "x": 910,
+        "y": 260,
+        "wires": [
+            [
+                "e45d0331.61ce"
+            ]
+        ]
+    },
+    {
+        "id": "e45d0331.61ce",
+        "type": "processAuditData",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Process Audit",
+        "outputs": 1,
+        "x": 480,
+        "y": 380,
+        "wires": [
+            [
+                "zxcbnh.61ce"
+            ]
+        ]
+    },
+    {
+        "id": "zxcbnh.61ce",
+        "type": "addTransactionDetails",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Process Transaction Detail Queue",
+        "outputs": 1,
+        "x": 750,
+        "y": 380,
+        "wires": [
+            [
+                "23475cdd.0dcf24"
+            ]
+        ]
+    },
+    {
+        "id": "82b2328.c756dd",
+        "type": "function",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Opening Warning Message Conditionally",
+        "func": "let atr = msg.payload.apiRequestBody; let routeStateParams = {}; let input = msg.payload.apiRequestBody.baseEntity.records; let warningPortal = '0_6330d9fb-6540-4b47-88d7-c627082204fe'; let warningPortalCard = '0_cea910ec-eaaf-4962-a0e7-bff8b6b62546'; routeStateParams.portalId = '0_6330d9fb-6540-4b47-88d7-c627082204fe'; atr.cleanData = warningPortal; atr.routeStateParams = routeStateParams; msg.payload.result = { mode: 'Enable Message', message: 'Please Wait..', attributes: atr, navigation: { operationType: 'OpenModal', portalId: '0_6330d9fb-6540-4b47-88d7-c627082204fe' } }; msg.payload.result.modifyOtherCard = {}; msg.payload.result.modifyOtherCard[warningPortal] = [{ parameter: 'referenceData', parentId: '0_6330d9fb-6540-4b47-88d7-c627082204fe', portalId: '0_6330d9fb-6540-4b47-88d7-c627082204fe', parameterKey: 'data', type: 'SubPortal', eventType: 'uploadGridData', data: input[0] }, ]; return msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 720,
+        "y": 180,
+        "wires": [
+            [
+                "23475cdd.0dcf24"
+            ]
+        ]
+    },
+    {
+        "id": "a169b948.7886b8",
+        "type": "catch",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Catch Exceptions",
+        "scope": null,
+        "uncaught": false,
+        "x": 1180,
+        "y": 360,
+        "wires": [
+            [
+                "23475cdd.0dcf24"
+            ]
+        ]
+    },
+    {
+        "id": "23475cdd.0dcf24",
+        "type": "finish",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Catch Finish",
+        "property": "payload",
+        "propertyType": "msg",
+        "outputs": 1,
+        "x": 1300,
+        "y": 240,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "15d3d01.01e563",
+        "type": "processLogicalData",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Process Logical Data",
+        "outputs": 1,
+        "x": 160,
+        "y": 260,
+        "wires": [
+            [
+                "5d38e157.b4l7e"
+            ]
+        ]
+    },
+    {
+        "id": "5d38e157.b4l7e",
+        "type": "toPhysicalData",
+        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "name": "Transform To Physical Data",
+        "outputs": 1,
+        "x": 410,
+        "y": 260,
+        "wires": [
+            [
+                "166e2a96.294bc5"
+            ]
+        ]
+    }
+]

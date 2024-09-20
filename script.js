@@ -1,710 +1,607 @@
-
-      const uiElementWithMultiCheckboxType = [
-          {
-              "UI_ELEMENT_UUID": "8e17caf0-1129-11ef-b167-cf24f2883713",
-              "UI_ELEMENT_ID": 75,
-              "UI_ELEMENT_NAME": "Testing new Page",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "Selector",
-              "LOCATOR_VALUE": "NA",
-              "IS_PAGE_IDENTIFIER": "Yes",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "4a528cb0-1129-11ef-b167-cf24f2883713",
-              "AE_INSERT_ID": "df18c0bc-e976-4515-987e-b0ea0e63e65e",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "73e051d0-11b3-4f92-a1f1-34a19b9e4981",
-              "AE_INSERT_TS": "2024-05-13T13:06:00.314Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "e139dd70-1397-11ef-88a7-03efd3e8e08c",
-              "UI_ELEMENT_ID": 82,
-              "UI_ELEMENT_NAME": "a",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "Selector",
-              "LOCATOR_VALUE": "aa",
-              "IS_PAGE_IDENTIFIER": "Yes",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "de120d60-1393-11ef-b39b-df7f495746ef",
-              "AE_INSERT_ID": "8af8e21f-9d20-4a77-82cb-bb95072fd7f1",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "29b57a28-eb03-4983-ae8a-cccbf5299f52",
-              "AE_INSERT_TS": "2024-05-16T15:20:51.004Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "bfde8760-18d4-11ef-bb47-3f67210c7b2f",
-              "UI_ELEMENT_ID": 113,
-              "UI_ELEMENT_NAME": "DM out us",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "2ae43430-18c4-11ef-8e77-f9b21390d0cc",
-              "AE_INSERT_ID": "622e9c89-cb3a-4012-9e95-67095f3bb694",
-              "AE_UPDATE_ID": "622e9c89-cb3a-4012-9e95-67095f3bb694",
-              "AE_TRANSACTION_ID": "4746ce2b-1dec-4ee5-9606-a455ad536b85",
-              "AE_INSERT_TS": "2024-05-23T07:19:09.665Z",
-              "AE_UPDATE_TS": "2024-05-23T12:14:13.351Z",
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Output,User Action,Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "93eb7fb0-1905-11ef-b727-b5c388c4b2c1",
-              "UI_ELEMENT_ID": 131,
-              "UI_ELEMENT_NAME": "R In-Out-Ac",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "44cfe1a0-1905-11ef-b727-b5c388c4b2c1",
-              "AE_INSERT_ID": "622e9c89-cb3a-4012-9e95-67095f3bb694",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "0d410e6e-8e8c-4618-aad5-6df39679b426",
-              "AE_INSERT_TS": "2024-05-23T13:08:41.196Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input,Output,User Action"
-          },
-          {
-              "UI_ELEMENT_UUID": "7d4b8de0-19a0-11ef-b159-cb095d4ac74a",
-              "UI_ELEMENT_ID": 163,
-              "UI_ELEMENT_NAME": "a input",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "9f93b390-1906-11ef-b5e2-c3755b066431",
-              "AE_INSERT_ID": "622e9c89-cb3a-4012-9e95-67095f3bb694",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "d380212c-4659-4c4d-a638-131d38bc79ab",
-              "AE_INSERT_TS": "2024-05-24T07:37:35.138Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input,Output"
-          },
-          {
-              "UI_ELEMENT_UUID": "9feccb60-1a4b-11ef-bc12-e9cbbc667a2e",
-              "UI_ELEMENT_ID": 181,
-              "UI_ELEMENT_NAME": "Work Authorization R",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "b58d1980-1a4a-11ef-bc12-e9cbbc667a2e",
-              "AE_INSERT_ID": "8851d42e-8d05-4b37-9f28-4f1595ca083e",
-              "AE_UPDATE_ID": "8851d42e-8d05-4b37-9f28-4f1595ca083e",
-              "AE_TRANSACTION_ID": "451938cd-4b29-4f7d-a8ad-c922313a4b42",
-              "AE_INSERT_TS": "2024-05-25T04:02:38.074Z",
-              "AE_UPDATE_TS": "2024-05-25T04:50:04.185Z",
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "f52c8490-1a86-11ef-bdd6-5385706d6df0",
-              "UI_ELEMENT_ID": 207,
-              "UI_ELEMENT_NAME": "Direct Name",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "Click",
-              "PAGE_NEW_UUID": "67151730-1a86-11ef-bdd6-5385706d6df0",
-              "AE_INSERT_ID": "fce90b5b-548c-41a8-9839-7b77d93bb909",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "33cb6b11-1b9f-4221-bd84-5f2d8870f4f2",
-              "AE_INSERT_TS": "2024-05-25T11:07:22.638Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "5e9332e0-1b30-11ef-97c2-b91e3390e0d2",
-              "UI_ELEMENT_ID": 259,
-              "UI_ELEMENT_NAME": "Work Authorization",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "1c05ff70-1b30-11ef-97c2-b91e3390e0d2",
-              "AE_INSERT_ID": "8851d42e-8d05-4b37-9f28-4f1595ca083e",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "1d1e4e4d-98e5-4bee-9638-e6d3e019450e",
-              "AE_INSERT_TS": "2024-05-26T07:20:03.368Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "1b05993c-61ce-4e86-81ff-7a32cdfa7bae",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "72192023-fdef-429e-854b-826ddd1dd871",
-              "UI_ELEMENT_ID": 296,
-              "UI_ELEMENT_NAME": "check 2 by sh",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "XPATH",
-              "LOCATOR_VALUE": null,
-              "IS_PAGE_IDENTIFIER": null,
-              "EVENT_NAME": "Hover",
-              "PAGE_NEW_UUID": "524629b0-2315-11ef-b46f-19a377dc3f62",
-              "AE_INSERT_ID": "043d1765-7724-4486-9bc6-c15ae20ef179",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "102d1a40-391c-4b62-b620-bef0aba0fdf9",
-              "AE_INSERT_TS": "2024-06-05T12:28:39.065Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Output"
-          },
-          {
-              "UI_ELEMENT_UUID": "19d33a80-233f-11ef-97fc-97e06076872d",
-              "UI_ELEMENT_ID": 305,
-              "UI_ELEMENT_NAME": "Email",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "XPATH",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "Yes",
-              "EVENT_NAME": "Click",
-              "PAGE_NEW_UUID": "e3fba8c0-233e-11ef-97fc-97e06076872d",
-              "AE_INSERT_ID": "fce90b5b-548c-41a8-9839-7b77d93bb909",
-              "AE_UPDATE_ID": "043d1765-7724-4486-9bc6-c15ae20ef179",
-              "AE_TRANSACTION_ID": "3834f197-bf2a-4d8e-b990-fcfc9556b145",
-              "AE_INSERT_TS": "2024-06-05T13:25:41.807Z",
-              "AE_UPDATE_TS": "2024-06-07T10:06:07.412Z",
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input,User Action"
-          },
-          {
-              "UI_ELEMENT_UUID": "f1d5d050-273b-11ef-9f8e-7b3171769087",
-              "UI_ELEMENT_ID": 319,
-              "UI_ELEMENT_NAME": "New By NC",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "Yes",
-              "EVENT_NAME": "Hover",
-              "PAGE_NEW_UUID": "cb03b490-26f7-11ef-97dc-bd6ed3cf0067",
-              "AE_INSERT_ID": "84fbd1c9-b79f-4cad-b85e-d7194b3b8d94",
-              "AE_UPDATE_ID": "df18c0bc-e976-4515-987e-b0ea0e63e65e",
-              "AE_TRANSACTION_ID": "cf18e19a-2e80-4b64-8e41-570fb547920e",
-              "AE_INSERT_TS": "2024-06-10T15:13:09.549Z",
-              "AE_UPDATE_TS": "2024-06-11T05:29:50.591Z",
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Output"
-          },
-          {
-              "UI_ELEMENT_UUID": "0ad1a570-27ff-11ef-ad8b-cf2f5a5fffbe",
-              "UI_ELEMENT_ID": 340,
-              "UI_ELEMENT_NAME": "Longtext Desc",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "bb0777e0-27fe-11ef-ad8b-cf2f5a5fffbe",
-              "AE_INSERT_ID": "ab11d76c-62bc-46ef-b9c3-4ba86a64e30b",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "4f6b2cd1-4142-4d40-8a36-72fc375a3b88",
-              "AE_INSERT_TS": "2024-06-11T14:29:48.692Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "06ea9540-28c5-11ef-ba05-b560abc13b4b",
-              "UI_ELEMENT_ID": 363,
-              "UI_ELEMENT_NAME": "Processor",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "4ab2d630-28c4-11ef-ba05-b560abc13b4b",
-              "AE_INSERT_ID": "84fbd1c9-b79f-4cad-b85e-d7194b3b8d94",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "47b01799-d355-4499-88a3-fb40a4f9ec4b",
-              "AE_INSERT_TS": "2024-06-12T14:06:57.683Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "7f737f80-3221-11ef-bfa9-5d5c603ddd7f",
-              "UI_ELEMENT_ID": 489,
-              "UI_ELEMENT_NAME": "UI Element",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "69054f80-3221-11ef-bfa9-5d5c603ddd7f",
-              "AE_INSERT_ID": "8851d42e-8d05-4b37-9f28-4f1595ca083e",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "d4624a7d-8d0a-4cbc-b471-f83ffd06078d",
-              "AE_INSERT_TS": "2024-06-24T12:01:31.730Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "1b05993c-61ce-4e86-81ff-7a32cdfa7bae",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "f2472d40-3e88-11ef-8b27-572adc1f99f9",
-              "UI_ELEMENT_ID": 602,
-              "UI_ELEMENT_NAME": "Function Data Page",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "Hover",
-              "PAGE_NEW_UUID": "e508d390-3e88-11ef-8b27-572adc1f99f9",
-              "AE_INSERT_ID": "df18c0bc-e976-4515-987e-b0ea0e63e65e",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "528af68c-2280-4c26-a0ff-dcc7d9bc6eba",
-              "AE_INSERT_TS": "2024-07-10T06:52:17.737Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "9dbda7f0-426f-11ef-a8cb-e7ae52ab78bc",
-              "UI_ELEMENT_ID": 634,
-              "UI_ELEMENT_NAME": "New R Demo3",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "Hover",
-              "PAGE_NEW_UUID": "75540b60-426f-11ef-a8cb-e7ae52ab78bc",
-              "AE_INSERT_ID": "8af8e21f-9d20-4a77-82cb-bb95072fd7f1",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "8f10aefe-fc7d-4e13-a7c5-2ddf1c828d3b",
-              "AE_INSERT_TS": "2024-07-15T06:01:09.298Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "b1e4f530-426f-11ef-a8cb-e7ae52ab78bc",
-              "UI_ELEMENT_ID": 636,
-              "UI_ELEMENT_NAME": "New R Demo5",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "On Key Up",
-              "PAGE_NEW_UUID": "75540b60-426f-11ef-a8cb-e7ae52ab78bc",
-              "AE_INSERT_ID": "8af8e21f-9d20-4a77-82cb-bb95072fd7f1",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "59dd704d-f165-4762-9e0b-262e284e1bc4",
-              "AE_INSERT_TS": "2024-07-15T06:01:42.968Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Output"
-          },
-          {
-              "UI_ELEMENT_UUID": "11171330-44e1-11ef-b9c1-1f24275fa97c",
-              "UI_ELEMENT_ID": 725,
-              "UI_ELEMENT_NAME": "UI Element",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "f4eeaba0-44e0-11ef-b9c1-1f24275fa97c",
-              "AE_INSERT_ID": "8851d42e-8d05-4b37-9f28-4f1595ca083e",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "35a80ebf-5703-40d9-9511-1e57798bb666",
-              "AE_INSERT_TS": "2024-07-18T08:38:13.232Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "53ecc440-47f5-11ef-af8e-1f8dfe95183e",
-              "UI_ELEMENT_ID": 743,
-              "UI_ELEMENT_NAME": "Work Authorization",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "Click",
-              "PAGE_NEW_UUID": "1e6400b0-47f3-11ef-90c1-1b0be523f5bf",
-              "AE_INSERT_ID": "dad571a1-079d-4ced-8977-5d62320c61ad",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "b23b3e6e-12bc-44b3-8fca-6fbaf4fcc5fd",
-              "AE_INSERT_TS": "2024-07-22T06:40:46.912Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input,User Action"
-          },
-          {
-              "UI_ELEMENT_UUID": "dad5fbd0-4d94-11ef-9249-b93f3956bd88",
-              "UI_ELEMENT_ID": 796,
-              "UI_ELEMENT_NAME": "Nothing multi checkbox",
-              "UI_ELEMENT_TYPE": "654d14ef-4793-4c3c-b510-24e655caf629",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "738c5550-4d94-11ef-9249-b93f3956bd88",
-              "AE_INSERT_ID": "622e9c89-cb3a-4012-9e95-67095f3bb694",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "e1a80c19-afb5-4a0d-b79e-251e02a40d9b",
-              "AE_INSERT_TS": "2024-07-29T10:25:14.612Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Output"
+try {
+  AppengProcessConfig = global.get('AppengProcessConfig');
+  const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
+  let queryData = [];
+  let attributeKeysList = [];
+  let input = Object.assign(msg.payload.apiRequestBody, msg.payload.referenceData);
+  let inputStepType;
+  let isFunctionOrUIElementGroup = false;
+  if (input && input.GRID_NAME == 'Test Case') {
+    const selectQuery = `SELECT CURRENT_PAGE_CONTEXT as PAGE_NAME, TEST_CASE_STEP_UUID, TEST_CASE_STEP_ID, TEST_CASE_UUID, TEST_SET_UUID, IS_PURE_NAVIGATION_STEP,(Select VIEW_UUID from PAGE_VIEW where PAGE_UUID=CURRENT_PAGE_CONTEXT and IS_DEFAULT_VIEW='Yes') as Page_view_uuid, AE_INSERT_ID, AE_UPDATE_ID, AE_INSERT_TS, AE_UPDATE_TS, AE_TRANSACTION_ID, FUNCTIONAL_AREA_UUID, TEST_CASE_STEP_NAME, CURRENT_PAGE_CONTEXT, PAGE_UUID, VIEW_UUID, PROCESS_UUID, USER_ACTION_UUID, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, TEST_CASE_STEP_SEQ_ID, TEST_CASE_STEP_TYPE, NEXT_PAGE_CONTEXT, IS_UI_ELEMENT_GROUP_STEP, IS_FUNCTION_STEP, 'Test Case Step' as GRID_NAME, TEST_CASE_STEP_ATTRIBUTE_KEYS FROM TEST_CASE_STEP WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID and TEST_CASE_UUID=:TEST_CASE_UUID order by TEST_CASE_STEP_SEQ_ID asc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.GRID_NAME == 'UI Element Group') {
+    const selectQuery = `SELECT * FROM UI_ELEMENT_GROUP_STEP WHERE UI_ELEMENT_GROUP_UUID=:UI_ELEMENT_GROUP_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY UI_ELEMENT_GROUP_STEP_ID asc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (
+    input &&
+    input.GRID_NAME == 'Test Case Step' &&
+    input.IS_UI_ELEMENT_GROUP_STEP == 'Yes' &&
+    input.IS_FUNCTION_STEP == 'No'
+  ) {
+    const selectQuery = `SELECT TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID,TEST_CASE_UI_ELEMENT_GROUP_STEP_ID,TEST_CASE_UI_ELEMENT_GROUP_STEP_NAME,AE_INSERT_ID,AE_UPDATE_ID,AE_TRANSACTION_ID,AE_INSERT_TS,AE_UPDATE_TS,CURRENT_PAGE_CONTEXT as PAGE_NAME,TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS,TEST_CASE_UI_ELEMENT_GROUP_STEP_TYPE FROM TEST_CASE_UI_ELEMENT_GROUP_STEP WHERE TEST_CASE_STEP_UUID=:TEST_CASE_STEP_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY TEST_CASE_UI_ELEMENT_GROUP_STEP_ID asc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.FIRST_CHILD_GRID_NAME == 'Function Step By Function') {
+    const selectQuery = `SELECT CURRENT_PAGE_CONTEXT as PAGE_NAME,FUNCTION_STEP_ID,FUNCTION_STEP_NAME,FUNCTION_STEP_UUID,IS_PURE_NAVIGATION_STEP,(Select VIEW_UUID from PAGE_VIEW where PAGE_UUID=CURRENT_PAGE_CONTEXT and IS_DEFAULT_VIEW='Yes') as Page_view_uuid,NEXT_PAGE_CONTEXT, CURRENT_PAGE_CONTEXT,IS_OVERIDE_UI_ELEMENT_VALUE_ALLOWED,IS_UI_ELEMENT_VALUE_ATTRIBUTE_PRESENT,IS_UI_ELEMENT_GROUP_STEP,FUNCTION_STEP_ATTRIBUTE_KEYS,'Function Step' as GRID_NAME,FUNCTION_STEP_TYPE,API_UUID,IS_API_ATTRIBUTE_VALUE_PRESENT,FUNCTION_STEP_SEQ_ID FROM FUNCTION_STEP WHERE FUNCTION_UUID=:FUNCTION_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY FUNCTION_STEP_SEQ_ID asc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.GRID_NAME == 'Function Step') {
+    const selectQuery = `SELECT FUNCTION_UI_ELEMENT_GROUP_STEP_UUID,FUNCTION_UI_ELEMENT_GROUP_STEP_ID,FUNCTION_UI_ELEMENT_GROUP_STEP_NAME,AE_INSERT_ID,AE_UPDATE_ID,AE_TRANSACTION_ID,AE_INSERT_TS,AE_UPDATE_TS,STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,CURRENT_PAGE_CONTEXT,FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE,FUNCTION_STEP_UUID,FUNCTION_UUID,UI_ELEMENT_GROUP_UUID,FUNCTIONAL_AREA_UUID,FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS,CURRENT_PAGE_CONTEXT as PAGE_NAME FROM FUNCTION_UI_ELEMENT_GROUP_STEP WHERE FUNCTION_STEP_UUID=:FUNCTION_STEP_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY FUNCTION_UI_ELEMENT_GROUP_STEP_ID asc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (
+    input &&
+    input.GRID_NAME == 'Test Case Step' &&
+    input.IS_UI_ELEMENT_GROUP_STEP == 'No' &&
+    input.IS_FUNCTION_STEP == 'Yes'
+  ) {
+    const selectQuery = `SELECT CURRENT_PAGE_CONTEXT as PAGE_NAME,TEST_CASE_FUNCTION_STEP_UUID,TEST_CASE_FUNCTION_STEP_ID,TEST_CASE_FUNCTION_STEP_NAME,IS_PURE_NAVIGATION_STEP,(Select VIEW_UUID from PAGE_VIEW where PAGE_UUID=CURRENT_PAGE_CONTEXT and IS_DEFAULT_VIEW='Yes') as Page_view_uuid,STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,CURRENT_PAGE_CONTEXT,NEXT_PAGE_CONTEXT,TEST_CASE_FUNCTION_STEP_TYPE,TEST_CASE_FUNCTION_STEP_SEQ_ID,TEST_CASE_STEP_UUID,AE_INSERT_ID,AE_UPDATE_ID,AE_TRANSACTION_ID,AE_INSERT_TS,AE_UPDATE_TS,FUNCTIONAL_AREA_UUID,FUNCTION_UUID,FUNCTION_STEP_UUID,IS_UI_ELEMENT_GROUP_STEP,TEST_CASE_FUNCTION_STEP_ATTRIBUTE_KEYS,'Test Case Function Step' as GRID_NAME FROM TEST_CASE_FUNCTION_STEP WHERE TEST_CASE_STEP_UUID=:TEST_CASE_STEP_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID order by TEST_CASE_FUNCTION_STEP_SEQ_ID asc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.GRID_NAME == 'Test Case Function Step') {
+    const selectQuery = `SELECT TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID,TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID,TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_NAME,AE_INSERT_ID,AE_UPDATE_ID,AE_TRANSACTION_ID,AE_INSERT_TS,AE_UPDATE_TS,CURRENT_PAGE_CONTEXT as PAGE_NAME,TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS,TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE FROM TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP where TEST_CASE_FUNCTION_STEP_UUID=:TEST_CASE_FUNCTION_STEP_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID asc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.FIRST_CHILD_GRID_NAME == 'Test Case Step By Page') {
+    const selectQuery = `Select CONCAT(TEST_SET_ID,' - ',TEST_SET_NAME) as TEST_SET_UUID,CONCAT(TEST_CASE_ID,' - ',TEST_CASE_NAME) as TEST_CASE_UUID, TEST_CASE_STEP_ID, TEST_CASE_STEP_NAME,TEST_CASE_STEP_ATTRIBUTE_KEYS,TEST_CASE_STEP_TYPE, NEXT_PAGE_CONTEXT from TEST_CASE_STEP tsc, TEST_SET ts, TEST_CASE tc,TEST_CASE_STEP_ATTRIBUTE_VALUE tcsv where tsc.TEST_CASE_STEP_UUID=tcsv.TEST_CASE_STEP_UUID and tsc.TEST_SET_UUID=ts.TEST_SET_UUID and tsc.TEST_CASE_UUID=tc.TEST_CASE_UUID and tcsv.TEST_CASE_STEP_ATTRIBUTE_DATA=:PAGE_UUID and tsc.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID order by TEST_SET_ID,TEST_CASE_ID,TEST_CASE_STEP_SEQ_ID asc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.SECOND_CHILD_GRID_NAME == 'Test Case Step By UI Element') {
+    const selectQuery = `Select CONCAT(TEST_SET_ID,' - ',TEST_SET_NAME) as TEST_SET_UUID, CONCAT(TEST_CASE_ID,' - ',TEST_CASE_NAME) as TEST_CASE_UUID, TEST_CASE_STEP_ID, TEST_CASE_STEP_NAME,TEST_CASE_STEP_ATTRIBUTE_KEYS,TEST_CASE_STEP_TYPE from TEST_CASE_STEP tsc, TEST_SET ts, TEST_CASE tc, TEST_CASE_STEP_ATTRIBUTE_VALUE tcsv where tsc.TEST_CASE_STEP_UUID=tcsv.TEST_CASE_STEP_UUID and tsc.TEST_SET_UUID=ts.TEST_SET_UUID and tsc.TEST_CASE_UUID=tc.TEST_CASE_UUID and tcsv.TEST_CASE_STEP_ATTRIBUTE_DATA=:UI_ELEMENT_UUID and tsc.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID order by TEST_CASE_STEP_ID desc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.SECOND_CHILD_GRID_NAME == 'Test Case Step By Function') {
+    const selectQuery = `Select CONCAT(TEST_SET_ID,' - ',TEST_SET_NAME) as TEST_SET_UUID, CONCAT(TEST_CASE_ID,' - ',TEST_CASE_NAME) as TEST_CASE_UUID, TEST_CASE_STEP_ID,TEST_CASE_STEP_TYPE,TEST_CASE_STEP_ATTRIBUTE_KEYS from TEST_CASE_STEP tsc, TEST_SET ts, TEST_CASE tc, TEST_CASE_STEP_ATTRIBUTE_VALUE tcsv where tsc.TEST_CASE_STEP_UUID=tcsv.TEST_CASE_STEP_UUID and tsc.TEST_SET_UUID=ts.TEST_SET_UUID and tsc.TEST_CASE_UUID=tc.TEST_CASE_UUID and tcsv.TEST_CASE_STEP_ATTRIBUTE_DATA=:FUNCTION_UUID and ts.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID order by TEST_SET_ID,TEST_CASE_ID,TEST_CASE_STEP_ID asc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.SECOND_CHILD_GRID_NAME == 'Function Step Under Page') {
+    const selectQuery = `SELECT CONCAT(FUNCTION_ID, ' - ', FUNCTION_NAME) AS FUNCTION_UUID, '' AS FUNCTION_STEP_ID, '' AS FUNCTION_STEP_NAME, '' AS FUNCTION_STEP_ATTRIBUTE_KEYS, '' AS FUNCTIONAL_AREA_UUID, '' AS FUNCTION_STEP_TYPE FROM featuremanagement_app.FUNCTION WHERE START_PAGE_NAME=:PAGE_UUID AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID UNION SELECT CONCAT(f.FUNCTION_ID, ' - ', f.FUNCTION_NAME) AS FUNCTION_UUID, fs.FUNCTION_STEP_ID, fs.FUNCTION_STEP_NAME, fs.FUNCTION_STEP_ATTRIBUTE_KEYS, fs.FUNCTIONAL_AREA_UUID, fs.FUNCTION_STEP_TYPE FROM FUNCTION_STEP fs JOIN featuremanagement_app.FUNCTION f ON fs.FUNCTION_UUID = f.FUNCTION_UUID WHERE fs.CURRENT_PAGE_CONTEXT=:PAGE_UUID AND fs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY FUNCTION_STEP_ID DESC `;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.FIRST_CHILD_GRID_NAME == 'Function Step Under UI Element') {
+    const selectQuery = `SELECT CONCAT(f.FUNCTION_ID, ' - ', f.FUNCTION_NAME) AS FUNCTION_UUID, fs.FUNCTION_STEP_ID, fs.FUNCTION_STEP_NAME, fs.FUNCTION_STEP_ATTRIBUTE_KEYS, fs.FUNCTIONAL_AREA_UUID, fs.FUNCTION_STEP_TYPE FROM FUNCTION_STEP fs JOIN featuremanagement_app.FUNCTION f ON fs.FUNCTION_UUID = f.FUNCTION_UUID JOIN featuremanagement_app.FUNCTION_STEP_ATTRIBUTE_VALUE fsa ON fs.FUNCTION_STEP_UUID = fsa.FUNCTION_STEP_UUID WHERE fsa.FUNCTION_STEP_ATTRIBUTE_DATA=:UI_ELEMENT_UUID AND fs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY FUNCTION_STEP_ID desc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.THIRD_CHILD_GRID_NAME == 'UI Element Group Step Under UI Element') {
+    const selectQuery = `SELECT DISTINCT CONCAT(UI_ELEMENT_GROUP_ID, ' - ', UI_ELEMENT_GROUP_NAME) as UI_ELEMENT_GROUP_UUID, UI_ELEMENT_GROUP_STEP_ID, UI_ELEMENT_GROUP_STEP_NAME, UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS, STEP_TYPE FROM UI_ELEMENT_GROUP_STEP ues JOIN UI_ELEMENT_GROUP us ON ues.UI_ELEMENT_GROUP_UUID = us.UI_ELEMENT_GROUP_UUID JOIN UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE ueas ON ues.UI_ELEMENT_GROUP_STEP_UUID = ueas.UI_ELEMENT_GROUP_STEP_UUID WHERE ues.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ueas.UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA=:UI_ELEMENT_UUID ORDER BY UI_ELEMENT_GROUP_STEP_ID desc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.THIRD_CHILD_GRID_NAME == 'UI Element Group Step Under Page') {
+    const selectQuery = `SELECT DISTINCT CONCAT(UI_ELEMENT_GROUP_ID, ' - ', UI_ELEMENT_GROUP_NAME) as UI_ELEMENT_GROUP_UUID, '' as UI_ELEMENT_GROUP_STEP_ID, '' as UI_ELEMENT_GROUP_STEP_NAME, '' as UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS, '' as STEP_TYPE FROM UI_ELEMENT_GROUP WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND PAGE_UUID=:PAGE_UUID UNION SELECT DISTINCT CONCAT(us.UI_ELEMENT_GROUP_ID, ' - ', us.UI_ELEMENT_GROUP_NAME) as UI_ELEMENT_GROUP_UUID, ues.UI_ELEMENT_GROUP_STEP_ID, ues.UI_ELEMENT_GROUP_STEP_NAME, ues.UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS, ues.STEP_TYPE FROM UI_ELEMENT_GROUP_STEP ues JOIN UI_ELEMENT_GROUP us ON ues.UI_ELEMENT_GROUP_UUID = us.UI_ELEMENT_GROUP_UUID WHERE ues.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ues.CURRENT_PAGE_CONTEXT=:PAGE_UUID ORDER BY UI_ELEMENT_GROUP_STEP_ID DESC`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.SECOND_CHILD_GRID_NAME == 'Test Case Step Under API') {
+    const selectQuery = `Select CONCAT(TEST_SET_ID, ' - ', TEST_SET_NAME) as TEST_SET_UUID, CONCAT(TEST_CASE_ID, ' - ', TEST_CASE_NAME) as TEST_CASE_UUID, TEST_CASE_STEP_ID, TEST_CASE_STEP_NAME, TEST_CASE_STEP_ATTRIBUTE_KEYS, TEST_CASE_STEP_TYPE, NEXT_PAGE_CONTEXT from TEST_CASE_STEP tsc, TEST_SET ts, TEST_CASE tc where tsc.TEST_SET_UUID = ts.TEST_SET_UUID and tsc.TEST_CASE_UUID = tc.TEST_CASE_UUID and tsc.API_UUID =:API_UUID and tsc.FUNCTIONAL_AREA_UUID =:APP_LOGGED_IN_FUNTIONAL_AREA_ID order by TEST_SET_ID, TEST_CASE_ID, TEST_CASE_STEP_SEQ_ID asc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.FIRST_CHILD_GRID_NAME == 'Test Case Step Under API Attribute') {
+    const selectQuery = `Select CONCAT(TEST_SET_ID, ' - ', TEST_SET_NAME) as TEST_SET_UUID, CONCAT(TEST_CASE_ID, ' - ', TEST_CASE_NAME) as TEST_CASE_UUID, TEST_CASE_STEP_ID, TEST_CASE_STEP_NAME, TEST_CASE_STEP_ATTRIBUTE_KEYS, TEST_CASE_STEP_TYPE, NEXT_PAGE_CONTEXT from TEST_CASE_STEP tsc, TEST_SET ts, TEST_CASE tc, TEST_CASE_STEP_ATTRIBUTE_VALUE tcsv where tsc.TEST_CASE_STEP_UUID = tcsv.TEST_CASE_STEP_UUID and tsc.TEST_SET_UUID = ts.TEST_SET_UUID and tsc.TEST_CASE_UUID = tc.TEST_CASE_UUID and tcsv.TEST_CASE_STEP_ATTRIBUTE_DATA=:API_ATTRIBUTE_UUID and tsc.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID order by TEST_SET_ID, TEST_CASE_ID, TEST_CASE_STEP_SEQ_ID asc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.THIRD_CHILD_GRID_NAME == 'Function Step Under API') {
+    const selectQuery = `SELECT CONCAT(FUNCTION_ID, ' - ', FUNCTION_NAME) AS FUNCTION_UUID, '' AS FUNCTION_STEP_ID, '' AS FUNCTION_STEP_NAME, '' AS FUNCTION_STEP_ATTRIBUTE_KEYS, '' AS FUNCTIONAL_AREA_UUID, '' AS FUNCTION_STEP_TYPE FROM featuremanagement_app.FUNCTION WHERE START_PAGE_NAME=:PAGE_UUID AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID UNION SELECT CONCAT(f.FUNCTION_ID, ' - ', f.FUNCTION_NAME) AS FUNCTION_UUID, fs.FUNCTION_STEP_ID, fs.FUNCTION_STEP_NAME, fs.FUNCTION_STEP_ATTRIBUTE_KEYS, fs.FUNCTIONAL_AREA_UUID, fs.FUNCTION_STEP_TYPE FROM FUNCTION_STEP fs JOIN featuremanagement_app.FUNCTION f ON fs.FUNCTION_UUID = f.FUNCTION_UUID WHERE fs.API_UUID=:API_UUID AND fs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND fs.IS_API_ATTRIBUTE_VALUE_PRESENT is null ORDER BY FUNCTION_STEP_ID DESC`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (input && input.SECOND_CHILD_GRID_NAME == 'Function Step Under API Attribute') {
+    const selectQuery = `SELECT CONCAT(f.FUNCTION_ID, ' - ', f.FUNCTION_NAME) AS FUNCTION_UUID, fs.FUNCTION_STEP_ID, fs.FUNCTION_STEP_NAME, fs.FUNCTION_STEP_ATTRIBUTE_KEYS, fs.FUNCTIONAL_AREA_UUID, fs.FUNCTION_STEP_TYPE FROM FUNCTION_STEP fs JOIN featuremanagement_app.FUNCTION f ON fs.FUNCTION_UUID = f.FUNCTION_UUID JOIN featuremanagement_app.FUNCTION_STEP_ATTRIBUTE_VALUE fsa ON fs.FUNCTION_STEP_UUID = fsa.FUNCTION_STEP_UUID WHERE fsa.FUNCTION_STEP_ATTRIBUTE_DATA=:API_ATTRIBUTE_UUID AND fs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY FUNCTION_STEP_ID desc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  } else if (
+    (input && input.VIEW_UUID != null && input.GRID_NAME == 'Test Case Step') ||
+    (input.VIEW_UUID != null && input.GRID_NAME == 'Function Step') ||
+    (input.VIEW_UUID != null && input.GRID_NAME == 'Test Case Function Step')
+  ) {
+    const selectQuery = `SELECT VIEW_NAVIGATION_STEP_UUID,VIEW_NAVIGATION_STEP_ID,VIEW_NAVIGATION_STEP_NAME,STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,VIEW_NAVIGATION_STEP_TYPE,VIEW_NAVIGATION_STEP_SEQ_ID,CURRENT_PAGE_CONTEXT,NEXT_PAGE_CONTEXT,VIEW_NAVIGATION_STEP_ATTRIBUTE_KEYS,VIEW_NAVIGATION_UUID,VIEW_UUID,AE_INSERT_ID,AE_UPDATE_ID,AE_TRANSACTION_ID,AE_INSERT_TS,AE_UPDATE_TS FROM VIEW_NAVIGATION_STEP WHERE VIEW_UUID=:VIEW_UUID AND CURRENT_PAGE_CONTEXT=:PAGE_UUID AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY VIEW_NAVIGATION_STEP_SEQ_ID asc`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+  }
+  for (let data of queryData) {
+    if (data && Object.keys(data).length) {
+      if (input && input.GRID_NAME == 'Test Case') {
+        attributeKeysList = data['TEST_CASE_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['TEST_CASE_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['TEST_CASE_STEP_TYPE'];
+        if (data['IS_FUNCTION_STEP'] == 'Yes' || data['IS_UI_ELEMENT_GROUP_STEP'] == 'Yes') {
+          isFunctionOrUIElementGroup = true;
+        } else {
+          isFunctionOrUIElementGroup = false;
+        }
+      } else if (input && input.GRID_NAME == 'UI Element Group') {
+        attributeKeysList = data['UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['UI_ELEMENT_STEP_FILTER_TYPE'];
+      } else if (
+        input &&
+        input.GRID_NAME == 'Test Case Step' &&
+        input.IS_UI_ELEMENT_GROUP_STEP == 'Yes' &&
+        input.IS_FUNCTION_STEP == 'No'
+      ) {
+        attributeKeysList = data['TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['TEST_CASE_UI_ELEMENT_GROUP_STEP_TYPE'];
+      } else if (input && input.FIRST_CHILD_GRID_NAME == 'Function Step By Function') {
+        attributeKeysList = data['FUNCTION_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['FUNCTION_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['FUNCTION_STEP_TYPE'];
+        if (data['IS_UI_ELEMENT_GROUP_STEP'] == 'Yes') {
+          isFunctionOrUIElementGroup = true;
+        } else {
+          isFunctionOrUIElementGroup = false;
+        }
+      } else if (input && input.GRID_NAME == 'Function Step') {
+        attributeKeysList = data['FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE'];
+      } else if (
+        input &&
+        input.GRID_NAME == 'Test Case Step' &&
+        input.IS_UI_ELEMENT_GROUP_STEP == 'No' &&
+        input.IS_FUNCTION_STEP == 'Yes'
+      ) {
+        attributeKeysList = data['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['TEST_CASE_FUNCTION_STEP_TYPE'];
+        if (data['IS_UI_ELEMENT_GROUP_STEP'] == 'Yes') {
+          isFunctionOrUIElementGroup = true;
+        } else {
+          isFunctionOrUIElementGroup = false;
+        }
+      } else if (input && input.GRID_NAME == 'Test Case Function Step') {
+        attributeKeysList = data['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE'];
+      } else if (input && input.FIRST_CHILD_GRID_NAME == 'Test Case Step By Page') {
+        attributeKeysList = data['TEST_CASE_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['TEST_CASE_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['TEST_CASE_STEP_TYPE'];
+      } else if (input && input.SECOND_CHILD_GRID_NAME == 'Test Case Step By UI Element') {
+        attributeKeysList = data['TEST_CASE_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['TEST_CASE_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['TEST_CASE_STEP_TYPE'];
+      } else if (input && input.SECOND_CHILD_GRID_NAME == 'Test Case Step By Function') {
+        attributeKeysList = data['TEST_CASE_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['TEST_CASE_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['TEST_CASE_STEP_TYPE'];
+      } else if (input && input.SECOND_CHILD_GRID_NAME == 'Function Step Under Page') {
+        attributeKeysList = data['FUNCTION_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['FUNCTION_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['FUNCTION_STEP_TYPE'];
+      } else if (input && input.FIRST_CHILD_GRID_NAME == 'Function Step Under UI Element') {
+        attributeKeysList = data['FUNCTION_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['FUNCTION_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['FUNCTION_STEP_TYPE'];
+      } else if (input && input.THIRD_CHILD_GRID_NAME == 'UI Element Group Step Under UI Element') {
+        attributeKeysList = data['UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['STEP_TYPE'];
+      } else if (input && input.THIRD_CHILD_GRID_NAME == 'UI Element Group Step Under Page') {
+        attributeKeysList = data['UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['STEP_TYPE'];
+      } else if (input && input.SECOND_CHILD_GRID_NAME == 'Test Case Step Under API') {
+        attributeKeysList = data['TEST_CASE_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['TEST_CASE_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['TEST_CASE_STEP_TYPE'];
+      } else if (input && input.FIRST_CHILD_GRID_NAME == 'Test Case Step Under API Attribute') {
+        attributeKeysList = data['TEST_CASE_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['TEST_CASE_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['TEST_CASE_STEP_TYPE'];
+      } else if (input && input.THIRD_CHILD_GRID_NAME == 'Function Step Under API') {
+        attributeKeysList = data['FUNCTION_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['FUNCTION_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['FUNCTION_STEP_TYPE'];
+      } else if (input && input.SECOND_CHILD_GRID_NAME == 'Function Step Under API Attribute') {
+        attributeKeysList = data['FUNCTION_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['FUNCTION_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['FUNCTION_STEP_TYPE'];
+      } else if (input && input.GRID_NAME == 'View Navigation Step By View Navigation') {
+        attributeKeysList = data['VIEW_NAVIGATION_STEP_ATTRIBUTE_KEYS']
+          ? JSON.parse(data['VIEW_NAVIGATION_STEP_ATTRIBUTE_KEYS'])
+          : [];
+        inputStepType = data['VIEW_NAVIGATION_STEP_TYPE'];
+      }
+      const paramsPattern = /[^{}]+(?=})/g;
+      let firstIndexValue = attributeKeysList.shift();
+      let firstKeyValue = firstIndexValue ? firstIndexValue.match(paramsPattern) : [];
+      let stepDefinitionVerbiageList = firstKeyValue.length ? firstKeyValue[0].split('@#$') : [];
+      let stepDefTemplateVerbiageName = '';
+      if (stepDefinitionVerbiageList.length) {
+        const stepDefTemplateVerbiageQuery = `SELECT STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME FROM STEP_DEFINITION_TEMPLATE_VERBIAGE where STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID in(${stepDefinitionVerbiageList[1]})`;
+        let stepDefTemplateVerbiageQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+          `PRIMARYSPRINGFM`,
+          stepDefTemplateVerbiageQuery,
+          input
+        );
+        stepDefTemplateVerbiageName = stepDefTemplateVerbiageQueryData['STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME'];
+        if (attributeKeysList && attributeKeysList.length) {
+          for (let attribute of attributeKeysList) {
+            let extractParams = attribute.match(paramsPattern);
+            let keyValue = extractParams[0].split('@#$');
+            switch (keyValue[0]) {
+              case 'PageName':
+                {
+                  const pageNewQuery = `SELECT PAGE_NAME FROM PAGE WHERE PAGE_UUID in(${keyValue[1]}) AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                  let pageNewQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                    `PRIMARYSPRINGFM`,
+                    pageNewQuery,
+                    input
+                  );
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll('<Page Name>', function () {
+                    return `'` + pageNewQueryData['PAGE_NAME'] + `'`;
+                  });
+                }
+                break;
+              case 'UIElementName':
+                {
+                  const uiElementQuery = `SELECT UI_ELEMENT_NAME FROM UI_ELEMENT WHERE UI_ELEMENT_UUID in(${keyValue[1]}) AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                  let uiElementQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                    `PRIMARYSPRINGFM`,
+                    uiElementQuery,
+                    input
+                  );
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<UI Element Name>',
+                    function () {
+                      return `'` + uiElementQueryData['UI_ELEMENT_NAME'] + `'`;
+                    }
+                  );
+                }
+                break;
+              case 'UIElementType':
+                {
+                  const uiElementTypeQuery = `SELECT UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_UUID in(${keyValue[1]})`;
+                  let uiElementTypeQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                    `PRIMARYSPRINGFM`,
+                    uiElementTypeQuery,
+                    input
+                  );
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<UI Element Type>',
+                    function () {
+                      return `'` + uiElementTypeQueryData['UI_ELEMENT_TYPE_NAME'] + `'`;
+                    }
+                  );
+                }
+                break;
+              case 'UIElementValue':
+                {
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<UI Element Value>',
+                    keyValue[1]
+                      ? function () {
+                          return keyValue[1];
+                        }
+                      : `' '`
+                  );
+                }
+                break;
+              case 'KeyNameinKeypad':
+                {
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Key Name in Keypad>',
+                    function () {
+                      return keyValue[1];
+                    }
+                  );
+                }
+                break;
+              case 'EventType':
+                {
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Event Type>',
+                    keyValue[1]
+                      ? function () {
+                          return keyValue[1];
+                        }
+                      : `' '`
+                  );
+                }
+                break;
+              case 'ConfirmUIElementValue':
+                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                  '<Confirm UI Element Value>',
+                  keyValue[1]
+                    ? function () {
+                        return keyValue[1];
+                      }
+                    : `' '`
+                );
+                break;
+              case 'FunctionName':
+                {
+                  const functionNameQuery = `SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in(${keyValue[1]})`;
+                  let functionNameQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                    `PRIMARYSPRINGFM`,
+                    functionNameQuery,
+                    input
+                  );
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll('<Function Name>', function () {
+                    return `'` + functionNameQueryData['FUNCTION_NAME'] + `'`;
+                  });
+                }
+                break;
+              case 'UIElementName1':
+                {
+                  const uiElementQuery = `SELECT UI_ELEMENT_NAME FROM UI_ELEMENT WHERE UI_ELEMENT_UUID in(${keyValue[1]}) AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                  let uiElementQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                    `PRIMARYSPRINGFM`,
+                    uiElementQuery,
+                    input
+                  );
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<UI Element Name 1>',
+                    function () {
+                      return `'` + uiElementQueryData['UI_ELEMENT_NAME'] + `'`;
+                    }
+                  );
+                }
+                break;
+              case 'UIElementValue1':
+                {
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<UI Element Value 1>',
+                    keyValue[1]
+                      ? function () {
+                          return keyValue[1];
+                        }
+                      : `' '`
+                  );
+                }
+                break;
+              case 'UserActionName':
+                {
+                  const uiElementQuery = `SELECT UI_ELEMENT_NAME FROM UI_ELEMENT WHERE UI_ELEMENT_UUID in(${keyValue[1]}) AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                  let uiElementQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                    `PRIMARYSPRINGFM`,
+                    uiElementQuery,
+                    input
+                  );
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<User Action Name>',
+                    function () {
+                      return `'` + uiElementQueryData['UI_ELEMENT_NAME'] + `'`;
+                    }
+                  );
+                }
+                break;
+              case 'UserActionType':
+                {
+                  const uiElementTypeQuery = `SELECT UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_UUID in(${keyValue[1]})`;
+                  let uiElementTypeQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                    `PRIMARYSPRINGFM`,
+                    uiElementTypeQuery,
+                    input
+                  );
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<User Action Type>',
+                    function () {
+                      return `'` + uiElementTypeQueryData['UI_ELEMENT_TYPE_NAME'] + `'`;
+                    }
+                  );
+                }
+                break;
+              case 'UIElementGroupName':
+                {
+                  let uiElementGroupStepQuery = `SELECT * FROM UI_ELEMENT_GROUP WHERE UI_ELEMENT_GROUP_UUID in(${keyValue[1]}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                  let uiElementGroupStepQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                    'PRIMARYSPRINGFM',
+                    uiElementGroupStepQuery,
+                    input
+                  );
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<UI Element Group Name>',
+                    function () {
+                      return `'` + uiElementGroupStepQueryData['UI_ELEMENT_GROUP_NAME'] + `'`;
+                    }
+                  );
+                }
+                break;
+              case 'PageNumber':
+                {
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Page Number>',
+                    keyValue[1]
+                      ? function () {
+                          return keyValue[1];
+                        }
+                      : `' '`
+                  );
+                }
+                break;
+              case 'DataKey':
+                {
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Data Key>',
+                    keyValue[1]
+                      ? function () {
+                          return keyValue[1];
+                        }
+                      : `' '`
+                  );
+                }
+                break;
+              case 'DataValue':
+                {
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Data Value>',
+                    keyValue[1]
+                      ? function () {
+                          return keyValue[1];
+                        }
+                      : `' '`
+                  );
+                }
+                break;
+              case 'FileName':
+                {
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<File Name>',
+                    keyValue[1]
+                      ? function () {
+                          return keyValue[1];
+                        }
+                      : `' '`
+                  );
+                }
+                break;
+              case 'DocumentParserName':
+                {
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Document Parser Name>',
+                    keyValue[1]
+                      ? function () {
+                          return keyValue[1];
+                        }
+                      : `' '`
+                  );
+                }
+                break;
+              case 'APIName':
+                {
+                  const apiQuery = `SELECT API_NAME FROM API_NEW WHERE API_UUID in(${keyValue[1]}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                  let apiQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                    `PRIMARYSPRINGFM`,
+                    apiQuery,
+                    input
+                  );
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll('<API Name>', function () {
+                    return `'` + apiQueryData['API_NAME'] + `'`;
+                  });
+                }
+                break;
+              case 'APIAttributeName':
+                {
+                  const apiAttributeQuery = `SELECT ATTRIBUTE_NAME FROM API_ATTRIBUTE WHERE API_ATTRIBUTE_UUID in(${keyValue[1]}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                  let apiAttributeQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                    `PRIMARYSPRINGFM`,
+                    apiAttributeQuery,
+                    input
+                  );
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<API Attribute Name>',
+                    function () {
+                      return `'` + apiAttributeQueryData['ATTRIBUTE_NAME'] + `'`;
+                    }
+                  );
+                }
+                break;
+              case 'APIAttributeValue':
+                {
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<API Attribute Value>',
+                    keyValue[1]
+                      ? function () {
+                          return keyValue[1];
+                        }
+                      : `' '`
+                  );
+                }
+                break;
+              case 'ResponseStatusCode':
+                {
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Response Status Code>',
+                    keyValue[1]
+                      ? function () {
+                          return keyValue[1];
+                        }
+                      : `' '`
+                  );
+                }
+                break;
+              case 'PageName1':
+                {
+                  const pageNewQuery = `SELECT PAGE_NAME FROM PAGE WHERE PAGE_UUID in(${keyValue[1]}) AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                  let pageNewQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                    `PRIMARYSPRINGFM`,
+                    pageNewQuery,
+                    input
+                  );
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll('<Page Name 1>', function () {
+                    return `'` + pageNewQueryData['PAGE_NAME'] + `'`;
+                  });
+                }
+                break;
+              case 'UIElementState':
+                {
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<UI Element State>',
+                    keyValue[1]
+                      ? function () {
+                          return keyValue[1];
+                        }
+                      : `' '`
+                  );
+                }
+                break;
+              case 'Timeout':
+                {
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Timeout>',
+                    keyValue[1]
+                      ? function () {
+                          return keyValue[1];
+                        }
+                      : `' '`
+                  );
+                }
+                break;
+            }
           }
-      ];
-
-
-      const uiElementData =  [
-          {
-              "UI_ELEMENT_UUID": "8e17caf0-1129-11ef-b167-cf24f2883713",
-              "UI_ELEMENT_ID": 75,
-              "UI_ELEMENT_NAME": "Testing new Page",
-              "LOCATOR_TYPE": "Selector",
-              "LOCATOR_VALUE": "NA",
-              "IS_PAGE_IDENTIFIER": "Yes",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "4a528cb0-1129-11ef-b167-cf24f2883713",
-              "AE_INSERT_ID": "df18c0bc-e976-4515-987e-b0ea0e63e65e",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "73e051d0-11b3-4f92-a1f1-34a19b9e4981",
-              "AE_INSERT_TS": "2024-05-13T13:06:00.314Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "e139dd70-1397-11ef-88a7-03efd3e8e08c",
-              "UI_ELEMENT_ID": 82,
-              "UI_ELEMENT_NAME": "a",
-              "LOCATOR_TYPE": "Selector",
-              "LOCATOR_VALUE": "aa",
-              "IS_PAGE_IDENTIFIER": "Yes",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "de120d60-1393-11ef-b39b-df7f495746ef",
-              "AE_INSERT_ID": "8af8e21f-9d20-4a77-82cb-bb95072fd7f1",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "29b57a28-eb03-4983-ae8a-cccbf5299f52",
-              "AE_INSERT_TS": "2024-05-16T15:20:51.004Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "bfde8760-18d4-11ef-bb47-3f67210c7b2f",
-              "UI_ELEMENT_ID": 113,
-              "UI_ELEMENT_NAME": "DM out us",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "2ae43430-18c4-11ef-8e77-f9b21390d0cc",
-              "AE_INSERT_ID": "622e9c89-cb3a-4012-9e95-67095f3bb694",
-              "AE_UPDATE_ID": "622e9c89-cb3a-4012-9e95-67095f3bb694",
-              "AE_TRANSACTION_ID": "4746ce2b-1dec-4ee5-9606-a455ad536b85",
-              "AE_INSERT_TS": "2024-05-23T07:19:09.665Z",
-              "AE_UPDATE_TS": "2024-05-23T12:14:13.351Z",
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Output,User Action,Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "93eb7fb0-1905-11ef-b727-b5c388c4b2c1",
-              "UI_ELEMENT_ID": 131,
-              "UI_ELEMENT_NAME": "R In-Out-Ac",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "44cfe1a0-1905-11ef-b727-b5c388c4b2c1",
-              "AE_INSERT_ID": "622e9c89-cb3a-4012-9e95-67095f3bb694",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "0d410e6e-8e8c-4618-aad5-6df39679b426",
-              "AE_INSERT_TS": "2024-05-23T13:08:41.196Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input,Output,User Action"
-          },
-          {
-              "UI_ELEMENT_UUID": "7d4b8de0-19a0-11ef-b159-cb095d4ac74a",
-              "UI_ELEMENT_ID": 163,
-              "UI_ELEMENT_NAME": "a input",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "9f93b390-1906-11ef-b5e2-c3755b066431",
-              "AE_INSERT_ID": "622e9c89-cb3a-4012-9e95-67095f3bb694",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "d380212c-4659-4c4d-a638-131d38bc79ab",
-              "AE_INSERT_TS": "2024-05-24T07:37:35.138Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input,Output"
-          },
-          {
-              "UI_ELEMENT_UUID": "9feccb60-1a4b-11ef-bc12-e9cbbc667a2e",
-              "UI_ELEMENT_ID": 181,
-              "UI_ELEMENT_NAME": "Work Authorization R",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "b58d1980-1a4a-11ef-bc12-e9cbbc667a2e",
-              "AE_INSERT_ID": "8851d42e-8d05-4b37-9f28-4f1595ca083e",
-              "AE_UPDATE_ID": "8851d42e-8d05-4b37-9f28-4f1595ca083e",
-              "AE_TRANSACTION_ID": "451938cd-4b29-4f7d-a8ad-c922313a4b42",
-              "AE_INSERT_TS": "2024-05-25T04:02:38.074Z",
-              "AE_UPDATE_TS": "2024-05-25T04:50:04.185Z",
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "f52c8490-1a86-11ef-bdd6-5385706d6df0",
-              "UI_ELEMENT_ID": 207,
-              "UI_ELEMENT_NAME": "Direct Name",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "Click",
-              "PAGE_NEW_UUID": "67151730-1a86-11ef-bdd6-5385706d6df0",
-              "AE_INSERT_ID": "fce90b5b-548c-41a8-9839-7b77d93bb909",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "33cb6b11-1b9f-4221-bd84-5f2d8870f4f2",
-              "AE_INSERT_TS": "2024-05-25T11:07:22.638Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "5e9332e0-1b30-11ef-97c2-b91e3390e0d2",
-              "UI_ELEMENT_ID": 259,
-              "UI_ELEMENT_NAME": "Work Authorization",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "1c05ff70-1b30-11ef-97c2-b91e3390e0d2",
-              "AE_INSERT_ID": "8851d42e-8d05-4b37-9f28-4f1595ca083e",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "1d1e4e4d-98e5-4bee-9638-e6d3e019450e",
-              "AE_INSERT_TS": "2024-05-26T07:20:03.368Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "1b05993c-61ce-4e86-81ff-7a32cdfa7bae",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "72192023-fdef-429e-854b-826ddd1dd871",
-              "UI_ELEMENT_ID": 296,
-              "UI_ELEMENT_NAME": "check 2 by sh",
-              "LOCATOR_TYPE": "XPATH",
-              "LOCATOR_VALUE": null,
-              "IS_PAGE_IDENTIFIER": null,
-              "EVENT_NAME": "Hover",
-              "PAGE_NEW_UUID": "524629b0-2315-11ef-b46f-19a377dc3f62",
-              "AE_INSERT_ID": "043d1765-7724-4486-9bc6-c15ae20ef179",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "102d1a40-391c-4b62-b620-bef0aba0fdf9",
-              "AE_INSERT_TS": "2024-06-05T12:28:39.065Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Output"
-          },
-          {
-              "UI_ELEMENT_UUID": "19d33a80-233f-11ef-97fc-97e06076872d",
-              "UI_ELEMENT_ID": 305,
-              "UI_ELEMENT_NAME": "Email",
-              "LOCATOR_TYPE": "XPATH",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "Yes",
-              "EVENT_NAME": "Click",
-              "PAGE_NEW_UUID": "e3fba8c0-233e-11ef-97fc-97e06076872d",
-              "AE_INSERT_ID": "fce90b5b-548c-41a8-9839-7b77d93bb909",
-              "AE_UPDATE_ID": "043d1765-7724-4486-9bc6-c15ae20ef179",
-              "AE_TRANSACTION_ID": "3834f197-bf2a-4d8e-b990-fcfc9556b145",
-              "AE_INSERT_TS": "2024-06-05T13:25:41.807Z",
-              "AE_UPDATE_TS": "2024-06-07T10:06:07.412Z",
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input,User Action"
-          },
-          {
-              "UI_ELEMENT_UUID": "f1d5d050-273b-11ef-9f8e-7b3171769087",
-              "UI_ELEMENT_ID": 319,
-              "UI_ELEMENT_NAME": "New By NC",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "Yes",
-              "EVENT_NAME": "Hover",
-              "PAGE_NEW_UUID": "cb03b490-26f7-11ef-97dc-bd6ed3cf0067",
-              "AE_INSERT_ID": "84fbd1c9-b79f-4cad-b85e-d7194b3b8d94",
-              "AE_UPDATE_ID": "df18c0bc-e976-4515-987e-b0ea0e63e65e",
-              "AE_TRANSACTION_ID": "cf18e19a-2e80-4b64-8e41-570fb547920e",
-              "AE_INSERT_TS": "2024-06-10T15:13:09.549Z",
-              "AE_UPDATE_TS": "2024-06-11T05:29:50.591Z",
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Output"
-          },
-          {
-              "UI_ELEMENT_UUID": "0ad1a570-27ff-11ef-ad8b-cf2f5a5fffbe",
-              "UI_ELEMENT_ID": 340,
-              "UI_ELEMENT_NAME": "Longtext Desc",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "bb0777e0-27fe-11ef-ad8b-cf2f5a5fffbe",
-              "AE_INSERT_ID": "ab11d76c-62bc-46ef-b9c3-4ba86a64e30b",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "4f6b2cd1-4142-4d40-8a36-72fc375a3b88",
-              "AE_INSERT_TS": "2024-06-11T14:29:48.692Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "06ea9540-28c5-11ef-ba05-b560abc13b4b",
-              "UI_ELEMENT_ID": 363,
-              "UI_ELEMENT_NAME": "Processor",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "4ab2d630-28c4-11ef-ba05-b560abc13b4b",
-              "AE_INSERT_ID": "84fbd1c9-b79f-4cad-b85e-d7194b3b8d94",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "47b01799-d355-4499-88a3-fb40a4f9ec4b",
-              "AE_INSERT_TS": "2024-06-12T14:06:57.683Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "7f737f80-3221-11ef-bfa9-5d5c603ddd7f",
-              "UI_ELEMENT_ID": 489,
-              "UI_ELEMENT_NAME": "UI Element",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "69054f80-3221-11ef-bfa9-5d5c603ddd7f",
-              "AE_INSERT_ID": "8851d42e-8d05-4b37-9f28-4f1595ca083e",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "d4624a7d-8d0a-4cbc-b471-f83ffd06078d",
-              "AE_INSERT_TS": "2024-06-24T12:01:31.730Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "1b05993c-61ce-4e86-81ff-7a32cdfa7bae",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "f2472d40-3e88-11ef-8b27-572adc1f99f9",
-              "UI_ELEMENT_ID": 602,
-              "UI_ELEMENT_NAME": "Function Data Page",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "Hover",
-              "PAGE_NEW_UUID": "e508d390-3e88-11ef-8b27-572adc1f99f9",
-              "AE_INSERT_ID": "df18c0bc-e976-4515-987e-b0ea0e63e65e",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "528af68c-2280-4c26-a0ff-dcc7d9bc6eba",
-              "AE_INSERT_TS": "2024-07-10T06:52:17.737Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "9dbda7f0-426f-11ef-a8cb-e7ae52ab78bc",
-              "UI_ELEMENT_ID": 634,
-              "UI_ELEMENT_NAME": "New R Demo3",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "Hover",
-              "PAGE_NEW_UUID": "75540b60-426f-11ef-a8cb-e7ae52ab78bc",
-              "AE_INSERT_ID": "8af8e21f-9d20-4a77-82cb-bb95072fd7f1",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "8f10aefe-fc7d-4e13-a7c5-2ddf1c828d3b",
-              "AE_INSERT_TS": "2024-07-15T06:01:09.298Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "b1e4f530-426f-11ef-a8cb-e7ae52ab78bc",
-              "UI_ELEMENT_ID": 636,
-              "UI_ELEMENT_NAME": "New R Demo5",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "On Key Up",
-              "PAGE_NEW_UUID": "75540b60-426f-11ef-a8cb-e7ae52ab78bc",
-              "AE_INSERT_ID": "8af8e21f-9d20-4a77-82cb-bb95072fd7f1",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "59dd704d-f165-4762-9e0b-262e284e1bc4",
-              "AE_INSERT_TS": "2024-07-15T06:01:42.968Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Output"
-          },
-          {
-              "UI_ELEMENT_UUID": "11171330-44e1-11ef-b9c1-1f24275fa97c",
-              "UI_ELEMENT_ID": 725,
-              "UI_ELEMENT_NAME": "UI Element",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "f4eeaba0-44e0-11ef-b9c1-1f24275fa97c",
-              "AE_INSERT_ID": "8851d42e-8d05-4b37-9f28-4f1595ca083e",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "35a80ebf-5703-40d9-9511-1e57798bb666",
-              "AE_INSERT_TS": "2024-07-18T08:38:13.232Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input"
-          },
-          {
-              "UI_ELEMENT_UUID": "53ecc440-47f5-11ef-af8e-1f8dfe95183e",
-              "UI_ELEMENT_ID": 743,
-              "UI_ELEMENT_NAME": "Work Authorization",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "Click",
-              "PAGE_NEW_UUID": "1e6400b0-47f3-11ef-90c1-1b0be523f5bf",
-              "AE_INSERT_ID": "dad571a1-079d-4ced-8977-5d62320c61ad",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "b23b3e6e-12bc-44b3-8fca-6fbaf4fcc5fd",
-              "AE_INSERT_TS": "2024-07-22T06:40:46.912Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Input,User Action"
-          },
-          {
-              "UI_ELEMENT_UUID": "dad5fbd0-4d94-11ef-9249-b93f3956bd88",
-              "UI_ELEMENT_ID": 796,
-              "UI_ELEMENT_NAME": "Nothing multi checkbox",
-              "LOCATOR_TYPE": "",
-              "LOCATOR_VALUE": "",
-              "IS_PAGE_IDENTIFIER": "",
-              "EVENT_NAME": "",
-              "PAGE_NEW_UUID": "738c5550-4d94-11ef-9249-b93f3956bd88",
-              "AE_INSERT_ID": "622e9c89-cb3a-4012-9e95-67095f3bb694",
-              "AE_UPDATE_ID": null,
-              "AE_TRANSACTION_ID": "e1a80c19-afb5-4a0d-b79e-251e02a40d9b",
-              "AE_INSERT_TS": "2024-07-29T10:25:14.612Z",
-              "AE_UPDATE_TS": null,
-              "FUNCTIONAL_AREA_UUID": "2e850899-ca81-11ee-89d8-0a8d0133dbd7",
-              "UI_ELEMENT_MODE": "Output"
-          }
-      ];
-
-
-      console.log(uiElementData == uiElementWithMultiCheckboxType)
+        }
+      }
+      let getKeywordByStepType =
+        !isFunctionOrUIElementGroup && inputStepType === 'Pre Condition'
+          ? 'Given '
+          : !isFunctionOrUIElementGroup && inputStepType === 'User Input'
+          ? 'When '
+          : !isFunctionOrUIElementGroup && inputStepType === 'Expected Result'
+          ? 'Then '
+          : '';
+      data['ATTRIBUTE_KEYS'] = stepDefinitionVerbiageList.length
+        ? getKeywordByStepType + stepDefTemplateVerbiageName
+        : '';
+      if (input && input.FIRST_CHILD_GRID_NAME == 'Test Case Step By Page') {
+        data['ATTRIBUTE_KEY'] = data['TEST_CASE_STEP_ID'] + ' - ' + data['ATTRIBUTE_KEYS'];
+      } else if (input && input.SECOND_CHILD_GRID_NAME == 'Test Case Step By UI Element') {
+        data['ATTRIBUTE_KEY'] = data['TEST_CASE_STEP_ID'] + ' - ' + data['ATTRIBUTE_KEYS'];
+      } else if (input && input.SECOND_CHILD_GRID_NAME == 'Test Case Step By Function') {
+        data['ATTRIBUTE_KEY'] = data['TEST_CASE_STEP_ID'] + ' - ' + data['ATTRIBUTE_KEYS'];
+      } else if (input && input.SECOND_CHILD_GRID_NAME === 'Function Step Under Page') {
+        if (data['FUNCTION_STEP_ID'] && data['ATTRIBUTE_KEYS']) {
+          data['ATTRIBUTE_KEY'] = data['FUNCTION_STEP_ID'] + ' - ' + data['ATTRIBUTE_KEYS'];
+        } else {
+          data['ATTRIBUTE_KEY'] = ' ';
+        }
+      } else if (input && input.FIRST_CHILD_GRID_NAME == 'Function Step Under UI Element') {
+        data['ATTRIBUTE_KEY'] = data['FUNCTION_STEP_ID'] + ' - ' + data['ATTRIBUTE_KEYS'];
+      } else if (input && input.THIRD_CHILD_GRID_NAME == 'UI Element Group Step Under UI Element') {
+        data['ATTRIBUTE_KEY'] = data['UI_ELEMENT_GROUP_STEP_ID'] + ' - ' + data['ATTRIBUTE_KEYS'];
+      } else if (input && input.THIRD_CHILD_GRID_NAME == 'UI Element Group Step Under Page') {
+        if (data['UI_ELEMENT_GROUP_STEP_ID'] && data['ATTRIBUTE_KEYS']) {
+          data['ATTRIBUTE_KEY'] = data['UI_ELEMENT_GROUP_STEP_ID'] + ' - ' + data['ATTRIBUTE_KEYS'];
+        } else {
+          data['ATTRIBUTE_KEY'] = ' ';
+        }
+      } else if (input && input.SECOND_CHILD_GRID_NAME == 'Test Case Step Under API') {
+        data['ATTRIBUTE_KEY'] = data['TEST_CASE_STEP_ID'] + ' - ' + data['ATTRIBUTE_KEYS'];
+      } else if (input && input.FIRST_CHILD_GRID_NAME == 'Test Case Step Under API Attribute') {
+        data['ATTRIBUTE_KEY'] = data['TEST_CASE_STEP_ID'] + ' - ' + data['ATTRIBUTE_KEYS'];
+      } else if (input && input.THIRD_CHILD_GRID_NAME === 'Function Step Under API') {
+        if (data['FUNCTION_STEP_ID'] && data['ATTRIBUTE_KEYS']) {
+          data['ATTRIBUTE_KEY'] = data['FUNCTION_STEP_ID'] + ' - ' + data['ATTRIBUTE_KEYS'];
+        } else {
+          data['ATTRIBUTE_KEY'] = ' ';
+        }
+      } else if (input && input.SECOND_CHILD_GRID_NAME == 'Function Step Under API Attribute') {
+        data['ATTRIBUTE_KEY'] = data['FUNCTION_STEP_ID'] + ' - ' + data['ATTRIBUTE_KEYS'];
+      }
+    }
+  }
+  msg.payload.result = { gridData: queryData };
+  node.send(msg);
+} catch (error) {
+  console.log('Errorr Occured Process and Send Data to ui', error.message);
+}
+return;

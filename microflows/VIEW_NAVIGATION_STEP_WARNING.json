@@ -1,0 +1,284 @@
+[
+    {
+        "id": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "type": "tab",
+        "label": "Inbound Service Flow",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "80da4d06.d55a2",
+        "type": "inject",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Input",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "Input",
+        "payload": "{}",
+        "payloadType": "json",
+        "x": 110,
+        "y": 120,
+        "wires": [
+            [
+                "1085dd3d.647cc3"
+            ]
+        ]
+    },
+    {
+        "id": "1085dd3d.647cc3",
+        "type": "switch",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "",
+        "property": "payload",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "hask",
+                "v": "entityName",
+                "vt": "str"
+            },
+            {
+                "t": "else"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 230,
+        "y": 120,
+        "wires": [
+            [
+                "235cddsd.0d2423"
+            ],
+            [
+                "28147205.c984be"
+            ]
+        ]
+    },
+    {
+        "id": "235cddsd.0d2423",
+        "type": "generateRequestBody",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Create Request Body",
+        "outputs": 1,
+        "x": 450,
+        "y": 60,
+        "wires": [
+            [
+                "28147205.c984be"
+            ]
+        ]
+    },
+    {
+        "id": "28147205.c984be",
+        "type": "toLogicalData",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Transform to Logical Data",
+        "outputs": 1,
+        "x": 740,
+        "y": 120,
+        "wires": [
+            [
+                "dd6550d4.e2bce"
+            ]
+        ]
+    },
+    {
+        "id": "dd6550d4.e2bce",
+        "type": "validateData",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Validate Data",
+        "outputs": 1,
+        "x": 1000,
+        "y": 120,
+        "wires": [
+            [
+                "5d38e157.b4d7e"
+            ]
+        ]
+    },
+    {
+        "id": "5d38e157.b4d7e",
+        "type": "function",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Ckeck to Open Warning Modal",
+        "func": "try {let input = msg.payload.apiRequestBody.baseEntity.records; if (input[0]['IS_PAGE_EXIST_FOR_STEP_DEFINITION'] === 'Yes' && input[0]['VIEW_NAVIGATION_STEP_POSITION'] === 'Intermediate Page Navigation Step') { msg.payload['isOpenModal'] = true;  } else {   msg.payload['isOpenModal'] = false;} node.send(msg);} catch (error) {console.log('Errorr Occured ', error.message);} return;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 170,
+        "y": 200,
+        "wires": [
+            [
+                "5d38e157.b4r7e"
+            ]
+        ]
+    },
+    {
+        "id": "5d38e157.b4r7e",
+        "type": "switch",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "isOpenModal",
+        "property": "payload.isOpenModal",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": true
+            },
+            {
+                "t": false
+            }
+        ],
+        "checkall": true,
+        "repair": false,
+        "outputs": 2,
+        "x": 390,
+        "y": 200,
+        "wires": [
+            [
+                "82b2328.c756dd"
+            ],
+            [
+                "15d3d01.01e563"
+            ]
+        ]
+    },
+    {
+        "id": "166e2a96.294bc5",
+        "type": "setMasterEntity",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Set Master Physical Entity",
+        "outputs": 1,
+        "x": 650,
+        "y": 260,
+        "wires": [
+            [
+                "1ad49873.0d4c38"
+            ]
+        ]
+    },
+    {
+        "id": "1ad49873.0d4c38",
+        "type": "processPhysicalData",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Process Physical Data",
+        "outputs": 1,
+        "x": 910,
+        "y": 260,
+        "wires": [
+            [
+                "e45d0331.61ce"
+            ]
+        ]
+    },
+    {
+        "id": "e45d0331.61ce",
+        "type": "processAuditData",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Process Audit",
+        "outputs": 1,
+        "x": 480,
+        "y": 380,
+        "wires": [
+            [
+                "zxcbnh.61ce"
+            ]
+        ]
+    },
+    {
+        "id": "zxcbnh.61ce",
+        "type": "addTransactionDetails",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Process Transaction Detail Queue",
+        "outputs": 1,
+        "x": 750,
+        "y": 380,
+        "wires": [
+            [
+                "23475cdd.0dcf24"
+            ]
+        ]
+    },
+    {
+        "id": "82b2328.c756dd",
+        "type": "function",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Opening Warning Message Conditionally",
+        "func": "let atr = msg.payload.apiRequestBody; let routeStateParams = {}; let input = msg.payload.apiRequestBody.baseEntity.records; let warningPortal = '0_b832cc59-3902-4262-aa46-12d290aca60a'; let warningPortalCard = '0_ea3935d9-1c44-44c2-9159-fad42ae744e4'; routeStateParams.portalId = '0_b832cc59-3902-4262-aa46-12d290aca60a'; atr.refreshData = input[0].VIEW_NAVIGATION_UUID + '_0ec166ef-25d9-488b-9548-3d8952315bab_480f4c56-48b4-11ef-bdb4-bf6e65503eee'; atr.cleanData = warningPortal + ',' + input[0].VIEW_NAVIGATION_UUID + '_0ec166ef-25d9-488b-9548-3d8952315bab_480f4c50-48b4-11ef-bdb4-bf6e65503eee'; atr.routeStateParams = routeStateParams; msg.payload.result = { mode: 'Enable Message', message: 'Please Wait..', attributes: atr, navigation: { operationType: 'OpenModal', portalId: '0_b832cc59-3902-4262-aa46-12d290aca60a' } }; msg.payload.result.modifyOtherCard = {}; msg.payload.result.modifyOtherCard[warningPortal] = [{ parameter: 'referenceData', parentId: '0_b832cc59-3902-4262-aa46-12d290aca60a', portalId: '0_b832cc59-3902-4262-aa46-12d290aca60a', parameterKey: 'data', type: 'SubPortal', eventType: 'uploadGridData', data: input[0] }, ]; return msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 720,
+        "y": 180,
+        "wires": [
+            [
+                "23475cdd.0dcf24"
+            ]
+        ]
+    },
+    {
+        "id": "a169b948.7886b8",
+        "type": "catch",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Catch Exceptions",
+        "scope": null,
+        "uncaught": false,
+        "x": 1180,
+        "y": 360,
+        "wires": [
+            [
+                "23475cdd.0dcf24"
+            ]
+        ]
+    },
+    {
+        "id": "23475cdd.0dcf24",
+        "type": "finish",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Catch Finish",
+        "property": "payload",
+        "propertyType": "msg",
+        "outputs": 1,
+        "x": 1300,
+        "y": 240,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "15d3d01.01e563",
+        "type": "processLogicalData",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Process Logical Data",
+        "outputs": 1,
+        "x": 160,
+        "y": 260,
+        "wires": [
+            [
+                "5d38e157.b4l7e"
+            ]
+        ]
+    },
+    {
+        "id": "5d38e157.b4l7e",
+        "type": "toPhysicalData",
+        "z": "85efcf27-5619-458d-9e8a-2d7735d80670",
+        "name": "Transform To Physical Data",
+        "outputs": 1,
+        "x": 410,
+        "y": 260,
+        "wires": [
+            [
+                "166e2a96.294bc5"
+            ]
+        ]
+    }
+]

@@ -1,0 +1,645 @@
+function generateExcelData(inputData) {
+  let mainArray = [];
+  for (let data of inputData) {
+    let dataArray = [];
+    for (let key in data) {
+      dataArray.push(data[key]);
+    }
+    mainArray.push(dataArray);
+  }
+  return mainArray;
+}
+try {
+  msg.payload.result = {};
+  msg.payload.result.documentName = msg.payload.apiRequestBody.TEST_SUITE_NAME
+    ? msg.payload.apiRequestBody.TEST_SUITE_NAME.replaceAll(' ', '_')
+    : 'GeneratedTestSuite';
+  AppengProcessConfig = global.get('AppengProcessConfig');
+  const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
+  let input = msg.payload.apiRequestBody;
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
+    'PRIMARYSPRINGFM',
+    functionalAreaQuery,
+    input
+  );
+  msg.payload.documentData = {};
+  let objectData = {};
+  let apiList = [];
+  let testSetTabList = [];
+  let testCaseTabList = [];
+  let testCaseStepTabList = [];
+  let pageTabList = [];
+  let uiElementTabList = [];
+  let apiTabList = [];
+  let apiAttributeTabList = [];
+  const paramsPattern = /[^{}]+(?=})/g;
+  objectData['Application'] = generateExcelData(functionalAreaQueryData);
+  let testSetIds = input.TEST_SET_UUID;
+  if (testSetIds) {
+    let testSetList = testSetIds.split(',');
+    for (let testSetData of testSetList) {
+      let testSetID = `'` + testSetData + `'`;
+      let testSetQuery = `SELECT TEST_SET_ID as 'Test Set ID',TEST_SET_NAME as 'Test Set Name','Active' as Status, 'No Action' as Actions,TEST_SET_UUID as 'Test Set UUID',FUNCTIONAL_AREA_ID as 'App ID' FROM TEST_SET,FUNCTIONAL_AREA WHERE TEST_SET_UUID in(${testSetID}) AND TEST_SET.FUNCTIONAL_AREA_UUID = FUNCTIONAL_AREA.FUNCTIONAL_AREA_UUID`;
+      let testSetQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSetQuery, input);
+      testSetTabList.push(...generateExcelData(testSetQueryData));
+      let testCaseQuery = `SELECT TEST_SET_ID as 'Test Set ID',TEST_CASE_ID as 'Test Case ID',TEST_CASE_SEQ_ID as 'Test Case Seq ID',TEST_CASE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions,TEST_CASE_UUID as 'Test Case UUID' FROM TEST_CASE,TEST_SET WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID AND TEST_CASE.TEST_SET_UUID in(${testSetID}) AND TEST_CASE.TEST_CASE_EXECUTON_TYPE ='Automated' ORDER BY TEST_CASE_SEQ_ID asc`;
+      let testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
+        'PRIMARYSPRINGFM',
+        testCaseQuery,
+        input
+      );
+      testCaseTabList.push(...generateExcelData(testCaseQueryData));
+      let testCaseStepNormalQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, (IF(! ISNULL(tcs.NEXT_PAGE_CONTEXT), (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT), (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT))) AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID','' as actions,'' AS v6, tcs.TEST_CASE_STEP_ATTRIBUTE_KEYS AS 'ATTRIBUTE_KEYS', tcs.API_UUID FROM TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tc.TEST_CASE_EXECUTON_TYPE = 'Automated' AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.TEST_SET_UUID in(${testSetID}) AND ((tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP is null) OR (tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS( SELECT 1 FROM VIEW_NAVIGATION_STEP vns JOIN VIEW_NAVIGATION vn ON vn.VIEW_NAVIGATION_UUID = vns.VIEW_NAVIGATION_UUID WHERE vn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT))) ORDER BY tcs.TEST_CASE_STEP_ID , tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
+      let testCaseStepNormalQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
+        'PRIMARYSPRINGFM',
+        testCaseStepNormalQuery,
+        input
+      );
+      let testCaseNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT(tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT((SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT), ' Page - ',' Navigation Step') AS 'Test Case Step Group Name', '' AS reserved2, (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT) AS PageID, 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID','' as actions,'' AS v6, vns.VIEW_NAVIGATION_STEP_ATTRIBUTE_KEYS AS 'ATTRIBUTE_KEYS', tcs.API_UUID FROM VIEW_NAVIGATION_STEP vns, VIEW_NAVIGATION vs, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.CURRENT_PAGE_CONTEXT = vs.PAGE_UUID AND vs.VIEW_NAVIGATION_UUID = vns.VIEW_NAVIGATION_UUID AND tcs.TEST_SET_UUID in(${testSetID}) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE = 'Automated' AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND EXISTS( SELECT 1 FROM VIEW_NAVIGATION_STEP vns JOIN VIEW_NAVIGATION vn ON vn.VIEW_NAVIGATION_UUID = vns.VIEW_NAVIGATION_UUID WHERE vn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+      let testCaseNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
+        'PRIMARYSPRINGFM',
+        testCaseNavigationStepQuery,
+        input
+      );
+      testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseNavigationStepQueryData);
+      let testCaseFunctionStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT((SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID),' Function') AS 'Test Case Step Group Name', '' AS reserved2, (IF(! ISNULL(tcfs.NEXT_PAGE_CONTEXT), (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT), (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT))) AS 'Page ID', 'Active' AS Status, TEST_CASE_FUNCTION_STEP_UUID AS 'Test Case Step UUID','' as actions,'' AS v6, TEST_CASE_FUNCTION_STEP_ATTRIBUTE_KEYS AS 'ATTRIBUTE_KEYS', API_UUID FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE tc, TEST_SET ts, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_SET_UUID in(${testSetID}) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE = 'Automated' AND ((tcfs.IS_PURE_NAVIGATION_STEP = 'No' or tcfs.IS_PURE_NAVIGATION_STEP is null) OR (tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS( SELECT 1 FROM VIEW_NAVIGATION_STEP vns JOIN VIEW_NAVIGATION vn ON vn.VIEW_NAVIGATION_UUID = vns.VIEW_NAVIGATION_UUID WHERE vn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT))) ORDER BY TEST_CASE_STEP_ID , TEST_CASE_FUNCTION_STEP_ID ASC`;
+      let testCaseFunctionStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
+        'PRIMARYSPRINGFM',
+        testCaseFunctionStepQuery,
+        input
+      );
+      testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionStepQueryData);
+      let testCaseFunctionNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT((SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID),' Function - ',( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ),' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) AS PageID, 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID','' as actions,'' AS v6, vns.VIEW_NAVIGATION_STEP_ATTRIBUTE_KEYS AS 'ATTRIBUTE_KEYS', tcs.API_UUID FROM VIEW_NAVIGATION_STEP vns, VIEW_NAVIGATION vs, TEST_CASE_FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.TEST_SET_UUID in(${testSetID}) AND tcfs.CURRENT_PAGE_CONTEXT = vs.PAGE_UUID AND vs.VIEW_NAVIGATION_UUID = vns.VIEW_NAVIGATION_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE = 'Automated' AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND EXISTS( SELECT 1 FROM VIEW_NAVIGATION_STEP vns JOIN VIEW_NAVIGATION vn ON vn.VIEW_NAVIGATION_UUID = vns.VIEW_NAVIGATION_UUID WHERE vn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+      let testCaseFunctionNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
+        'PRIMARYSPRINGFM',
+        testCaseFunctionNavigationStepQuery,
+        input
+      );
+      testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionNavigationStepQueryData);
+      let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', concat(TEST_CASE_STEP_SEQ_ID ,'-',TEST_CASE_FUNCTION_STEP_SEQ_ID,'-',TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE as 'Test Case Step Type','' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, concat(( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ',( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID ),' UI Element Group') as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID','' as actions,'' AS v6,TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS as 'ATTRIBUTE_KEYS',API_UUID FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcfs.TEST_CASE_FUNCTION_STEP_UUID = tcfuegs.TEST_CASE_FUNCTION_STEP_UUID AND tcs.TEST_SET_UUID in(${testSetID}) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE ='Automated' ORDER BY TEST_CASE_STEP_ID asc, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID asc`;
+      let testCaseFunctionUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
+        'PRIMARYSPRINGFM',
+        testCaseFunctionUIElementGroupStepQuery,
+        input
+      );
+      testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionUIElementGroupStepQueryData);
+      let testCaseUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', concat(TEST_CASE_STEP_SEQ_ID,'-',TEST_CASE_UI_ELEMENT_GROUP_STEP_ID) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', TEST_CASE_UI_ELEMENT_GROUP_STEP_TYPE as 'Test Case Step Type','' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, concat( ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID','' as actions,'' AS v6,TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_KEYS as 'ATTRIBUTE_KEYS',API_UUID FROM TEST_CASE_STEP tcs, TEST_CASE_UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcuegs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_SET_UUID in(${testSetID}) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE ='Automated' ORDER BY TEST_CASE_STEP_ID, TEST_CASE_UI_ELEMENT_GROUP_STEP_ID asc`;
+      let testCaseUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
+        'PRIMARYSPRINGFM',
+        testCaseUIElementGroupStepQuery,
+        input
+      );
+      testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseUIElementGroupStepQueryData);
+      for (let data of testCaseStepNormalQueryData) {
+        let inc = 0;
+        if (data && data['ATTRIBUTE_KEYS']) {
+          let attributeKeysList = data['ATTRIBUTE_KEYS'] ? JSON.parse(data['ATTRIBUTE_KEYS']) : [];
+          let inputStepType = data['Test Case Step Type'];
+          let firstIndexValue = attributeKeysList.shift();
+          let firstKeyValue = firstIndexValue ? firstIndexValue.match(paramsPattern) : [];
+          let stepDefinitionVerbiageList = firstKeyValue.length ? firstKeyValue[0].split('@#$') : [];
+          let stepDefTemplateVerbiageName = '';
+          if (stepDefinitionVerbiageList.length) {
+            const stepDefTemplateVerbiageQuery = `SELECT STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME FROM STEP_DEFINITION_TEMPLATE_VERBIAGE where STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID in(${stepDefinitionVerbiageList[1]})`;
+            let stepDefTemplateVerbiageQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+              `PRIMARYSPRINGFM`,
+              stepDefTemplateVerbiageQuery,
+              input
+            );
+            stepDefTemplateVerbiageName = stepDefTemplateVerbiageQueryData['STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME'];
+            if (attributeKeysList && attributeKeysList.length) {
+              for (let attribute of attributeKeysList) {
+                data['Step Definition Template'] = stepDefTemplateVerbiageName;
+                let extractParams = attribute.match(paramsPattern);
+                let keyValue = extractParams[0].split('@#$');
+                let getAttr = '';
+                switch (keyValue[0]) {
+                  case 'PageName':
+                    {
+                      const pageNewQuery = `SELECT PAGE_ID,PAGE_NAME FROM PAGE WHERE PAGE_UUID in(${keyValue[1]}) AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                      let pageNewQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                        `PRIMARYSPRINGFM`,
+                        pageNewQuery,
+                        input
+                      );
+                      getAttr = pageNewQueryData['PAGE_ID'] + `:-:` + pageNewQueryData['PAGE_NAME'];
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll('<Page Name>', function () {
+                        return `'` + pageNewQueryData['PAGE_NAME'] + `'`;
+                      });
+                    }
+                    break;
+                  case 'UIElementName':
+                    {
+                      const uiElementQuery = `SELECT UI_ELEMENT_ID, UI_ELEMENT_NAME FROM UI_ELEMENT WHERE UI_ELEMENT_UUID in(${keyValue[1]}) AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                      let uiElementQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                        `PRIMARYSPRINGFM`,
+                        uiElementQuery,
+                        input
+                      );
+                      getAttr = uiElementQueryData['UI_ELEMENT_ID'] + `:-:` + uiElementQueryData['UI_ELEMENT_NAME'];
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<UI Element Name>',
+                        function () {
+                          return `'` + uiElementQueryData['UI_ELEMENT_NAME'] + `'`;
+                        }
+                      );
+                    }
+                    break;
+                  case 'UIElementType':
+                    {
+                      const uiElementTypeQuery = `SELECT UI_ELEMENT_TYPE_ID, UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_UUID in(${keyValue[1]})`;
+                      let uiElementTypeQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                        `PRIMARYSPRINGFM`,
+                        uiElementTypeQuery,
+                        input
+                      );
+                      getAttr =
+                        uiElementTypeQueryData['UI_ELEMENT_TYPE_ID'] +
+                        `:-:` +
+                        uiElementTypeQueryData['UI_ELEMENT_TYPE_NAME'];
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<UI Element Type>',
+                        function () {
+                          return `'` + uiElementTypeQueryData['UI_ELEMENT_TYPE_NAME'] + `'`;
+                        }
+                      );
+                    }
+                    break;
+                  case 'UIElementValue':
+                    {
+                      getAttr = keyValue[1].replace(/[']+/g, '');
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<UI Element Value>',
+                        keyValue[1]
+                          ? function () {
+                              return keyValue[1];
+                            }
+                          : `' '`
+                      );
+                    }
+                    break;
+                  case 'KeyNameinKeypad':
+                    {
+                      getAttr = keyValue[1].replace(/[']+/g, '');
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<Key Name in Keypad>',
+                        function () {
+                          return keyValue[1];
+                        }
+                      );
+                    }
+                    break;
+                  case 'EventType':
+                    {
+                      getAttr = keyValue[1].replace(/[']+/g, '');
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<Event Type>',
+                        keyValue[1]
+                          ? function () {
+                              return keyValue[1];
+                            }
+                          : `' '`
+                      );
+                    }
+                    break;
+                  case 'ConfirmUIElementValue':
+                    getAttr = keyValue[1].replace(/[']+/g, '');
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Confirm UI Element Value>',
+                      keyValue[1]
+                        ? function () {
+                            return keyValue[1];
+                          }
+                        : `' '`
+                    );
+                    break;
+                  case 'FunctionName':
+                    {
+                      const functionNameQuery = `SELECT FUNCTION_ID,FUNCTION_NAME FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in(${keyValue[1]})`;
+                      let functionNameQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                        `PRIMARYSPRINGFM`,
+                        functionNameQuery,
+                        input
+                      );
+                      getAttr = functionNameQueryData['FUNCTION_ID'] + `:-:` + functionNameQueryData['FUNCTION_NAME'];
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<Function Name>',
+                        function () {
+                          return `'` + functionNameQueryData['FUNCTION_NAME'] + `'`;
+                        }
+                      );
+                    }
+                    break;
+                  case 'UIElementName1':
+                    {
+                      const uiElementQuery = `SELECT UI_ELEMENT_ID,UI_ELEMENT_NAME FROM UI_ELEMENT WHERE UI_ELEMENT_UUID in(${keyValue[1]}) AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                      let uiElementQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                        `PRIMARYSPRINGFM`,
+                        uiElementQuery,
+                        input
+                      );
+                      getAttr = uiElementQueryData['UI_ELEMENT_ID'] + `:-:` + uiElementQueryData['UI_ELEMENT_NAME'];
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<UI Element Name 1>',
+                        function () {
+                          return `'` + uiElementQueryData['UI_ELEMENT_NAME'] + `'`;
+                        }
+                      );
+                    }
+                    break;
+                  case 'UIElementValue1':
+                    {
+                      getAttr = keyValue[1].replace(/[']+/g, '');
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<UI Element Value 1>',
+                        keyValue[1]
+                          ? function () {
+                              return keyValue[1];
+                            }
+                          : `' '`
+                      );
+                    }
+                    break;
+                  case 'UserActionName':
+                    {
+                      const uiElementQuery = `SELECT UI_ELEMENT_ID,UI_ELEMENT_NAME FROM UI_ELEMENT WHERE UI_ELEMENT_UUID in(${keyValue[1]}) AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                      let uiElementQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                        `PRIMARYSPRINGFM`,
+                        uiElementQuery,
+                        input
+                      );
+                      getAttr = uiElementQueryData['UI_ELEMENT_ID'] + `:-:` + uiElementQueryData['UI_ELEMENT_NAME'];
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<User Action Name>',
+                        function () {
+                          return `'` + uiElementQueryData['UI_ELEMENT_NAME'] + `'`;
+                        }
+                      );
+                    }
+                    break;
+                  case 'UserActionType':
+                    {
+                      const uiElementTypeQuery = `SELECT UI_ELEMENT_TYPE_ID, UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_UUID in(${keyValue[1]})`;
+                      let uiElementTypeQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                        `PRIMARYSPRINGFM`,
+                        uiElementTypeQuery,
+                        input
+                      );
+                      getAttr =
+                        uiElementTypeQueryData['UI_ELEMENT_TYPE_ID'] +
+                        `:-:` +
+                        uiElementTypeQueryData['UI_ELEMENT_TYPE_NAME'];
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<User Action Type>',
+                        function () {
+                          return `'` + uiElementTypeQueryData['UI_ELEMENT_TYPE_NAME'] + `'`;
+                        }
+                      );
+                    }
+                    break;
+                  case 'UIElementGroupName':
+                    {
+                      let uiElementGroupStepQuery = `SELECT UI_ELEMENT_GROUP_ID,UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP WHERE UI_ELEMENT_GROUP_UUID in(${keyValue[1]}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                      let uiElementGroupStepQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                        'PRIMARYSPRINGFM',
+                        uiElementGroupStepQuery,
+                        input
+                      );
+                      getAttr =
+                        uiElementGroupStepQueryData['UI_ELEMENT_GROUP_ID'] +
+                        `:-:` +
+                        uiElementGroupStepQueryData['UI_ELEMENT_GROUP_NAME'];
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<UI Element Group Name>',
+                        function () {
+                          return `'` + uiElementGroupStepQueryData['UI_ELEMENT_GROUP_NAME'] + `'`;
+                        }
+                      );
+                    }
+                    break;
+                  case 'PageNumber':
+                    {
+                      getAttr = keyValue[1].replace(/[']+/g, '');
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<Page Number>',
+                        keyValue[1]
+                          ? function () {
+                              return keyValue[1];
+                            }
+                          : `' '`
+                      );
+                    }
+                    break;
+                  case 'DataKey':
+                    {
+                      getAttr = keyValue[1].replace(/[']+/g, '');
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<Data Key>',
+                        keyValue[1]
+                          ? function () {
+                              return keyValue[1];
+                            }
+                          : `' '`
+                      );
+                    }
+                    break;
+                  case 'DataValue':
+                    {
+                      getAttr = keyValue[1].replace(/[']+/g, '');
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<Data Value>',
+                        keyValue[1]
+                          ? function () {
+                              return keyValue[1];
+                            }
+                          : `' '`
+                      );
+                    }
+                    break;
+                  case 'FileName':
+                    {
+                      getAttr = keyValue[1].replace(/[']+/g, '');
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<File Name>',
+                        keyValue[1]
+                          ? function () {
+                              return keyValue[1];
+                            }
+                          : `' '`
+                      );
+                    }
+                    break;
+                  case 'DocumentParserName':
+                    {
+                      getAttr = keyValue[1].replace(/[']+/g, '');
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<Document Parser Name>',
+                        keyValue[1]
+                          ? function () {
+                              return keyValue[1];
+                            }
+                          : `' '`
+                      );
+                    }
+                    break;
+                  case 'APIName':
+                    {
+                      const apiQuery = `SELECT API_ID,API_NAME FROM API_NEW WHERE API_UUID in(${keyValue[1]}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                      let apiQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                        `PRIMARYSPRINGFM`,
+                        apiQuery,
+                        input
+                      );
+                      getAttr = apiQueryData['API_ID'] + `:-:` + apiQueryData['API_NAME'];
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll('<API Name>', function () {
+                        return `'` + apiQueryData['API_NAME'] + `'`;
+                      });
+                    }
+                    break;
+                  case 'APIAttributeName':
+                    {
+                      const apiAttributeQuery = `SELECT API_ATTRIBUTE_ID, ATTRIBUTE_NAME FROM API_ATTRIBUTE WHERE API_ATTRIBUTE_UUID in(${keyValue[1]}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                      let apiAttributeQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                        `PRIMARYSPRINGFM`,
+                        apiAttributeQuery,
+                        input
+                      );
+                      getAttr =
+                        apiAttributeQueryData['API_ATTRIBUTE_ID'] + `:-:` + apiAttributeQueryData['ATTRIBUTE_NAME'];
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<API Attribute Name>',
+                        function () {
+                          return `'` + apiAttributeQueryData['ATTRIBUTE_NAME'] + `'`;
+                        }
+                      );
+                    }
+                    break;
+                  case 'APIAttributeValue':
+                    {
+                      getAttr = keyValue[1].replace(/[']+/g, '');
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<API Attribute Value>',
+                        keyValue[1]
+                          ? function () {
+                              return keyValue[1];
+                            }
+                          : `' '`
+                      );
+                    }
+                    break;
+                  case 'ResponseStatusCode':
+                    {
+                      getAttr = keyValue[1].replace(/[']+/g, '');
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<Response Status Code>',
+                        keyValue[1]
+                          ? function () {
+                              return keyValue[1];
+                            }
+                          : `' '`
+                      );
+                    }
+                    break;
+                  case 'PageName1':
+                    {
+                      const pageNewQuery = `SELECT PAGE_ID,PAGE_NAME FROM PAGE WHERE PAGE_UUID in(${keyValue[1]}) AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                      let pageNewQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+                        `PRIMARYSPRINGFM`,
+                        pageNewQuery,
+                        input
+                      );
+                      getAttr = pageNewQueryData['PAGE_ID'] + `:-:` + pageNewQueryData['PAGE_NAME'];
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<Page Name 1>',
+                        function () {
+                          return `'` + pageNewQueryData['PAGE_NAME'] + `'`;
+                        }
+                      );
+                    }
+                    break;
+                  case 'UIElementState':
+                    {
+                      getAttr = keyValue[1].replace(/[']+/g, '');
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<UI Element State>',
+                        keyValue[1]
+                          ? function () {
+                              return keyValue[1];
+                            }
+                          : `' '`
+                      );
+                    }
+                    break;
+                  case 'Timeout':
+                    {
+                      getAttr = keyValue[1].replace(/[']+/g, '');
+                      stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                        '<Timeout>',
+                        keyValue[1]
+                          ? function () {
+                              return keyValue[1];
+                            }
+                          : `' '`
+                      );
+                    }
+                    break;
+                }
+                inc++;
+                let valueColumnName = `v` + inc;
+                data[valueColumnName] = getAttr;
+              }
+            }
+          }
+          let getKeywordByStepType =
+            inputStepType === 'Pre Condition'
+              ? 'Given '
+              : inputStepType === 'User Input'
+              ? 'When '
+              : inputStepType === 'Expected Result'
+              ? 'Then '
+              : '';
+          data['Test Case Step Name'] = stepDefinitionVerbiageList.length
+            ? getKeywordByStepType + stepDefTemplateVerbiageName
+            : '';
+          delete data['ATTRIBUTE_KEYS'];
+          if (data['API_UUID']) {
+            apiList.push(data['API_UUID']);
+          }
+          delete data['API_UUID'];
+        }
+      }
+      if (testCaseStepNormalQueryData && testCaseStepNormalQueryData.length) {
+        testCaseStepNormalQueryData.sort((a, b) => {
+          if (a['Test Set ID'] !== b['Test Set ID']) {
+            return a['Test Set ID'] - b['Test Set ID'];
+          }
+          if (a['Test Case ID'] !== b['Test Case ID']) {
+            return a['Test Case ID'] - b['Test Case ID'];
+          }
+          let keyA = a['Test Case Step ID'].toString().split('-').map(Number);
+          let keyB = b['Test Case Step ID'].toString().split('-').map(Number);
+          for (let i = 0; i < Math.max(keyA.length, keyB.length); i++) {
+            if (keyA[i] !== keyB[i]) {
+              return (keyA[i] || 0) - (keyB[i] || 0);
+            }
+          }
+          return 0;
+        });
+      }
+      let originalList = generateExcelData(testCaseStepNormalQueryData);
+      let dupList = [];
+      let index = 0;
+      if (originalList.length) {
+        if (originalList[0].length) {
+          let firstvalue = originalList[0][1];
+          for (let i = 0; i < originalList.length; i++) {
+            if (firstvalue == originalList[i][1]) {
+              let mng = originalList[i];
+              index = index + 1;
+              originalList[i][3] = index;
+              dupList.push(mng);
+            } else {
+              firstvalue = originalList[i][1];
+              let mng = originalList[i];
+              index = 1;
+              originalList[i][3] = index;
+              dupList.push(mng);
+            }
+          }
+        }
+      }
+      testCaseStepTabList.push(...dupList);
+      let currentPageIds = '';
+      if (testCaseStepNormalQueryData && testCaseStepNormalQueryData.length) {
+        currentPageIds = testCaseStepNormalQueryData.map((item) => `'` + item['Page ID'] + `'`).join(',');
+      }
+      let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID' FROM PAGE WHERE PAGE_ID in(${
+        currentPageIds ? currentPageIds : `''`
+      }) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID order by PAGE_ID asc`;
+      let pageNewQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', pageNewQuery, input);
+      if (pageNewQueryData && pageNewQueryData.length) {
+        pageTabList.push(...pageNewQueryData);
+      }
+      let pageList = pageNewQueryData.map((item) => `'` + item['Page UUID'] + `'`).join(',');
+      let uiElementQuery = `SELECT PAGE_ID as 'Page ID', UI_ELEMENT_ID as 'UI ELement ID',UI_ELEMENT_NAME as 'UI Element Name',(SELECT UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_MASTER.UI_ELEMENT_TYPE_UUID=UI_ELEMENT.UI_ELEMENT_TYPE) as 'Element Type',LOCATOR_TYPE as 'Locator Type', LOCATOR_VALUE as 'Locator Value',if((isnull(IS_PAGE_IDENTIFIER) or IS_PAGE_IDENTIFIER =''),'No',IS_PAGE_IDENTIFIER) as 'Is Page Identifier','Active' as Status, 'No Action' as Actions, EVENT_NAME as 'Event Name',UI_ELEMENT_UUID as 'UI Element UUID' FROM UI_ELEMENT ,PAGE WHERE PAGE.PAGE_UUID = UI_ELEMENT.PAGE_NEW_UUID and UI_ELEMENT.PAGE_NEW_UUID in(${
+        pageList ? pageList : `''`
+      }) AND UI_ELEMENT.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID order by UI_ELEMENT_ID asc`;
+      let uiElementQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
+        'PRIMARYSPRINGFM',
+        uiElementQuery,
+        input
+      );
+      if (uiElementQueryData && uiElementQueryData.length) {
+        uiElementTabList.push(...uiElementQueryData);
+      }
+      let currentApiIds = '';
+      if (apiList && apiList.length) {
+        currentApiIds = apiList.map((item) => `'` + item + `'`).join(',');
+      }
+      let apiQuery = `SELECT distinct API_ID as 'API ID',API_NAME as 'API Name',API_URL as 'API URL',API_HEADER as 'API Header',API_AUTH as 'API Auth','Active' as 'status','No Action' as actions,API_UUID as 'API UUID' FROM API_NEW WHERE API_UUID in(${
+        currentApiIds ? currentApiIds : `''`
+      }) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID order by API_ID asc`;
+      let apiQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', apiQuery, input);
+      if (apiQueryData && apiQueryData.length) {
+        apiTabList.push(...apiQueryData);
+      }
+      let apiAttributeQuery = `SELECT API_ID as 'API ID',API_ATTRIBUTE_ID as 'API Attribute ID',ATTRIBUTE_NAME as 'Attribute Name',ATTRIBUTE_TYPE as 'Attribute Type',ATTRIBUTE_LOCATOR_TYPE as 'Attribute Locator Type',ATTRIBUTE_LOCATOR_VALUE as 'Attribute Locator Value','Active' as status, 'No Action' as actions,API_ATTRIBUTE_UUID as 'API Attribute UUID' FROM API_ATTRIBUTE ,API_NEW WHERE API_NEW.API_UUID = API_ATTRIBUTE.API_UUID and API_ATTRIBUTE.API_UUID in(${
+        currentApiIds ? currentApiIds : `''`
+      }) order by API_ATTRIBUTE_ID asc`;
+      let apiAttributeQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
+        'PRIMARYSPRINGFM',
+        apiAttributeQuery,
+        input
+      );
+      if (apiAttributeQueryData && apiAttributeQueryData.length) {
+        apiAttributeTabList.push(...apiAttributeQueryData);
+      }
+    }
+  }
+  let filteredPageData = Object.values(
+    pageTabList.reduce((acc, cur) => Object.assign(acc, { [cur['Page ID']]: cur }), {})
+  );
+  let filteredUIElementGroupData = Object.values(
+    uiElementTabList.reduce((acc, cur) => Object.assign(acc, { [cur['UI ELement ID']]: cur }), {})
+  );
+  if (filteredUIElementGroupData && filteredUIElementGroupData.length) {
+    filteredUIElementGroupData.sort((a, b) => {
+      let afield1 = a['Page ID'];
+      let bfield1 = b['Page ID'];
+      let afield2 = a['UI ELement ID'];
+      let bfield2 = b['UI ELement ID'];
+      return (afield1 && bfield1 && afield1 - bfield1) || (afield2 && bfield2 && afield2 - bfield2);
+    });
+  }
+  let filteredAPIData = Object.values(
+    apiTabList.reduce((acc, cur) => Object.assign(acc, { [cur['API ID']]: cur }), {})
+  );
+  let filteredAPIAttributeData = Object.values(
+    apiAttributeTabList.reduce((acc, cur) => Object.assign(acc, { [cur['API Attribute ID']]: cur }), {})
+  );
+  if (filteredAPIAttributeData && filteredAPIAttributeData.length) {
+    filteredAPIAttributeData.sort((a, b) => {
+      let afield1 = a['API ID'];
+      let bfield1 = b['API ID'];
+      let afield2 = a['API Attribute ID'];
+      let bfield2 = b['API Attribute ID'];
+      return (afield1 && bfield1 && afield1 - bfield1) || (afield2 && bfield2 && afield2 - bfield2);
+    });
+  }
+  objectData['Test Set'] = testSetTabList;
+  objectData['Test Case'] = testCaseTabList;
+  objectData['Test Case Step'] = testCaseStepTabList;
+  objectData['Page'] = generateExcelData(filteredPageData);
+  objectData['UI Element'] = generateExcelData(filteredUIElementGroupData);
+  objectData['API'] = generateExcelData(filteredAPIData);
+  objectData['API Attribute'] = generateExcelData(filteredAPIAttributeData);
+  Object.assign(msg.payload.documentData, objectData);
+  msg.payload.result.mode = 'insert';
+  msg.payload.result.message = 'Document Downloaded';
+  msg.payload.templateFile = 'Feature_Management_Test_Case_Template.xlsm';
+  node.send(msg);
+} catch (t) {
+  console.log('Errorr Occured', t.message);
+  return;
+}

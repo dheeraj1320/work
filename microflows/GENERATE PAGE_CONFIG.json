@@ -1,0 +1,284 @@
+[
+    {
+    "id":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "type":"tab",
+    "label":"Inbound Service Flow",
+    "disabled":false,
+    "info":""
+    },
+    {
+    "id":"80da4d06.d55a2",
+    "type":"inject",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Input",
+    "topic":"Input",
+    "payload":"{}",
+    "payloadType":"json",
+    "repeat":"",
+    "crontab":"",
+    "once":false,
+    "onceDelay":0.1,
+    "x":110,
+    "y":120,
+    "wires":[
+    [
+    "1085dd3d.647cc3"
+    ]
+    ]
+    },
+    {
+    "id":"1085dd3d.647cc3",
+    "type":"switch",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"",
+    "property":"payload",
+    "propertyType":"msg",
+    "rules":[
+    {
+    "t":"hask",
+    "v":"entityName",
+    "vt":"str"
+    },
+    {
+    "t":"else"
+    }
+    ],
+    "checkall":"true",
+    "repair":false,
+    "outputs":2,
+    "x":220,
+    "y":240,
+    "wires":[
+    [
+    "235cddsd.0d2423"
+    ],
+    [
+    "28147205.c984be"
+    ]
+    ]
+    },
+    {
+    "id":"235cddsd.0d2423",
+    "type":"generateRequestBody",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Create Request Body",
+    "outputs":1,
+    "x":480,
+    "y":420,
+    "wires":[
+    [
+    "28147205.c984be"
+    ]
+    ]
+    },
+    {
+    "id":"28147205.c984be",
+    "type":"toLogicalData",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Transform to Logical Data",
+    "outputs":1,
+    "x":270,
+    "y":60,
+    "wires":[
+    [
+    "dd6550d4.e2bce"
+    ]
+    ]
+    },
+    {
+    "id":"9f116870.1ef498",
+    "type":"finish",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Error Response",
+    "property":"payload",
+    "propertyType":"msg",
+    "outputs":1,
+    "x":970,
+    "y":60,
+    "wires":[
+    ]
+    },
+    {
+    "id":"dd6550d4.e2bce",
+    "type":"validateData",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Validate Data",
+    "outputs":1,
+    "x":510,
+    "y":60,
+    "wires":[
+    [
+    "15d3d01.01e563"
+    ]
+    ]
+    },
+    {
+    "id":"15d3d01.01e563",
+    "type":"processLogicalData",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Process Logical Data",
+    "outputs":1,
+    "x":320,
+    "y":140,
+    "wires":[
+    [
+    "15d3d01.workflow"
+    ]
+    ]
+    },
+    {
+    "id":"15d3d01.workflow",
+    "type":"processWorkflowAction",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Process Workflow Action",
+    "outputs":1,
+    "wires":[
+    [
+    "5d38e157.b4d7e"
+    ]
+    ]
+    },
+    {
+        "id": "5d38e157.b4d7e",
+        "type": "function",
+        "z": "6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+        "name": "create page config file",
+        "func": "AppengProcessConfig = global.get('AppengProcessConfig');const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;let input = msg.payload.apiRequestBody.baseEntity.records[0];let pageDataQuery = `SELECT * FROM PAGE WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY PAGE_ID desc`;let pageDataQueryRecord = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', pageDataQuery, input);let pageDatas = await pageDataQueryRecord;let pageViewDataQuery = `SELECT * FROM PAGE_VIEW WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY VIEW_ID asc`;let pageViewDataQueryRecord = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', pageViewDataQuery, input);let pageViewData = await pageViewDataQueryRecord;let viewNavigationStepQuery = `SELECT * FROM VIEW_NAVIGATION_STEP WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY VIEW_NAVIGATION_STEP_ID desc`;let viewNavigationStepQueryRecord = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', viewNavigationStepQuery, input);let viewNavigationStep = await viewNavigationStepQueryRecord;let viewUserActionQuery = `SELECT * FROM VIEW_USER_ACTION WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY USER_ACTION_ID asc`;let viewUserActionQueryRecord = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', viewUserActionQuery, input);let viewUserAction = await viewUserActionQueryRecord;let viewTreeDataQuery = `SELECT * FROM VIEW_TREE_DATA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY VIEW_TREE_DATA_ID desc`;let viewTreeDataQueryRecord = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', viewTreeDataQuery, input);let viewTreeData = await viewTreeDataQueryRecord;let html = ``;let jsonFormat = {'PageName': '','PagelId': '','Views': []};for (let pageData of pageDatas) {if (pageData.PAGE_UUID === input.PAGE_UUID) {jsonFormat['PageName'] = pageData.PAGE_NAME;jsonFormat['PagelId'] = pageData.PAGE_DIV_ID;for (let viewData of pageViewData) {if (pageData.PAGE_UUID == viewData.PAGE_UUID) {let viewJsonFormat = {'ViewName': '','NavigationSteps': [],'Actions': [],'Data': []};viewJsonFormat['ViewName'] = viewData.VIEW_NAME;viewNavigationStep.sort((a, b) => {return a.NAVIGATION_STEP_ORDER - b.NAVIGATION_STEP_ORDER;});for (let viewNavigationStepData of viewNavigationStep) {if (pageData.PAGE_UUID === viewNavigationStepData.PAGE_UUID && viewData.VIEW_UUID === viewNavigationStepData.VIEW_UUID) {let navigarionObject = {};for (let navigarionPage of pageDatas) {if (navigarionPage.PAGE_UUID === viewNavigationStepData.NAVIGATION_STEP_PAGE_UUID) {navigarionObject['PageName'] = navigarionPage.PAGE_NAME;for (let navigarionView of pageViewData) {if (navigarionPage.PAGE_UUID === navigarionView.PAGE_UUID && navigarionView.VIEW_UUID === viewNavigationStepData.NAVIGATION_STEP_VIEW_UUID) {navigarionObject['ViewName'] = navigarionView.VIEW_NAME;for (let navigarionUserAction of viewUserAction) {if (navigarionView.PAGE_UUID === navigarionUserAction.PAGE_UUID && navigarionView.VIEW_UUID === navigarionUserAction.VIEW_UUID && viewNavigationStepData.NAVIGATION_STEP_USER_ACTION_UUID === navigarionUserAction.USER_ACTION_UUID) {navigarionObject['ActionName'] = navigarionUserAction.USER_ACTION_NAME;}}}}}}navigarionObject['ActionType'] = viewNavigationStepData.NAVIGATION_STEP_ACTION_TYPE;viewJsonFormat.NavigationSteps.push(navigarionObject);}}for (let userAction of viewUserAction) {if (pageData.PAGE_UUID === userAction.PAGE_UUID && viewData.VIEW_UUID == userAction.VIEW_UUID) {let actionObject = {};actionObject['ComponentIDToWaitForBeforeAction'] = userAction.COMPONENT_DIV_ID_TO_WAIT_FOR_BEFORE_ACTION ? userAction.COMPONENT_DIV_ID_TO_WAIT_FOR_BEFORE_ACTION : '';actionObject['ComponentName'] = userAction.USER_ACTION_NAME;actionObject['ComponentID'] = userAction.COMPONENT_DIV_ID ? userAction.COMPONENT_DIV_ID : '';actionObject['ComponentType'] = userAction.COMPONENT_TYPE ? userAction.COMPONENT_TYPE : '';actionObject['ComponentIDToWaitForAfterAction'] = userAction.COMPONENT_DIV_ID_TO_WAIT_FOR_AFTER_ACTION ? userAction.COMPONENT_DIV_ID_TO_WAIT_FOR_AFTER_ACTION : '';viewJsonFormat.Actions.push(actionObject);}}for (let viewTree of viewTreeData) {if (viewData.VIEW_UUID === viewTree.VIEW_UUID) {let viewTreeArray = JSON.parse(viewTree.VIEW_TREE);if (viewTreeArray.length > 0) {for (let viewTreeData of viewTreeArray) {let componentObject = {};componentObject['ComponentName'] = viewTreeData.title;componentObject['ComponentId'] = viewTreeData.ComponentIdValue;componentObject['ComponentType'] = viewTreeData.ComponentTypeValue;if (viewTreeData.className === 'Form') {componentObject['Component'] = [];if (viewTreeData.children.length > 0) {for (let viewTreeChildData of viewTreeData.children) {let componentChildObject = {};componentChildObject['ComponentName'] = viewTreeChildData.title;componentChildObject['ComponentId'] = viewTreeChildData.ComponentIdValue;componentChildObject['ComponentType'] = viewTreeChildData.ComponentTypeValue;if (viewTreeChildData.className === 'FormSection') {componentChildObject['DataElement'] = [];if (viewTreeChildData.children.length > 0) {for (let viewTreeChildDataElementData of viewTreeChildData.children) {let dataElementObject = {};dataElementObject['DataElementName'] = viewTreeChildDataElementData.title;dataElementObject['DataElementId'] = viewTreeChildDataElementData.ComponentIdValue;dataElementObject['DataElementType'] = viewTreeChildDataElementData.ComponentTypeValue;componentChildObject.DataElement.push(dataElementObject);}}}componentObject.Component.push(componentChildObject);}}} else if (viewTreeData.className === 'DataGrid') {componentObject['DataElement'] = [];if (viewTreeData.children.length > 0) {for (let viewTreeChildData of viewTreeData.children) {let dataElementObject = {};dataElementObject['DataElementName'] = viewTreeChildData.title;dataElementObject['DataElementId'] = viewTreeChildData.ComponentIdValue;dataElementObject['DataElementType'] = viewTreeChildData.ComponentTypeValue;componentObject.DataElement.push(dataElementObject);}}}viewJsonFormat.Data.push(componentObject);}}}}jsonFormat.Views.push(viewJsonFormat);}}}}msg.payload.entityGroupData.logicalData.appData.data[0]['PAGE_CONFIG_DETAILS']=`<div>${JSON.stringify(jsonFormat)}</div>`;node.send(msg);",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 300,
+        "y": 120,
+        "wires": [
+          [
+            "d07304729.9a6d68"
+          ]
+        ]
+      },
+    {
+    "id":"d07304729.9a6d68",
+    "type":"toPhysicalData",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Transform To Physical Data",
+    "outputs":1,
+    "x":600,
+    "y":140,
+    "wires":[
+    [
+    "166e2a96.294bc5"
+    ]
+    ]
+    },
+    {
+    "id":"166e2a96.294bc5",
+    "type":"setMasterEntity",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Set Master Physical Entity",
+    "outputs":1,
+    "x":890,
+    "y":140,
+    "wires":[
+    [
+    "1ad49873.0d4c38"
+    ]
+    ]
+    },
+    {
+    "id":"1ad49873.0d4c38",
+    "type":"processPhysicalData",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Process Physical Data",
+    "outputs":1,
+    "x":240,
+    "y":220,
+    "wires":[
+    [
+    "e45d0331.61ce"
+    ]
+    ]
+    },
+    {
+    "id":"e45d0331.61ce",
+    "type":"processAuditData",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Process Audit",
+    "outputs":1,
+    "x":500,
+    "y":220,
+    "wires":[
+    [
+    "zxcbnh.61ce"
+    ]
+    ]
+    },
+    {
+    "id":"zxcbnh.61ce",
+    "type":"addTransactionDetails",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Process Transaction Detail Queue",
+    "outputs":1,
+    "x":500,
+    "y":220,
+    "wires":[
+    [
+    "07304729.9a6d65"
+    ]
+    ]
+    },
+    {
+        "id": "07304729.9a6d65",
+        "type": "function",
+        "z": "6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+        "name": "Share Data",
+        "func": "try{let input = msg.payload.apiRequestBody.baseEntity.records[0];msg.payload.result={pk:input.PAGE_CONFIG_UUID,mode:'Update',message:'Page Config Generated Successfully'};node.send(msg)}catch(e){console.log('Error Occured',e.message);return;};",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 300,
+        "y": 120,
+        "wires": [
+          [
+            "82b2328.c756dd"
+          ]
+        ]
+      },
+    {
+    "id":"82b2328.c756dd",
+    "type":"finish",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Success Response",
+    "property":"payload",
+    "propertyType":"msg",
+    "outputs":1,
+    "x":983,
+    "y":280,
+    "wires":[
+    ]
+    },
+    {
+    "id":"a169b948.7886b8",
+    "type":"catch",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Catch Exceptions",
+    "scope":null,
+    "uncaught":false,
+    "x":240,
+    "y":420,
+    "wires":[
+    [
+    "23475cdd.0dcf24"
+    ]
+    ]
+    },
+    {
+    "id":"23475cdd.0dcf24",
+    "type":"finish",
+    "z":"6f8177ad-bf80-4ab5-bea5-227c098a1bfb",
+    "name":"Catch Finish",
+    "property":"payload",
+    "propertyType":"msg",
+    "outputs":1,
+    "x":460,
+    "y":420,
+    "wires":[
+    ]
+    }
+    ]

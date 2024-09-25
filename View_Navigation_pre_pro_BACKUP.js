@@ -440,7 +440,3 @@ if (!input[0]['STEP_FILTER']) {
 } else {
     input[0]['STEP_DEFINITION_FILTER'] = '#do-not-match';
 }
-
-input[0]['PARENT_GRID'] = 'He is the parent grid'
-
-input[0]['IS_ADD_INVALID'] = 'This variable will show whether it is valid or not'

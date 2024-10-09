@@ -207,7 +207,7 @@ try {
     inputUserActionName = input['USER_ACTION_NAME'];
     inputUserActionType = input['USER_ACTION_TYPE'];
     inputStepType = input['VIEW_NAVIGATION_STEP_TYPE'];
-    inputPrimaryDBCodeOFParentUUID = input['VIEW_NAVIGATION_UUID'];
+    inputPrimaryDBCodeOFParentUUID = input['VIEW_UUID'];
     inputPrimaryDBCodeOFChildUUID = input['VIEW_NAVIGATION_STEP_UUID'];
     inputPrimaryDBCode = 'VIEW_NAVIGATION_STEP_UUID';
     inputPageNumber = input['PAGE_NUMBER'];
@@ -628,7 +628,7 @@ try {
       inputPrimaryDBCodeOFParentUUID + '_3dcd6c34-ea14-4192-a7cb-4586280b0a2e_27b3d04a-ae67-4140-ace8-1d532fe56245';
   } else if (input.type == 'View Navigation Step') {
     dataGridCard =
-      inputPrimaryDBCodeOFParentUUID + '_0ec166ef-25d9-488b-9548-3d8952315bab_480f4c57-48b4-11ef-bdb4-bf6e65503eee';
+      inputPrimaryDBCodeOFParentUUID + '_90d4210d-c3fe-4597-8f6d-94f25173c3d4_480f4c57-48b4-11ef-bdb4-bf6e65503eee';
   }
   msg.payload.result.modifyOtherCard[dataGridCard] = [
     {

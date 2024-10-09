@@ -34,19 +34,13 @@ function deleteRecord(primarykey, primarykeyvalue, tablename, functionalareauuid
 }
 
 if (input.compositeEntityAction == 'Delete'){
-    console.log("Insiide the delete ui element composite entity =======>>>>>>>>>>>>>>>> ", input)
-
 
     let query= `SELECT VIEW_UI_ELEMENT_UUID FROM VIEW_UI_ELEMENT WHERE UI_ELEMENT_UUID = :UI_ELEMENT_UUID`;
     let queryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", query, input);
-
-
-    console.log("query data =>>>>>>>>>>>>>>>>>>> ", queryData);
 	
     for(data of queryData){
         deleteRecord("VIEW_UI_ELEMENT_UUID", data["VIEW_UI_ELEMENT_UUID"], "VIEW_UI_ELEMENT", input.APP_LOGGED_IN_FUNTIONAL_AREA_ID)
     }
 
-    console.log("Delete ui element data =======>>>>>>>>>>>>>>>> ", VIEW_UI_ELEMENT)
-    input["AppEngChildEntity:VIEW_UI_ELEMENT"] = VIEW_UI_ELEMENT;
+    input["AppEngChildEntity:VIEW_UI_ELEMENT_CHILD_OF_VIEW_UI_ELEMENT"] = VIEW_UI_ELEMENT;
 }

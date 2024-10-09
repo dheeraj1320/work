@@ -1,226 +1,286 @@
-if (input.compositeEntityAction == "Update") {
-  
-    console.log('NodeBusinessRule Started');
-    let VIEW_NAVIGATION_STEP = [];
-    let VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE = [];
-
-    function deleteRecord(
-        primarykey,
-        primarykeyvalue,
-        tablename,
-        functionalareauuid
-    ) {
-        let deleteTableData = {};
-        deleteTableData[primarykey] = primarykeyvalue;
-        deleteTableData["compositeEntityAction"] = "Delete";
-        deleteTableData["FUNCTIONAL_AREA_UUID"] = functionalareauuid;
-
-        if (tablename == "VIEW_NAVIGATION_STEP") {
-            VIEW_NAVIGATION_STEP.push(deleteTableData);
-        } else if (tablename == "VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE") {
-            VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE.push(deleteTableData);
+try {
+  console.log('Update Modal Action Flow');
+  let input = msg.payload.apiRequestBody.baseEntity.records;
+  console.log('inputtttttt', input);
+  let AppengProcessConfig = global.get('AppengProcessConfig');
+  const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
+  let QuerytoFetchNavigationStep = `select VIEW_NAVIGATION_STEP_UUID from VIEW_NAVIGATION_STEP where VIEW_UUID in (select VIEW_UUID from PAGE_VIEW where PAGE_UUID='${input[0]['PAGE_UUID']}' AND IS_DEFAULT_VIEW = 'Yes') AND FUNCTIONAL_AREA_UUID = '${input[0]['APP_LOGGED_IN_FUNTIONAL_AREA_ID']}'`;
+  let QuerytoFetchNavigationStepData = await serviceOrchestrator.selectRecordsUsingQuery(
+    'PRIMARYSPRINGFM',
+    QuerytoFetchNavigationStep,
+    input[0]
+  );
+  let QuerytoFetchNavigationStepRecords = JSON.parse(JSON.stringify(QuerytoFetchNavigationStepData));
+  console.log('length', QuerytoFetchNavigationStepRecords.length);
+  if (input[0]['PAGE_ACCESS_RELATIVE_URL']) {
+    if ([
+        {
+            "id": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "type": "tab",
+            "label": "Inbound Service Flow",
+            "disabled": false,
+            "info": ""
+        },
+        {
+            "id": "80da4d06.d55a2",
+            "type": "inject",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Input",
+            "topic": "Input",
+            "payload": "{}",
+            "payloadType": "json",
+            "repeat": "",
+            "crontab": "",
+            "once": false,
+            "onceDelay": 0.1,
+            "x": 110,
+            "y": 120,
+            "wires": [
+                [
+                    "1085dd3d.647cc3"
+                ]
+            ]
+        },
+        {
+            "id": "1085dd3d.647cc3",
+            "type": "switch",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "",
+            "property": "payload",
+            "propertyType": "msg",
+            "rules": [
+                {
+                    "t": "hask",
+                    "v": "entityName",
+                    "vt": "str"
+                },
+                {
+                    "t": "else"
+                }
+            ],
+            "checkall": "true",
+            "repair": false,
+            "outputs": 2,
+            "x": 220,
+            "y": 240,
+            "wires": [
+                [
+                    "235cddsd.0d2423"
+                ],
+                [
+                    "28147205.c984be"
+                ]
+            ]
+        },
+    
+        {
+            "id": "235cddsd.0d2423",
+            "type": "generateRequestBody",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Create Request Body",
+            "outputs": 1,
+            "x": 480,
+            "y": 420,
+            "wires": [
+                [
+                    "28147205.c984be"
+                ]
+            ]
+        },
+        {
+            "id": "28147205.c984be",
+            "type": "toLogicalData",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Transform to Logical Data",
+            "outputs": 1,
+            "x": 270,
+            "y": 60,
+            "wires": [
+                [
+                    "dd6550d4.e2bce"
+                ]
+            ]
+        },
+        {
+            "id": "dd6550d4.e2bce",
+            "type": "validateData",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Validate Data",
+            "outputs": 1,
+            "x": 510,
+            "y": 60,
+            "wires": [
+                [
+                    "15d3d01.01e563"
+                ]
+            ]
+        },
+        {
+            "id": "15d3d01.01e563",
+            "type": "processLogicalData",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Process Logical Data",
+            "outputs": 1,
+            "x": 320,
+            "y": 140,
+            "wires": [
+                [
+                    "15d3d01.workflow"
+                ]
+            ]
+        },
+        {
+            "id": "15d3d01.workflow",
+            "type": "processWorkflowAction",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Process Workflow Action",
+            "outputs": 1,
+            "wires": [
+                [
+                    "5d38e157.b4l7e"
+                ]
+            ]
+        },
+        {
+            "id": "5d38e157.b4l7e",
+            "type": "toPhysicalData",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Transform To Physical Data",
+            "outputs": 1,
+            "x": 600,
+            "y": 140,
+            "wires": [
+                [
+                    "166e2a96.294bc5"
+                ]
+            ]
+        },
+        {
+            "id": "166e2a96.294bc5",
+            "type": "setMasterEntity",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Set Master Physical Entity",
+            "outputs": 1,
+            "x": 890,
+            "y": 140,
+            "wires": [
+                [
+                    "1ad49873.0d4c38"
+                ]
+            ]
+        },
+        {
+            "id": "1ad49873.0d4c38",
+            "type": "processPhysicalData",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Process Physical Data",
+            "outputs": 1,
+            "x": 240,
+            "y": 220,
+            "wires": [
+                [
+                    "e45d0331.61ce"
+                ]
+            ]
+        },
+        {
+            "id": "e45d0331.61ce",
+            "type": "processAuditData",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Process Audit",
+            "outputs": 1,
+            "x": 500,
+            "y": 220,
+            "wires": [
+                [
+                    "zxcbnh.61ce"
+                ]
+            ]
+        },
+        {
+            "id": "zxcbnh.61ce",
+            "type": "addTransactionDetails",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Process Transaction Detail Queue",
+            "outputs": 1,
+            "x": 500,
+            "y": 220,
+            "wires": [
+                [
+                    "d07304729.54621"
+                ]
+            ]
+        },
+        {
+            "id": "d07304729.54621",
+            "type": "function",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Set mode to Update",
+            "func": "let input = msg.payload.apiRequestBody.baseEntity.records[0]; msg.payload.result = { mode: 'Insert', message: 'Updated SuccessFully' }; try { let generatedKey = '0_d1ae50fc-b730-4c46-975f-f31bd56667fb'; msg.payload.result['modifyOtherCard'] = {}; msg.payload.result.modifyOtherCard[generatedKey] = [{ parameter: 'data', parameterKey: 'PAGE_UUID', type: 'PortalDataGrid', parameterKeyValue:input['PAGE_UUID'], changedData: { PAGE_NAME:input['PAGE_UUID'], PAGE_ACCESS_RELATIVE_URL:input['PAGE_ACCESS_RELATIVE_URL'] } }]; node.send(msg); } catch (error) { console.log('Errorr Occured ', error.message); } return;",
+            "outputs": 1,
+            "noerr": 0,
+            "x": 540,
+            "y": 120,
+            "wires": [
+                [
+                    "d07304729.54609"
+                ]
+            ]
+        },
+        {
+            "id": "d07304729.54609",
+            "type": "finish",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Success Response",
+            "property": "payload",
+            "propertyType": "msg",
+            "outputs": 1,
+            "x": 983,
+            "y": 280,
+            "wires": [
+            ]
+        },
+        {
+            "id": "a169b948.7886b8",
+            "type": "catch",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Catch Exceptions",
+            "scope": null,
+            "uncaught": false,
+            "x": 240,
+            "y": 420,
+            "wires": [
+                [
+                    "23475cdd.0dcf24"
+                ]
+            ]
+        },
+        {
+            "id": "23475cdd.0dcf24",
+            "type": "finish",
+            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
+            "name": "Catch Finish",
+            "property": "payload",
+            "propertyType": "msg",
+            "outputs": 1,
+            "x": 460,
+            "y": 420,
+            "wires": [
+            ]
         }
-    }
-
-    // Delete Records
-    input["Informational_label"] = "";
-    if (input["PAGE_ACCESS_RELATIVE_URL"]) {
-        //for VIEW_NAVIGATION_STEP
-        let QuerytoFetchNavigationStep = `select VIEW_NAVIGATION_STEP_UUID from VIEW_NAVIGATION_STEP where VIEW_UUID in (select VIEW_UUID from PAGE_VIEW where PAGE_UUID=:PAGE_UUID AND IS_DEFAULT_VIEW = 'Yes') AND FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
-        let QuerytoFetchNavigationStepData =
-            await serviceOrchestrator.selectRecordsUsingQuery(
-                "PRIMARYSPRINGFM",
-                QuerytoFetchNavigationStep,
-                input
-            );
-        let QuerytoFetchNavigationStepRecords = JSON.parse(
-            JSON.stringify(QuerytoFetchNavigationStepData),
-        );
-
-        //for VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE table
-        let QuerytoFetchNavigationStepAttribute = `select VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID from  VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE where VIEW_UUID in (select VIEW_UUID from PAGE_VIEW where PAGE_UUID=:PAGE_UUID AND IS_DEFAULT_VIEW = 'Yes') AND FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
-        let QuerytoFetchNavigationStepAttributeData =
-            await serviceOrchestrator.selectRecordsUsingQuery(
-                "PRIMARYSPRINGFM",
-                QuerytoFetchNavigationStepAttribute,
-                input
-            );
-        let QuerytoFetchNavigationStepAttributeDataRecords = JSON.parse(JSON.stringify(QuerytoFetchNavigationStepAttributeData));
-
-        if (QuerytoFetchNavigationStepRecords.length > 0) {
-            for (let key in QuerytoFetchNavigationStepRecords) {
-                deleteRecord("VIEW_NAVIGATION_STEP_UUID",QuerytoFetchNavigationStepRecords[key].VIEW_NAVIGATION_STEP_UUID,"VIEW_NAVIGATION_STEP",input["APP_LOGGED_IN_FUNTIONAL_AREA_ID"]);
-            }
-        }
-
-        if (QuerytoFetchNavigationStepAttributeDataRecords.length > 0) {
-            for (let key in QuerytoFetchNavigationStepAttributeDataRecords) {
-                deleteRecord(
-                    "VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID",
-                    QuerytoFetchNavigationStepAttributeDataRecords[key].VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID,
-                    "VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE",
-                    input["APP_LOGGED_IN_FUNTIONAL_AREA_ID"]
-                );
-            }
-        }
-
-        // Update IS_PURE_NAVIGATION_STEP for TEST_CASE_STEP
-        let QueryToFetchTestCaseStep = `select tcs.* from STEP_DEFINITION_TEMPLATE_VERBIAGE sdtv join TEST_CASE_STEP tcs on sdtv.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID where tcs.CURRENT_PAGE_CONTEXT=:PAGE_UUID and sdtv.IS_PURE_NAVIGATION_STEP='Yes' `;
-
-        let QueryToFetchTestCaseStepData =
-            await serviceOrchestrator.selectRecordsUsingQuery(
-                "PRIMARYSPRINGFM",
-                QueryToFetchTestCaseStep,
-                input
-            );
-        let QuerytoFetchTestCaseStepRecords = JSON.parse(JSON.stringify(QueryToFetchTestCaseStepData));
-
-        let TestCaseStep = [];
-        for (let key in QuerytoFetchTestCaseStepRecords) {
-            let data = {};
-
-            data["TEST_CASE_STEP_UUID"] =
-                QuerytoFetchTestCaseStepRecords[key].TEST_CASE_STEP_UUID;
-            data["IS_PURE_NAVIGATION_STEP"] = "No";
-
-            TestCaseStep.push(data);
-        }
-
-        // Update IS_PURE_NAVIGATION_STEP for TEST_CASE_FUNCTION_STEP
-        let QueryToFetchTestCaseFunctionStep = `
-            select tcfs.TEST_CASE_FUNCTION_STEP_UUID from STEP_DEFINITION_TEMPLATE_VERBIAGE sdtv join TEST_CASE_FUNCTION_STEP tcfs on sdtv.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID where tcfs.CURRENT_PAGE_CONTEXT=:PAGE_UUID and sdtv.IS_PURE_NAVIGATION_STEP='Yes' `;
-
-        let QueryToFetchTestCaseFunctionStepData =
-            await serviceOrchestrator.selectRecordsUsingQuery(
-                "PRIMARYSPRINGFM",
-                QueryToFetchTestCaseFunctionStep,
-                input
-            );
-        let QuerytoFetchTestCaseFunctionStepRecords = JSON.parse(JSON.stringify(QueryToFetchTestCaseFunctionStepData));
-
-        let TestCaseFunctionStep = [];
-
-        for (let key in QuerytoFetchTestCaseFunctionStepRecords) {
-            let data = {};
-            data["TEST_CASE_FUNCTION_STEP_UUID"] =
-                QuerytoFetchTestCaseFunctionStepRecords[
-                    key
-                ].TEST_CASE_FUNCTION_STEP_UUID;
-            data["IS_PURE_NAVIGATION_STEP"] = "No";
-
-            TestCaseFunctionStep.push(data);
-        }
-
-        // Update IS_PURE_NAVIGATION_STEP for FUNCTION_STEP
-        let QueryToFetchFunctionStep = `
-        select fs.FUNCTION_STEP_UUID from STEP_DEFINITION_TEMPLATE_VERBIAGE sdtv 
-        join FUNCTION_STEP fs on sdtv.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = fs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID where fs.CURRENT_PAGE_CONTEXT=:PAGE_UUID and sdtv.IS_PURE_NAVIGATION_STEP='Yes' `;
-
-        let QueryToFetchFunctionStepData =
-            await serviceOrchestrator.selectRecordsUsingQuery(
-                "PRIMARYSPRINGFM",
-                QueryToFetchFunctionStep,
-                input
-            );
-        let QuerytoFetchFunctionStepRecords = JSON.parse(JSON.stringify(QueryToFetchFunctionStepData));
-
-        let FunctionStep = [];
-
-        for (let key in QuerytoFetchFunctionStepRecords) {
-            let data = {};
-            data["FUNCTION_STEP_UUID"] =
-                QuerytoFetchFunctionStepRecords[key].FUNCTION_STEP_UUID;
-            data["IS_PURE_NAVIGATION_STEP"] = "No";
-
-            FunctionStep.push(data);
-        }
-
-        input["AppEngChildEntity:TEST_CASE_STEP_NEW"] = TestCaseStep;
-        input["AppEngChildEntity:TEST_CASE_FUNCTION_STEP"] = TestCaseFunctionStep;
-        input["AppEngChildEntity:FUNCTION_STEP"] = FunctionStep;
+    ].length > 0) {
+      console.log('Action Flow Called');
+      msg.payload['isOpenModal'] = true;
     } else {
-        // Update IS_PURE_NAVIGATION_STEP for TEST_CASE_STEP
-        let QueryToFetchTestCaseStep = `select tcs.TEST_CASE_STEP_UUID from STEP_DEFINITION_TEMPLATE_VERBIAGE sdtv join TEST_CASE_STEP tcs on sdtv.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID where tcs.CURRENT_PAGE_CONTEXT=:PAGE_UUID and sdtv.IS_PURE_NAVIGATION_STEP='Yes' `;
-
-        let QueryToFetchTestCaseStepData =
-            await serviceOrchestrator.selectRecordsUsingQuery(
-                "PRIMARYSPRINGFM",
-                QueryToFetchTestCaseStep,
-                input
-            );
-        let QuerytoFetchTestCaseStepRecords = JSON.parse(
-            JSON.stringify(QueryToFetchTestCaseStepData),
-        );
-
-        let TestCaseStep = [];
-
-        for (let key in QuerytoFetchTestCaseStepRecords) {
-            let data = {};
-            data["TEST_CASE_STEP_UUID"] =
-                QuerytoFetchTestCaseStepRecords[key].TEST_CASE_STEP_UUID;
-            data["IS_PURE_NAVIGATION_STEP"] = "Yes";
-
-            TestCaseStep.push(data);
-        }
-
-        // Update IS_PURE_NAVIGATION_STEP for TEST_CASE_FUNCTION_STEP
-        let QueryToFetchTestCaseFunctionStep = `
-            select tcfs.TEST_CASE_FUNCTION_STEP_UUID from STEP_DEFINITION_TEMPLATE_VERBIAGE sdtv join TEST_CASE_FUNCTION_STEP tcfs on sdtv.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID where tcfs.CURRENT_PAGE_CONTEXT=:PAGE_UUID and sdtv.IS_PURE_NAVIGATION_STEP='Yes' `;
-
-        let QueryToFetchTestCaseFunctionStepData =
-            await serviceOrchestrator.selectRecordsUsingQuery(
-                "PRIMARYSPRINGFM",
-                QueryToFetchTestCaseFunctionStep,
-                input
-            );
-        let QuerytoFetchTestCaseFunctionStepRecords = JSON.parse(
-            JSON.stringify(QueryToFetchTestCaseFunctionStepData),
-        );
-
-        let TestCaseFunctionStep = [];
-
-        for (let key in QuerytoFetchTestCaseFunctionStepRecords) {
-            let data = {};
-            data["TEST_CASE_FUNCTION_STEP_UUID"] =
-                QuerytoFetchTestCaseFunctionStepRecords[
-                    key
-                ].TEST_CASE_FUNCTION_STEP_UUID;
-            data["IS_PURE_NAVIGATION_STEP"] = "Yes";
-
-            TestCaseFunctionStep.push(data);
-        }
-
-        // Update IS_PURE_NAVIGATION_STEP for FUNCTION_STEP
-        let QueryToFetchFunctionStep = `
-        select fs.FUNCTION_STEP_UUID from STEP_DEFINITION_TEMPLATE_VERBIAGE sdtv 
-        join FUNCTION_STEP fs on sdtv.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = fs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID where fs.CURRENT_PAGE_CONTEXT=:PAGE_UUID and sdtv.IS_PURE_NAVIGATION_STEP='Yes' `;
-
-        let QueryToFetchFunctionStepData =
-            await serviceOrchestrator.selectRecordsUsingQuery(
-                "PRIMARYSPRINGFM",
-                QueryToFetchFunctionStep,
-                input
-            );
-        let QuerytoFetchFunctionStepRecords = JSON.parse(
-            JSON.stringify(QueryToFetchFunctionStepData),
-        );
-
-        let FunctionStep = [];
-
-        for (let key in QuerytoFetchFunctionStepRecords) {
-            let data = {};
-            data["FUNCTION_STEP_UUID"] =
-                QuerytoFetchFunctionStepRecords[key].FUNCTION_STEP_UUID;
-            data["IS_PURE_NAVIGATION_STEP"] = "Yes";
-
-            FunctionStep.push(data);
-        }
-
-        input["AppEngChildEntity:TEST_CASE_STEP_NEW"] = TestCaseStep;
-        input["AppEngChildEntity:TEST_CASE_FUNCTION_STEP"] = TestCaseFunctionStep;
-        input["AppEngChildEntity:FUNCTION_STEP"] = FunctionStep;
+      msg.payload['isOpenModal'] = false;
     }
-
-    input["AppEngChildEntity:VIEW_NAVIGATION_STEP"] = VIEW_NAVIGATION_STEP;
-    input["AppEngChildEntity:VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE"] = VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE;
+  } else {
+    msg.payload.result = { formData: input };
+    msg.payload['isOpenModal'] = false;
+  }
+  console.log('msg:::::::::::::::::::', msg.payload['isOpenModal']);
+  node.send(msg);
+} catch (error) {
+  console.log('Errorr Occured ', error.message);
 }
+return;

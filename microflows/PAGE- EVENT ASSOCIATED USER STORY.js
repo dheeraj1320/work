@@ -1,0 +1,18 @@
+console.log('PAGE- EVENT ASSOCIATED USER STORY', input);
+if(input['ASSOCIATION_TYPE'] == 'USER_ACTION'){
+    if(input['IS_SOLO_REQUIREMENT'] == 'Yes' && (!input['CONDITION_SATISFACTION_UUID'] || input['CONDITION_SATISFACTION_UUID'] == "null")){
+      input['ASSOCIATION_TYPE'] = 'USER_ACTION_REQUIREMENT';
+      input['CONDITION_SATISFACTION_UUID'] = '';
+    }
+    else if(input['IS_SOLO_REQUIREMENT'] == 'No' && input['CONDITION_SATISFACTION_UUID']){
+      input['ASSOCIATION_TYPE'] = 'USER_ACTION_CONDITION_SATISFACTION';
+    }
+}if(input['ASSOCIATION_TYPE'] == 'REQUIREMENT_TITLE'){
+    if(input['IS_SOLO_REQUIREMENT'] == 'Yes' && (!input['CONDITION_SATISFACTION_UUID'] || input['CONDITION_SATISFACTION_UUID'] == "null")){
+      input['ASSOCIATION_TYPE'] = 'REQUIREMENT';
+      input['CONDITION_SATISFACTION_UUID'] = '';
+    }
+    else if(input['CONDITION_SATISFACTION_UUID']){
+      input['ASSOCIATION_TYPE'] = 'CONDITION_SATISFACTION';
+    }
+}

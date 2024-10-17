@@ -95,56 +95,7 @@
         "y": 120,
         "wires": [
             [
-                "5d38e157.b4d7e"
-            ]
-        ]
-    },
-    {
-        "id": "5d38e157.b4d7e",
-        "type": "function",
-        "z": "25442347-345e-424f-ac34-9be973892856",
-        "name": "Ckeck to Open Warning Modal",
-        "func": "try { console.log('Update Modal Action Flow'); let input = msg.payload.apiRequestBody.baseEntity.records; console.log('inputtttttt', input); let AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; let QuerytoFetchNavigationStep = `select VIEW_NAVIGATION_STEP_UUID from VIEW_NAVIGATION_STEP where VIEW_UUID in (select VIEW_UUID from PAGE_VIEW where PAGE_UUID='${input[0]['PAGE_UUID']}' AND IS_DEFAULT_VIEW = 'Yes') AND FUNCTIONAL_AREA_UUID = '${input[0]['APP_LOGGED_IN_FUNTIONAL_AREA_ID']}'`; let QuerytoFetchNavigationStepData = await serviceOrchestrator.selectRecordsUsingQuery( 'PRIMARYSPRINGFM', QuerytoFetchNavigationStep, input[0] ); let QuerytoFetchNavigationStepRecords = JSON.parse(JSON.stringify(QuerytoFetchNavigationStepData)); console.log('length', QuerytoFetchNavigationStepRecords.length); if (input[0]['PAGE_ACCESS_RELATIVE_URL']) { if (QuerytoFetchNavigationStepRecords.length > 0) { console.log('Action Flow Called'); msg.payload['isOpenModal'] = true; } else { msg.payload['isOpenModal'] = false; } } else { msg.payload.result = { formData: input }; msg.payload['isOpenModal'] = false; } console.log('msg:::::::::::::::::::', msg.payload['isOpenModal']); node.send(msg); } catch (error) { console.log('Errorr Occured ', error.message); } return;",
-        "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 170,
-        "y": 200,
-        "wires": [
-            [
-                "5d38e157.b4r7e"
-            ]
-        ]
-    },
-    {
-        "id": "5d38e157.b4r7e",
-        "type": "switch",
-        "z": "25442347-345e-424f-ac34-9be973892856",
-        "name": "isOpenModal",
-        "property": "payload.isOpenModal",
-        "propertyType": "msg",
-        "rules": [
-            {
-                "t": true
-            },
-            {
-                "t": false
-            }
-        ],
-        "checkall": true,
-        "repair": false,
-        "outputs": 2,
-        "x": 390,
-        "y": 200,
-        "wires": [
-            [
                 "82b2328.c756dd"
-            ],
-            [
-                "15d3d01.01e563"
             ]
         ]
     },
@@ -209,7 +160,7 @@
         "type": "function",
         "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Opening Warning Message Conditionally",
-        "func": "let atr = msg.payload.apiRequestBody; let routeStateParams = {}; let input = msg.payload.apiRequestBody.baseEntity.records; let warningPortal = '0_6330d9fb-6540-4b47-88d7-c627082204fe'; let warningPortalCard = '0_cea910ec-eaaf-4962-a0e7-bff8b6b62546'; routeStateParams.portalId = '0_6330d9fb-6540-4b47-88d7-c627082204fe'; atr.cleanData = warningPortal; atr.routeStateParams = routeStateParams; msg.payload.result = { mode: 'Enable Message', message: 'Please Wait..', attributes: atr, navigation: { operationType: 'OpenModal', portalId: '0_6330d9fb-6540-4b47-88d7-c627082204fe' } }; msg.payload.result.modifyOtherCard = {}; msg.payload.result.modifyOtherCard[warningPortal] = [{ parameter: 'referenceData', parentId: '0_6330d9fb-6540-4b47-88d7-c627082204fe', portalId: '0_6330d9fb-6540-4b47-88d7-c627082204fe', parameterKey: 'data', type: 'SubPortal', eventType: 'uploadGridData', data: input[0] }, ]; return msg;",
+        "func": "let atr = msg.payload.apiRequestBody; let routeStateParams = {}; let input = msg.payload.apiRequestBody.baseEntity.records; let warningPortal = '0_12154003-6316-4e21-b003-c743352a6c97'; let warningPortalCard = '0_dfddc5e0-75fb-4e48-9cb6-767abf183b7d'; routeStateParams.portalId = '0_12154003-6316-4e21-b003-c743352a6c97'; atr.cleanData = warningPortal; atr.routeStateParams = routeStateParams; msg.payload.result = { mode: 'Enable Message', message: 'Please Wait..', attributes: atr, navigation: { operationType: 'OpenModal', portalId: '0_12154003-6316-4e21-b003-c743352a6c97' }, }; msg.payload.result.modifyOtherCard = {}; msg.payload.result.modifyOtherCard[warningPortal] = [ { parameter: 'referenceData', parentId: '0_12154003-6316-4e21-b003-c743352a6c97', portalId: '0_12154003-6316-4e21-b003-c743352a6c97', parameterKey: 'data', type: 'SubPortal', eventType: 'uploadGridData', data: input[0], }, ]; return msg;",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,

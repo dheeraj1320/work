@@ -1,0 +1,256 @@
+[
+    {
+        "id": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "type": "tab",
+        "label": "Inbound Service Flow",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "80da4d06.d55a2",
+        "type": "inject",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Input",
+        "topic": "Input",
+        "payload": "{}",
+        "payloadType": "json",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 110,
+        "y": 120,
+        "wires": [
+            [
+                "1085dd3d.647cc3"
+            ]
+        ]
+    },
+    {
+        "id": "1085dd3d.647cc3",
+        "type": "switch",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "",
+        "property": "payload",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "hask",
+                "v": "entityName",
+                "vt": "str"
+            },
+            {
+                "t": "else"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 220,
+        "y": 240,
+        "wires": [
+            [
+                "235cddsd.0d2423"
+            ],
+            [
+                "28147205.c984be"
+            ]
+        ]
+    },
+
+    {
+        "id": "235cddsd.0d2423",
+        "type": "generateRequestBody",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Create Request Body",
+        "outputs": 1,
+        "x": 480,
+        "y": 420,
+        "wires": [
+            [
+                "28147205.c984be"
+            ]
+        ]
+    },
+    {
+        "id": "28147205.c984be",
+        "type": "toLogicalData",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Transform to Logical Data",
+        "outputs": 1,
+        "x": 270,
+        "y": 60,
+        "wires": [
+            [
+                "dd6550d4.e2bce"
+            ]
+        ]
+    },
+    {
+        "id": "dd6550d4.e2bce",
+        "type": "validateData",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Validate Data",
+        "outputs": 1,
+        "x": 510,
+        "y": 60,
+        "wires": [
+            [
+                "15d3d01.01e563"
+            ]
+        ]
+    },
+    {
+        "id": "15d3d01.01e563",
+        "type": "processLogicalData",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Process Logical Data",
+        "outputs": 1,
+        "x": 320,
+        "y": 140,
+        "wires": [
+            [
+                "15d3d01.workflow"
+            ]
+        ]
+    },
+    {
+        "id": "15d3d01.workflow",
+        "type": "processWorkflowAction",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Process Workflow Action",
+        "outputs": 1,
+        "wires": [
+            [
+                "5d38e157.b4l7e"
+            ]
+        ]
+    },
+    {
+        "id": "5d38e157.b4l7e",
+        "type": "toPhysicalData",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Transform To Physical Data",
+        "outputs": 1,
+        "x": 600,
+        "y": 140,
+        "wires": [
+            [
+                "166e2a96.294bc5"
+            ]
+        ]
+    },
+    {
+        "id": "166e2a96.294bc5",
+        "type": "setMasterEntity",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Set Master Physical Entity",
+        "outputs": 1,
+        "x": 890,
+        "y": 140,
+        "wires": [
+            [
+                "1ad49873.0d4c38"
+            ]
+        ]
+    },
+    {
+        "id": "1ad49873.0d4c38",
+        "type": "processPhysicalData",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Process Physical Data",
+        "outputs": 1,
+        "x": 240,
+        "y": 220,
+        "wires": [
+            [
+                "e45d0331.61ce"
+            ]
+        ]
+    },
+    {
+        "id": "e45d0331.61ce",
+        "type": "processAuditData",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Process Audit",
+        "outputs": 1,
+        "x": 500,
+        "y": 220,
+        "wires": [
+            [
+                "zxcbnh.61ce"
+            ]
+        ]
+    },
+    {
+        "id": "zxcbnh.61ce",
+        "type": "addTransactionDetails",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Process Transaction Detail Queue",
+        "outputs": 1,
+        "x": 500,
+        "y": 220,
+        "wires": [
+            [
+                "d07304729.54621"
+            ]
+        ]
+    },
+    {
+        "id": "d07304729.54621",
+        "type": "function",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Set mode to Update",
+        "func": "try { let input = msg.payload.apiRequestBody.baseEntity.records; msg.payload.result['mode'] = 'Enable Message'; msg.payload.result['message'] = 'Deleted Successfully'; msg.payload.result['pk'] = ''; msg.payload.result['modifyOtherCard'] = {}; let warningPortal = '0_12154003-6316-4e21-b003-c743352a6c97'; let atr = msg.payload.apiRequestBody; atr.cleanData = warningPortal; let dataGridCard = input[0].REQUIREMENT_UUID + '_4e3fe144-65bf-40da-a42d-e13c4c5408bd_b434885c-1bf2-47f2-b99c-b6fac0dcd7f7'; msg.payload.result.modifyOtherCard[dataGridCard] = [ { parameter: 'data', parameterKey: 'REQUIREMENT_UUID', type: 'PortalDataGrid', parameterKeyValue: input[0].REQUIREMENT_UUID, type: 'RefreshGrid', }, ]; node.send(msg); } catch (error) { console.log('Errorr Occured in Delete message for impacted process', error.message); } return;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 540,
+        "y": 120,
+        "wires": [
+            [
+                "d07304729.54609"
+            ]
+        ]
+    },
+    {
+        "id": "d07304729.54609",
+        "type": "finish",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Success Response",
+        "property": "payload",
+        "propertyType": "msg",
+        "outputs": 1,
+        "x": 983,
+        "y": 280,
+        "wires": [
+        ]
+    },
+    {
+        "id": "a169b948.7886b8",
+        "type": "catch",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Catch Exceptions",
+        "scope": null,
+        "uncaught": false,
+        "x": 240,
+        "y": 420,
+        "wires": [
+            [
+                "23475cdd.0dcf24"
+            ]
+        ]
+    },
+    {
+        "id": "23475cdd.0dcf24",
+        "type": "finish",
+        "z": "dd8dd3ff-515a-4125-a914-9a4774a78755",
+        "name": "Catch Finish",
+        "property": "payload",
+        "propertyType": "msg",
+        "outputs": 1,
+        "x": 460,
+        "y": 420,
+        "wires": [
+        ]
+    }
+]

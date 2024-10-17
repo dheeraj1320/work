@@ -1,6 +1,6 @@
 [
     {
-        "id": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "id": "25442347-345e-424f-ac34-9be973892856",
         "type": "tab",
         "label": "Inbound Service Flow",
         "disabled": false,
@@ -9,7 +9,7 @@
     {
         "id": "80da4d06.d55a2",
         "type": "inject",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Input",
         "repeat": "",
         "crontab": "",
@@ -29,7 +29,7 @@
     {
         "id": "1085dd3d.647cc3",
         "type": "switch",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "",
         "property": "payload",
         "propertyType": "msg",
@@ -60,7 +60,7 @@
     {
         "id": "235cddsd.0d2423",
         "type": "generateRequestBody",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Create Request Body",
         "outputs": 1,
         "x": 450,
@@ -74,7 +74,7 @@
     {
         "id": "28147205.c984be",
         "type": "toLogicalData",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Transform to Logical Data",
         "outputs": 1,
         "x": 740,
@@ -88,7 +88,7 @@
     {
         "id": "dd6550d4.e2bce",
         "type": "validateData",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Validate Data",
         "outputs": 1,
         "x": 1000,
@@ -102,9 +102,9 @@
     {
         "id": "5d38e157.b4d7e",
         "type": "function",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Ckeck to Open Warning Modal",
-        "func": "try { console.log('Update Modal Action Flow'); let input = msg.payload.apiRequestBody.baseEntity.records; console.log('inputtttttt', input); let AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; let QuerytoFetchNavigationStep = `select VIEW_NAVIGATION_STEP_UUID from VIEW_NAVIGATION_STEP where VIEW_UUID in (select VIEW_UUID from PAGE_VIEW where PAGE_UUID='${input[0]['PAGE_UUID']}' AND IS_DEFAULT_VIEW = 'Yes') AND FUNCTIONAL_AREA_UUID = '${input[0]['APP_LOGGED_IN_FUNTIONAL_AREA_ID']}'`; let QuerytoFetchNavigationStepData = await serviceOrchestrator.selectRecordsUsingQuery( 'PRIMARYSPRINGFM', QuerytoFetchNavigationStep, input[0] ); let QuerytoFetchNavigationStepRecords = JSON.parse(JSON.stringify(QuerytoFetchNavigationStepData)); console.log('length', QuerytoFetchNavigationStepRecords.length); if (input[0]['PAGE_ACCESS_RELATIVE_URL']) { if (QuerytoFetchNavigationStepRecords.length > 0) { console.log('Action Flow Called'); msg.payload['isOpenModal'] = true; } else { msg.payload['isOpenModal'] = false; } } else { msg.payload.result = { formData: input }; msg.payload['isOpenModal'] = false; } console.log('msg:::::::::::::::::::', msg.payload['isOpenModal']); node.send(msg); } catch (error) { console.log('Errorr Occured ', error.message); } return;",
+        "func": "let input = msg.payload.apiRequestBody.baseEntity.records; console.log('inputtttttt', input); let AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; msg.payload['isOpenModal'] = true; node.send(msg); return;",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
@@ -122,7 +122,7 @@
     {
         "id": "5d38e157.b4r7e",
         "type": "switch",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "isOpenModal",
         "property": "payload.isOpenModal",
         "propertyType": "msg",
@@ -151,7 +151,7 @@
     {
         "id": "166e2a96.294bc5",
         "type": "setMasterEntity",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Set Master Physical Entity",
         "outputs": 1,
         "x": 650,
@@ -165,7 +165,7 @@
     {
         "id": "1ad49873.0d4c38",
         "type": "processPhysicalData",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Process Physical Data",
         "outputs": 1,
         "x": 910,
@@ -179,7 +179,7 @@
     {
         "id": "e45d0331.61ce",
         "type": "processAuditData",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Process Audit",
         "outputs": 1,
         "x": 480,
@@ -193,7 +193,7 @@
     {
         "id": "zxcbnh.61ce",
         "type": "addTransactionDetails",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Process Transaction Detail Queue",
         "outputs": 1,
         "x": 750,
@@ -207,9 +207,9 @@
     {
         "id": "82b2328.c756dd",
         "type": "function",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Opening Warning Message Conditionally",
-        "func": "let atr = msg.payload.apiRequestBody; let routeStateParams = {}; let input = msg.payload.apiRequestBody.baseEntity.records; let warningPortal = '0_6330d9fb-6540-4b47-88d7-c627082204fe'; let warningPortalCard = '0_cea910ec-eaaf-4962-a0e7-bff8b6b62546'; routeStateParams.portalId = '0_6330d9fb-6540-4b47-88d7-c627082204fe'; atr.cleanData = warningPortal; atr.routeStateParams = routeStateParams; msg.payload.result = { mode: 'Enable Message', message: 'Please Wait..', attributes: atr, navigation: { operationType: 'OpenModal', portalId: '0_6330d9fb-6540-4b47-88d7-c627082204fe' } }; msg.payload.result.modifyOtherCard = {}; msg.payload.result.modifyOtherCard[warningPortal] = [{ parameter: 'referenceData', parentId: '0_6330d9fb-6540-4b47-88d7-c627082204fe', portalId: '0_6330d9fb-6540-4b47-88d7-c627082204fe', parameterKey: 'data', type: 'SubPortal', eventType: 'uploadGridData', data: input[0] }, ]; return msg;",
+        "func": "let atr = msg.payload.apiRequestBody; let routeStateParams = {}; let input = msg.payload.apiRequestBody.baseEntity.records; let warningPortal = '0_12154003-6316-4e21-b003-c743352a6c97'; let warningPortalCard = '0_dfddc5e0-75fb-4e48-9cb6-767abf183b7d'; routeStateParams.portalId = '0_12154003-6316-4e21-b003-c743352a6c97'; atr.cleanData = warningPortal; atr.routeStateParams = routeStateParams; msg.payload.result = { mode: 'Enable Message', message: 'Please Wait..', attributes: atr, navigation: { operationType: 'OpenModal', portalId: '0_12154003-6316-4e21-b003-c743352a6c97' }, }; msg.payload.result.modifyOtherCard = {}; msg.payload.result.modifyOtherCard[warningPortal] = [ { parameter: 'referenceData', parentId: '0_12154003-6316-4e21-b003-c743352a6c97', portalId: '0_12154003-6316-4e21-b003-c743352a6c97', parameterKey: 'data', type: 'SubPortal', eventType: 'uploadGridData', data: input[0], }, ]; return msg;",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
@@ -227,7 +227,7 @@
     {
         "id": "a169b948.7886b8",
         "type": "catch",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Catch Exceptions",
         "scope": null,
         "uncaught": false,
@@ -242,7 +242,7 @@
     {
         "id": "23475cdd.0dcf24",
         "type": "finish",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Catch Finish",
         "property": "payload",
         "propertyType": "msg",
@@ -256,7 +256,7 @@
     {
         "id": "15d3d01.01e563",
         "type": "processLogicalData",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Process Logical Data",
         "outputs": 1,
         "x": 160,
@@ -270,7 +270,7 @@
     {
         "id": "5d38e157.b4l7e",
         "type": "toPhysicalData",
-        "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
+        "z": "25442347-345e-424f-ac34-9be973892856",
         "name": "Transform To Physical Data",
         "outputs": 1,
         "x": 410,

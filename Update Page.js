@@ -1,3 +1,33 @@
+console.log("Page node business rule ========================== >>>>>>>>>>>> ", input)
+
+const UI_ELEMENT = [];
+const VIEW_UI_ELEMENT = [];
+const VIEW_NAVIGATION_STEP = [];
+const VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE = [];
+
+function deleteRecord(primarykey, primarykeyvalue, tablename, functionalareauuid) {
+  
+    let deleteTableData = {};
+
+    deleteTableData[primarykey] = primarykeyvalue;
+    deleteTableData["compositeEntityAction"] = "Delete";
+    deleteTableData["FUNCTIONAL_AREA_UUID"] = functionalareauuid;
+    
+    if (tablename == 'UI_ELEMENT') {
+        UI_ELEMENT.push(deleteTableData);
+    }
+    else if(tablename == 'VIEW_UI_ELEMENT'){
+        VIEW_UI_ELEMENT.push(deleteTableData)
+    }
+    else if(tablename == 'VIEW_NAVIGATION_STEP'){
+        VIEW_NAVIGATION_STEP.push(deleteTableData)
+    }
+    else if(tablename == 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE'){
+        VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE.push(deleteTableData)
+    }
+}
+
+
 if (input.compositeEntityAction == "Update") {
     input["Informational_label"] = "";
     let testCaseStepList = [];
@@ -53,4 +83,52 @@ if (input.compositeEntityAction == "Update") {
     input["AppEngChildEntity:TEST_CASE_STEP_NEW"] = testCaseStepList;
     input["AppEngChildEntity:TEST_CASE_FUNCTION_STEP"] = testCaseFunctionStepList;
     input["AppEngChildEntity:FUNCTION_STEP"] = functionStepList;
+} 
+
+else if (input.compositeEntityAction == 'Delete') {
+    // UI Element
+    let uiElementsQuery = `SELECT UI_ELEMENT_UUID FROM UI_ELEMENT WHERE PAGE_NEW_UUID = :PAGE_UUID;`;
+    let uiElementsQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", uiElementsQuery, input);
+
+    for(data of uiElementsQueryData){
+        deleteRecord('UI_ELEMENT_UUID', data['UI_ELEMENT_UUID'], 'UI_ELEMENT', input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+    }
+
+    // for View UI Element
+    let viewUiElementsQuery = `SELECT VIEW_UI_ELEMENT_UUID FROM VIEW_UI_ELEMENT WHERE PAGE_UUID = :PAGE_UUID`;
+    let viewUiElementsQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", viewUiElementsQuery, input);
+
+    for(data of viewUiElementsQueryData){
+        deleteRecord('VIEW_UI_ELEMENT_UUID', data['VIEW_UI_ELEMENT_UUID'], 'VIEW_UI_ELEMENT', input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+    }
+    
+
+    // for View Navigation Step
+    let viewNavigationStepQuery = `SELECT VIEW_NAVIGATION_STEP_UUID FROM VIEW_NAVIGATION_STEP WHERE VIEW_UUID IN (SELECT VIEW_UUID FROM PAGE_VIEW WHERE PAGE_UUID = :PAGE_UUID);`;
+    let viewNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", viewNavigationStepQuery, input);
+
+    for(data of viewNavigationStepQueryData){
+        deleteRecord('VIEW_NAVIGATION_STEP_UUID', data['VIEW_NAVIGATION_STEP_UUID'], 'VIEW_NAVIGATION_STEP', input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+    }
+
+    // for View Navigation Step Attribute Value
+    let viewNavigationStepAttributeValueQuery = `SELECT VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID FROM VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE WHERE VIEW_UUID IN (SELECT VIEW_UUID FROM PAGE_VIEW WHERE PAGE_UUID = :PAGE_UUID);`;
+    let viewNavigationStepAttributeValueQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", viewNavigationStepAttributeValueQuery, input);
+
+    for(data of viewNavigationStepAttributeValueQueryData){
+        deleteRecord('VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID', data['VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID'], 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE', input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+    }
 }
+
+
+
+console.log("UI_ELEMENT =============== >", UI_ELEMENT);
+console.log("VIEW_UI_ELEMENT =============== >", VIEW_UI_ELEMENT);
+console.log("VIEW_NAVIGATION_STEP =============== >", VIEW_NAVIGATION_STEP);
+console.log("VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE =============== >", VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE);
+
+
+input["AppEngChildEntity:UI_ELEMENT"] = UI_ELEMENT;
+input["AppEngChildEntity:VIEW_UI_ELEMENT_CHILD_OF_VIEW_UI_ELEMENT"] = VIEW_UI_ELEMENT;
+input["AppEngChildEntity:VIEW_NAVIGATION_STEP"] = VIEW_NAVIGATION_STEP;
+input["AppEngChildEntity:VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE"] = VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE;

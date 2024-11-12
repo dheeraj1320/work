@@ -1,0 +1,97 @@
+[
+    {
+        "id": "fff39580-ad63-469f-843a-35436874ee0f",
+        "type": "tab",
+        "label": "Preprocessor Execution",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "80da4d06.d55a2",
+        "type": "inject",
+        "z": "fff39580-ad63-469f-843a-35436874ee0f",
+        "name": "Input",
+        "topic": "Input",
+        "payload": "{}",
+        "payloadType": "json",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 90,
+        "y": 120,
+        "wires": [
+            [
+                "07304729.12345"
+            ]
+        ]
+    }, {
+        "id": "07304729.12345",
+        "type": "function",
+        "z": "fff39580-ad63-469f-843a-35436874ee0f",
+        "name": "Prepare Data For Attachment",
+        "func": "try { msg.payload.result = {}; let input = msg.payload.apiRequestBody.baseEntity.records[0]; msg.payload.result.documentName = input.TEMPLATE_NAME; console.log('input ============ ', input); AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; let formFieldQuery = `SELECT prop.ITEMID, prop2.PROPERTYVALUE as ORDER_NO, prop.PROPERTYVALUE as TYPE, prop3.PROPERTYVALUE AS LABEL, prop4.PROPERTYVALUE AS DATASOURCE_ID, prop5.PROPERTYVALUE AS SELECT_ITEMS_REFERENCE_ID, prop6.PROPERTYVALUE as MULTI_VALUE_LIST FROM CONFIGITEM item JOIN CONFIGITEMRELATION rel1 ON item.ITEMID = rel1.PARENTITEMID JOIN CONFIGITEMRELATION rel2 ON rel1.CHILDITEMID = rel2.PARENTITEMID JOIN CONFIGITEMPROPERTY prop ON rel2.CHILDITEMID = prop.ITEMID JOIN CONFIGITEMPROPERTY prop2 ON prop2.ITEMID = prop.ITEMID JOIN CONFIGITEMPROPERTY prop3 ON prop3.ITEMID = prop.ITEMID JOIN CONFIGITEMPROPERTY prop4 ON prop4.ITEMID = prop.ITEMID JOIN CONFIGITEMPROPERTY prop5 ON prop5.ITEMID = prop.ITEMID JOIN CONFIGITEMPROPERTY prop6 ON prop6.ITEMID = prop.ITEMID WHERE item.ITEMID = '${input.FORM_ID}' AND rel1.RELATIONTYPE = 'Form_FormSection' AND rel2.RELATIONTYPE = 'FormSection_FormField' AND prop2.PROPERTYNAME = 'ORDER' AND prop3.PROPERTYNAME = 'LABEL' AND prop4.PROPERTYNAME = 'DATASOURCE_ID' AND prop5.PROPERTYNAME = 'SELECT_ITEMS_REFERENCE_ID' AND prop6.PROPERTYNAME = 'MULTI_VALUE_LIST' and (prop.PROPERTYNAME = 'TYPE' and prop.PROPERTYVALUE in ('CkEditor', 'SelectOption', 'TextBox', 'CheckBox', 'RadioButton'))`; let formFields = await serviceOrchestrator.selectRecordsUsingQuery('INFOAPPS_MD', formFieldQuery, input); formFields.sort((obj1, obj2) => Number(obj1.ORDER_NO) - Number(obj2.ORDER_NO)); console.log(formFields); const headerData = []; for (const data of formFields) { console.log('Processing for form field====>', data); const currHeaderObj = {}; currHeaderObj.NAME = data.LABEL; if (data.TYPE === 'SelectOption' || data.TYPE === 'RadioButton') { currHeaderObj.TYPE = 'LIST'; const MASTER_DATA_LABELS = [], MASTER_DATA_VALUES = []; if (data.MULTI_VALUE_LIST && data.MULTI_VALUE_LIST.length > 0) { const keyValuePairs = data.MULTI_VALUE_LIST.split(','); for (const keyValue of keyValuePairs) { const keyValueArr = keyValue.split(':'); MASTER_DATA_LABELS.push(keyValueArr[1]); MASTER_DATA_VALUES.push(keyValueArr[0]); } } else if (data.SELECT_ITEMS_REFERENCE_ID && data.SELECT_ITEMS_REFERENCE_ID.length > 0 && data.DATASOURCE_ID) { const lookupKeyQuery = `SELECT PROPERTYVALUE FROM CONFIGITEMPROPERTY WHERE ITEMID = '${data.DATASOURCE_ID}' AND PROPERTYNAME = 'LOOKUP_KEY';`; let lookupKeyData = await serviceOrchestrator.selectRecordsUsingQuery('INFOAPPS_MD', lookupKeyQuery, input); console.log( 'Form field select reference id :::::::::::::', data.SELECT_ITEMS_REFERENCE_ID, lookupKeyData[0]['PROPERTYVALUE'] ); try { const selectOptionData = await serviceOrchestrator.selectRecordsUsingQuery( lookupKeyData[0]['PROPERTYVALUE'], data.SELECT_ITEMS_REFERENCE_ID, input ); for (const selectData of selectOptionData) { MASTER_DATA_LABELS.push(selectData.label); MASTER_DATA_VALUES.push(selectData.id); } console.log('select option data ::::::::::::::::::::::::::::', selectOptionData); } catch (e) { console.log('error occured in firing select ref query :::::::', e); } } currHeaderObj.MASTER_DATA_LABELS = MASTER_DATA_LABELS; currHeaderObj.MASTER_DATA_VALUES = MASTER_DATA_VALUES; } else { currHeaderObj.TYPE = 'TEXT'; } headerData.push(currHeaderObj); } console.log('header data -------------------==========+++++', headerData); msg.payload.result.headerData = {}; const headerDataObj = {}; headerDataObj[input.TEMPLATE_NAME] = headerData; Object.assign(msg.payload.result.headerData, headerDataObj); msg.payload.result.message = 'Template Downloaded'; msg.payload.result.mode = 'Enable Message'; node.send(msg); } catch (t) { console.log('Errorr Occured', t.message); msg.payload.result.message = 'Template Generation Failed'; msg.payload.result.mode = 'Enable Message'; node.send(msg); return; }",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 300,
+        "y": 120,
+        "wires": [
+            [
+                "07304729.12348"
+            ]
+        ]
+    }, {
+        "id": "07304729.12348",
+        "type": "readExcelFileDataNode",
+        "z": "fff39580-ad63-469f-843a-35436874ee0f",
+        "name": "Read Excel from S3",
+        "outputs": 1,
+        "x": 500,
+        "y": 220,
+        "wires": [
+            [
+                "07308229.12345"
+            ]
+        ]
+    },
+    {
+        "id": "07308229.12345",
+        "type": "function",
+        "z": "fff39580-ad63-469f-843a-35436874ee0f",
+        "name": "Prepare Data For Attachment",
+        "func": "try {msg.payload.result.navigation = {}; msg.payload.result.navigation.operationType = 'GenerateExcelDocument'; node.send(msg) } catch (t) { console.log('Errorr Occured', t.message); return; };",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 300,
+        "y": 120,
+        "wires": [
+            [
+                "d0bc38b2.f067c"
+            ]
+        ]
+    }, {
+        "id": "a169b948.7886b",
+        "type": "catch",
+        "z": "fff39580-ad63-469f-843a-35436874ee0f",
+        "name": "Catch Exceptions",
+        "scope": null,
+        "uncaught": false,
+        "x": 520,
+        "y": 220,
+        "wires": [
+            [
+                "d0bc38b2.f067c"
+            ]
+        ]
+    },
+    {
+        "id": "d0bc38b2.f067c",
+        "type": "finish",
+        "z": "fff39580-ad63-469f-843a-35436874ee0f",
+        "name": "finish",
+        "targetType": "msg",
+        "x": 760,
+        "y": 120,
+        "wires": []
+    }
+]

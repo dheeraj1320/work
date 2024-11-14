@@ -23,6 +23,7 @@ function generateExcelData(inputData) {
   return mainArray;
 }
 let input = msg.payload.apiRequestBody;
+console.log('inside document excel download microflow:::::::::::::::::', input);
 function ConcatinateURL(data) {
   data.forEach((item) => {
     if (item['Page Direct Access URL']) {
@@ -2471,6 +2472,7 @@ if (
   input.VIEW_NAME &&
   input.GRID_NAME == 'View Navigation Step By View Navigation'
 ) {
+  console.log('Inside View Navigation Step By View Navigation processing ::::::::::::::::: ');
   msg.payload.result = {};
   AppengProcessConfig = global.get('AppengProcessConfig');
   const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
@@ -2486,12 +2488,14 @@ if (
   objectData['Application'] = generateExcelData(functionalAreaQueryData);
   let testSetQuery = `SELECT PAGE_ID as 'Test Set ID',PAGE_NAME as 'Test Set Name','Active' as Status, 'No Action' as Actions,PAGE_UUID as 'Test Set UUID',FUNCTIONAL_AREA_ID as 'App ID' FROM PAGE,FUNCTIONAL_AREA WHERE PAGE_UUID=:PAGE_UUID AND PAGE.FUNCTIONAL_AREA_UUID=FUNCTIONAL_AREA.FUNCTIONAL_AREA_UUID`;
   let testSetQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSetQuery, input);
+  console.log('testSetQueryData ==', testSetQueryData);
   msg.payload.result.documentName = testSetQueryData[0]['Test Set Name']
     ? testSetQueryData[0]['Test Set Name'].replaceAll(' ', '_')
     : 'GeneratedFunction';
   objectData['Test Set'] = generateExcelData(testSetQueryData);
   let functionQuery = `SELECT PAGE_ID as 'Test Set ID',PAGE_ID as 'Test Case ID','1' as 'Test Case Seq ID',PAGE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions,PAGE_UUID as 'Test Case UUID' FROM PAGE,FUNCTIONAL_AREA WHERE PAGE_UUID=:PAGE_UUID AND PAGE.FUNCTIONAL_AREA_UUID = FUNCTIONAL_AREA.FUNCTIONAL_AREA_UUID`;
   let functionQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
+  console.log('functionQueryData === ', functionQueryData);
   objectData['Test Case'] = generateExcelData(functionQueryData);
   let functionStepNormalQuery = `SELECT PAGE_ID as 'Test Set ID', VIEW_ID as 'Test Case ID', VIEW_NAVIGATION_STEP_ID as 'Test Case Step ID', VIEW_NAVIGATION_STEP_SEQ_ID as 'Test Case Step Seq ID', VIEW_NAVIGATION_STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, '' as 'Test Case Sep Group Name', '' as reserved2, ( if( ! isnull(vns.NEXT_PAGE_CONTEXT), ( SELECT PAGE_ID FROM PAGE WHERE PAGE.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ), ( SELECT PAGE_ID FROM PAGE WHERE PAGE.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) ) ) as 'Page ID', 'Active' as Status, VIEW_NAVIGATION_STEP_UUID as 'Test Case Step UUID', VIEW_NAVIGATION_STEP_ATTRIBUTE_KEYS as 'ATTRIBUTE_KEYS' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW vn, PAGE p WHERE vn.VIEW_UUID = vns.VIEW_UUID AND vn.PAGE_UUID = p.PAGE_UUID AND vns.FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID AND vn.PAGE_UUID=:PAGE_UUID AND vn.VIEW_UUID = :VIEW_UUID ORDER BY VIEW_NAVIGATION_STEP_ID, VIEW_NAVIGATION_STEP_SEQ_ID asc`;
   let functionStepNormalQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
@@ -2499,6 +2503,7 @@ if (
     functionStepNormalQuery,
     input
   );
+  console.log('functionStepNormalQueryData ==== ', functionStepNormalQueryData);
   if (functionStepNormalQueryData && functionStepNormalQueryData.length) {
     for (let data of functionStepNormalQueryData) {
       let inc = 0;
@@ -3202,6 +3207,7 @@ if (
     }
   }
   let originalList = generateExcelData(functionStepNormalQueryData);
+  console.log('objectData =========== ------------ > ', objectData);
   let dupList = [];
   let index = 0;
   if (originalList.length) {
@@ -3251,7 +3257,9 @@ if (
     });
   }
   objectData['UI Element'] = generateExcelData(uiElementQueryData);
+  
   Object.assign(msg.payload.documentData, objectData);
+  console.log('Final object data for navigation excel document:::::::: ', objectData);
   msg.payload.result.message = 'Document Downloaded';
   msg.payload.templateFile = 'Feature_Management_Test_Case_Template.xlsm';
   node.send(msg);

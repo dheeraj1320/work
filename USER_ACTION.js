@@ -37,7 +37,7 @@ if (input.compositeEntityAction == 'Insert' || input.ActionName == 'Insert') {
 
   const testSetName = `${processNameData[0].PROCESS_NAME} - ${pageNameData[0].PAGE_NAME} - ${UiElenemtNameData[0].UI_ELEMENT_NAME}`;
 
-  const testSetQuery = `SELECT TEST_SET_UUID FROM TEST_SET WHERE TEST_SET_NAME = '${testSetName}'`;
+  const testSetQuery = `SELECT TEST_SET_UUID FROM TEST_SET WHERE TEST_SET_NAME = '${testSetName}' AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let testSetQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSetQuery, input);
 
   const testSetObj = {};

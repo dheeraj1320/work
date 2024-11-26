@@ -36,7 +36,7 @@ if (
   input.TEST_SET_UUID &&
   input.TEST_SET_NAME &&
   input.FUNCTIONAL_AREA_UUID &&
-  input.GRID_NAME == 'Test Set'
+  (input.GRID_NAME == 'Test Set' || input.GRID_NAME == 'Unit Functional Testing')
 ) {
   msg.payload.result = {};
   msg.payload.result.documentName = msg.payload.apiRequestBody.TEST_SET_NAME
@@ -3257,7 +3257,6 @@ if (
     });
   }
   objectData['UI Element'] = generateExcelData(uiElementQueryData);
-  
   Object.assign(msg.payload.documentData, objectData);
   console.log('Final object data for navigation excel document:::::::: ', objectData);
   msg.payload.result.message = 'Document Downloaded';

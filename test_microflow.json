@@ -1,0 +1,100 @@
+[
+    {
+      "id": "4a178770-8cd6-4a34-9b56-583387def006",
+      "type": "tab",
+      "label": "Flow 2",
+      "disabled": false,
+      "info": "",
+      "env": []
+    },
+    {
+      "id": "07304729.12345",
+      "type": "inject",
+      "z": "4a178770-8cd6-4a34-9b56-583387def006",
+      "name": "Input",
+      "topic": "Input",
+      "payload": "{}",
+      "payloadType": "json",
+      "repeat": "",
+      "crontab": "",
+      "once": false,
+      "onceDelay": 0.1,
+      "x": 90,
+      "y": 120,
+      "wires": [
+        [
+          "07304729123.12345"
+        ]
+      ]
+    },
+    {
+      "id": "07304729123.12345",
+      "type": "function",
+      "z": "4a178770-8cd6-4a34-9b56-583387def006",
+      "name": "Fetch Iternation",
+      "func": "try{node.send(msg)}catch(t){console.log('Errorr Occured',t.message);return;};",
+      "outputs": 1,
+      "noerr": 0,
+      "x": 300,
+      "y": 120,
+      "wires": [
+        [
+          "d40edc96b3b3dc61"
+        ]
+      ]
+    },
+    {
+      "id": "d40edc96b3b3dc61",
+      "type": "appeng-api-connector",
+      "z": "4a178770-8cd6-4a34-9b56-583387def006",
+      "name": "",
+      "x": 340,
+      "y": 60,
+      "wires": [
+        [
+          "07304729456.12345"
+        ]
+      ]
+    },
+    {
+      "id": "07304729456.12345",
+      "type": "function",
+      "z": "4a178770-8cd6-4a34-9b56-583387def006",
+      "name": "",
+      "func": "try { AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; let queryData = [];  let input = Object.assign(msg.payload.apiRequestBody, msg.payload.referenceData); console.log(input,':::>>>');  if (input && input.GRID_NAME == 'Linked test Case Req Level') { const selectQuery = `SELECT tc.TEST_CASE_UUID, TEST_CASE_ID,TEST_CASE_NAME, TEST_SET_UUID,TEST_CASE_STATUS,TEST_CASE_EXECUTON_TYPE FROM TEST_CASE tc,TEST_CASE_REQUIREMENT tcr WHERE tc.TEST_CASE_UUID=tcr.TEST_CASE_UUID and tcr.REQUIREMENT_UUID=:REQUIREMENT_UUID group by TEST_CASE_ID order by TEST_CASE_ID desc ;`; queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input); } else if (input && input.GRID_NAME == 'Linked test Case COS Level') { const selectQuery = `SELECT tc.TEST_CASE_UUID, TEST_CASE_ID,TEST_CASE_NAME, TEST_SET_UUID,TEST_CASE_STATUS,TEST_CASE_EXECUTON_TYPE FROM TEST_CASE tc,TEST_CASE_REQUIREMENT tcr WHERE tc.TEST_CASE_UUID=tcr.TEST_CASE_UUID and tcr.CONDITION_SATISFACTION_UUID=:CONDITION_SATISFACTION_UUID group by TEST_CASE_ID order by TEST_CASE_ID desc;`; queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input); } msg.payload.result = { gridData: queryData }; console.log(msg.payload.result,'::::'); node.send(msg); } catch (error) { console.log('Errorr Occured Process and Send Data to ui', error.message); } return;",
+      "outputs": 1,
+      "noerr": 0,
+      "x": 300,
+      "y": 120,
+      "wires": [
+        [
+          "a169b948.7886b"
+        ]
+      ]
+    },
+    {
+      "id": "a169b948.7886b",
+      "type": "catch",
+      "z": "4a178770-8cd6-4a34-9b56-583387def006",
+      "name": "Catch Exceptions",
+      "scope": null,
+      "uncaught": false,
+      "x": 520,
+        "y": 220,
+      "wires": [
+        [
+          "d0bc38b2.f067c"
+        ]
+      ]
+    },
+    {
+      "id": "d0bc38b2.f067c",
+      "type": "finish",
+      "z": "4a178770-8cd6-4a34-9b56-583387def006",
+      "name": "finish",
+      "targetType": "msg",
+      "x": 760,
+      "y": 120,
+      "wires": []
+    }
+  ]

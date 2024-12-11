@@ -348,7 +348,7 @@ if (input.compositeEntityAction == 'Create Entity') {
                 isLongTextDataExist = true;
                 create_tablelist_columns["dbCode"] = get_dbcode_name;
                 create_tablelist_columns["type"] = data_ElementId[i].DATA_TYPE;
-                create_tablelist_columns["length"] = data_ElementId[i].LENGTH;
+                create_tablelist_columns["length"] = data_ElementId[i].PRE_DEFINED_DATA === 'Yes' ? 50 : data_ElementId[i].LENGTH;
                 create_tablelist_columns["isunique"] = data_ElementId[i].IS_UNIQUE_KEY;
                 create_tablelist_columns["isRequired"] = data_ElementId[i].IS_VALUE_ALWAYS_REQUIRED;
                 createjsonTableElementList.push(create_tablelist_columns);
@@ -356,7 +356,7 @@ if (input.compositeEntityAction == 'Create Entity') {
             } else {
                 create_tablelist_columns["dbCode"] = get_dbcode_name;
                 create_tablelist_columns["type"] = data_ElementId[i].DATA_TYPE;
-                create_tablelist_columns["length"] = data_ElementId[i].LENGTH;
+                create_tablelist_columns["length"] = data_ElementId[i].PRE_DEFINED_DATA === 'Yes' ? 50 : data_ElementId[i].LENGTH;
                 create_tablelist_columns["isunique"] = data_ElementId[i].IS_UNIQUE_KEY;
                 create_tablelist_columns["isRequired"] = data_ElementId[i].IS_VALUE_ALWAYS_REQUIRED;
                 create_tablelist_columns["data_col_key"] = data_ElementId[i].DATA_KEY;
@@ -441,8 +441,8 @@ if (input.compositeEntityAction == 'Create Entity') {
         for (let columnDetails of create_table_list) {
             let columnObject = {};
             columnObject["dbCode"] = columnDetails.dbCode;
-            columnObject["type"] = columnDetails.data_col_key ? columnDetails.type : "VARCHAR";
-            columnObject["length"] = columnDetails.data_col_key ? columnDetails.length : 1024;
+            columnObject["type"] = columnDetails.type ? columnDetails.type : "VARCHAR";
+            columnObject["length"] = columnDetails.length ? columnDetails.length : 1024;
             columnObject["isunique"] = columnDetails.isunique;
             columnObject["isRequired"] = columnDetails.isRequired;
             columnObject["data_col_key"] = columnDetails.data_col_key;

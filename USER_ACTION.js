@@ -1,8 +1,9 @@
 console.log('USER_ACTION composite entity running :::::+++=================== >>>>>>>>>>>>>>>>>>> ');
 
 const TEST_SET = [];
+const USER_ACTION_OUTCOME = [];
 
-if (input.compositeEntityAction == 'Insert' || input.ActionName == 'Insert') {
+if ((input.compositeEntityAction == 'Insert' || input.ActionName == 'Insert') && input.className !== 'OUTCOME') {
   let UiElenemtNameQuery =
     'Select UI_ELEMENT_NAME From UI_ELEMENT Where UI_ELEMENT_UUID=:UI_ELEMENT_UUID AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID';
   let UiElenemtNameQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
@@ -44,6 +45,7 @@ if (input.compositeEntityAction == 'Insert' || input.ActionName == 'Insert') {
   if (testSetQueryData && testSetQueryData.length > 0) {
     testSetObj.TEST_SET_UUID = testSetQueryData[0].TEST_SET_UUID;
   }
+  // Setting tags uuid to unit functional test case
   testSetObj.TAGS_UUID = '1b763b10-f81c-11ee-8c09-9376aaa8e4da';
   testSetObj.USER_ACTION_UUID = input.USER_ACTION_UUID;
   testSetObj.VIEW_UUID = input.VIEW_UUID;
@@ -53,9 +55,23 @@ if (input.compositeEntityAction == 'Insert' || input.ActionName == 'Insert') {
   testSetObj.TEST_SET_NAME = testSetName;
 
   TEST_SET.push(testSetObj);
+
+} else if(input.className === 'OUTCOME'){
+
+  const userActionQuery = `SELECT * FROM VIEW_USER_ACTION WHERE USER_ACTION_UUID = '${input.USER_ACTION_UUID}'`;
+  const userActionData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', userActionQuery, input);
+
+  const outcomeObj = {};
+  outcomeObj.PROCESS_UUID = userActionData[0].PROCESS_UUID;
+  outcomeObj.PAGE_UUID = userActionData[0].PAGE_UUID;
+  outcomeObj.USER_ACTION_UUID = userActionData[0].USER_ACTION_UUID;
+  outcomeObj.FUNCTIONAL_AREA_UUID = userActionData[0].FUNCTIONAL_AREA_UUID;
+  outcomeObj.OUTCOME_NAME = 'Outcome';
+
+  USER_ACTION_OUTCOME.push(outcomeObj);
 }
 
 console.log('input :::::::::::::::::::::', input);
-console.log('TEST_SET_NEW :::::::::::::::::::::', TEST_SET);
 
 input['AppEngChildEntity:TEST_SET_NEW'] = TEST_SET;
+input['AppEngChildEntity:USER_ACTION_OUTCOME'] = USER_ACTION_OUTCOME;

@@ -220,6 +220,15 @@ if (input.compositeEntityAction === 'Update') {
         }
         await updateTreeData(fetchDataSetUiComponentQueryData)
     }
+
+    if(input.ITEM_CLASS === 'DATAGRID_COLUMN' && input && input.nodeDetails && input.nodeDetails.dataGridColumnId) {
+        let visibilityQuery = `SELECT PROPERTYID, PROPERTYNAME, PROPERTYVALUE, ITEMID, ISDELETED FROM CONFIGITEMPROPERTY where ITEMID= '${input.nodeDetails.dataGridColumnId}' and PROPERTYNAME = 'IS_VISIBLE'`;
+        let visibilityQueryData = await serviceOrchestrator.selectRecordsUsingQuery("INFOAPPS_MD", visibilityQuery, input);
+        if (visibilityQueryData && visibilityQueryData.length) {
+            // Modifying the visibility
+            updateConfigItemProperty(visibilityQueryData, { "IS_VISIBLE": input.nodeDetails.isDataGridColumnVisible ? '1' : '0' });
+        }
+    }
 }
 
 input["AppEngChildEntity:CONFIGITEMPROPERTY"] = configpropertyList;

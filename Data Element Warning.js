@@ -4,8 +4,7 @@ try {
   console.log('inputtttttt', input);
   let AppengProcessConfig = global.get('AppengProcessConfig');
   const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
-  console.log('value in payload  == == == ', msg.payload);
-
+  console.log('value in payload == == == ', msg.payload);
   let queryToFetchCount = `select COUNT(*) AS COUNT from UI_ELEMENT where DATA_ELEMENT_UUID = '${input.DATA_ELEMENT_UUID}' AND FUNCTIONAL_AREA_UUID = '${input.APP_LOGGED_IN_FUNTIONAL_AREA_ID}'`;
   let queryToFetchCountData = await serviceOrchestrator.selectRecordsUsingQuery(
     'PRIMARYSPRINGFM',
@@ -13,13 +12,12 @@ try {
     input
   );
   console.log('query result === ', queryToFetchCountData);
-  if (queryToFetchCountData[0].COUNT > 0) {
+  if (queryToFetchCountData[0].COUNT > 0 || msg.payload.apiRequestBody.action === 'Delete') {
     console.log('SETTED THE OPEN MODAL TO TRUE');
     msg.payload['isOpenModal'] = true;
   } else {
     msg.payload['isOpenModal'] = false;
   }
-
   console.log('msg:::::::::::::::::::', msg.payload['isOpenModal']);
   node.send(msg);
 } catch (error) {
@@ -60,4 +58,5 @@ msg.payload.result.modifyOtherCard[portalToOpen] = [
     data: input[0],
   },
 ];
+console.log('opening portal ::: ', portalToOpen);
 return msg;

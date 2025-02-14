@@ -1,21 +1,6 @@
 try {
   console.log('Data set Action Flow');
-  let input = msg.payload.apiRequestBody.baseEntity.records[0];
-  console.log('inputtttttt', input);
-  let AppengProcessConfig = global.get('AppengProcessConfig');
-  const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
-  console.log('value in payload == == == ', msg.payload);
-  let queryToFetchCount = `select COUNT(*) AS COUNT from UI_ELEMENT where DATA_SET_UUID = '${input.DATA_SET_UUID}' AND FUNCTIONAL_AREA_UUID = '${input.APP_LOGGED_IN_FUNTIONAL_AREA_ID}'`;
-  let queryToFetchCountData = await serviceOrchestrator.selectRecordsUsingQuery(
-    'PRIMARYSPRINGFM',
-    queryToFetchCount,
-    input
-  );
-  console.log('query result === ', queryToFetchCountData);
-  if (queryToFetchCountData[0].COUNT > 0) {
-    console.log('SETTED THE OPEN MODAL TO TRUE');
-    msg.payload['isOpenModal'] = true;
-  }
+  msg.payload['isOpenModal'] = true;
   console.log('msg:::::::::::::::::::', msg.payload['isOpenModal']);
   node.send(msg);
 } catch (error) {
@@ -25,12 +10,14 @@ return;
 
 // ----------------------------------------------
 
+// ----------------------------------------------
+
+// ----------------------------------------------
+
 let atr = msg.payload.apiRequestBody;
 let routeStateParams = {};
 let input = msg.payload.apiRequestBody.baseEntity.records;
-const updateWarningPortal = '0_1cd1075c-c650-4f8c-bea0-3aa8adde9db2';
-const deleteWarningPortal = '0_c857d993-3106-4941-8e9b-b55578a35700';
-let portalToOpen = msg.payload.apiRequestBody.action === 'Update' ? updateWarningPortal : deleteWarningPortal;
+let portalToOpen = '0_6f7b89cd-90a4-482d-abdd-900f6b483b2d';
 routeStateParams.portalId = portalToOpen;
 atr.cleanData = portalToOpen;
 atr.routeStateParams = routeStateParams;

@@ -21,6 +21,7 @@ let portalToOpen = '0_6f7b89cd-90a4-482d-abdd-900f6b483b2d';
 routeStateParams.portalId = portalToOpen;
 atr.cleanData = portalToOpen;
 atr.routeStateParams = routeStateParams;
+atr.refreshData = '0_430835d6-d87c-418b-9b72-5f331cfec638';
 msg.payload.result = {
   mode: 'Enable Message',
   message: 'Please Wait..',

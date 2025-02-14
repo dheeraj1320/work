@@ -1,4 +1,5 @@
 let dataSetGroupTreeList = [];
+const UI_ELEMENT = [];
 
 function updateDataSetNameTitle(dataSetJsonTree) {
   console.log(dataSetJsonTree)
@@ -125,9 +126,28 @@ if (input.compositeEntityAction == 'Delete') {
             deleteRecord('DATA_ELEMENT_LONGTEXT_UUID', QuerytoFetchDataElementsLongtextRecords[key].DATA_ELEMENT_LONGTEXT_UUID, 'DATA_ELEMENT_LONGTEXT', input['APP_LOGGED_IN_FUNTIONAL_AREA_ID']);
         }
     }
+
+    if (input.UI_ELEMENT_EXISTS && input.UI_ELEMENT_EXISTS === 'Yes') {
+      const queryForUIElement = `SELECT UI_ELEMENT_UUID, DATA_SET_UUID, DATA_ELEMENT_UUID FROM UI_ELEMENT WHERE DATA_SET_UUID = '${input.DATA_SET_UUID}'`;
+      const queryForUIElementData = await serviceOrchestrator.selectRecordsUsingQuery(
+        'PRIMARYSPRINGFM',
+        queryForUIElement,
+        input
+      );
+
+      for (const uiElementData of queryForUIElementData) {
+        const obj = { ...uiElementData };
+        obj.DATA_SET_UUID = '';
+        obj.DATA_ELEMENT_UUID = '';
+        obj.compositeEntityAction = 'Update';
+        UI_ELEMENT.push(obj);
+      }
+
+      input['AppEngChildEntity:UI_ELEMENT'] = UI_ELEMENT;
+    }
     
-input["AppEngChildEntity:DATA_SET"] = DATA_SET;
-input["AppEngChildEntity:DATA_ELEMENT"] = DATA_ELEMENT;
-input["AppEngChildEntity:CODE_SET_TRANSACTION_DATA_ELEMENT"] = CODE_SET_TRANSACTION_DATA_ELEMENTS;
-input["AppEngChildEntity:DATA_ELEMENT_LONGTEXT"] = DATA_ELEMENT_LONGTEXT;
+    input["AppEngChildEntity:DATA_SET"] = DATA_SET;
+    input["AppEngChildEntity:DATA_ELEMENT"] = DATA_ELEMENT;
+    input["AppEngChildEntity:CODE_SET_TRANSACTION_DATA_ELEMENT"] = CODE_SET_TRANSACTION_DATA_ELEMENTS;
+    input["AppEngChildEntity:DATA_ELEMENT_LONGTEXT"] = DATA_ELEMENT_LONGTEXT;
 }

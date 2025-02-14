@@ -36,10 +36,17 @@ let routeStateParams = {};
 let input = msg.payload.apiRequestBody.baseEntity.records;
 const updateWarningPortal = '0_1cd1075c-c650-4f8c-bea0-3aa8adde9db2';
 const deleteWarningPortal = '0_c857d993-3106-4941-8e9b-b55578a35700';
-let portalToOpen = msg.payload.apiRequestBody.action === 'Update' ? updateWarningPortal : deleteWarningPortal;
+let portalToOpen;
+if(msg.payload.apiRequestBody.action === 'Update'){
+  portalToOpen = updateWarningPortal;
+} else{
+  portalToOpen = deleteWarningPortal;
+}
+
 routeStateParams.portalId = portalToOpen;
 atr.cleanData = portalToOpen;
 atr.routeStateParams = routeStateParams;
+atr.refreshData = input[0].DATA_SET_UUID + '_2678e2a2-fa11-477d-94a7-11d030e1531f_3be161ff-76dd-46ee-b6f6-cf33bc4f30af';
 msg.payload.result = {
   mode: 'Enable Message',
   message: 'Please Wait..',

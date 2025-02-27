@@ -5,8 +5,12 @@ try {
   msg.payload.result['pk'] = '';
   msg.payload.result['modifyOtherCard'] = {};
   let dataGridCard;
-  if(input[0].TAGS_UUID.includes('1b763b10-f81c-11ee-8c09-9376aaa8e4da')){
-    dataGridCard = '0_95e80742-da51-4858-8627-7629056d7127'
+  if (input[0].TAGS_UUID && input[0].TAGS_UUID.includes('1b763b10-f81c-11ee-8c09-9376aaa8e4da')) {
+    if (input[0].GRID_NAME == 'Unit Functional Test Set') {
+      dataGridCard = '0_ebaadb86-87d8-43b5-9ec1-8d928d8715eb';
+    } else if (input[0].GRID_NAME == 'Orphan Test Set') {
+      dataGridCard = '0_9a2fc215-2ec2-4450-8706-3a4d94e1992c';
+    }
   } else {
     dataGridCard = '0_a74710c6-0404-42ec-a5f8-a5f6222b3e8c';
   }

@@ -1,0 +1,358 @@
+[
+    {
+        "id": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "type": "tab",
+        "label": "Inbound Service Flow",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "80da4d06.d55a2",
+        "type": "inject",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Input",
+        "topic": "Input",
+        "payload": "{}",
+        "payloadType": "json",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 110,
+        "y": 120,
+        "wires": [
+            [
+                "1085dd3d.647cc3"
+            ]
+        ]
+    },
+    {
+        "id": "1085dd3d.647cc3",
+        "type": "switch",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "",
+        "property": "payload",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "hask",
+                "v": "entityName",
+                "vt": "str"
+            },
+            {
+                "t": "else"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 220,
+        "y": 240,
+        "wires": [
+            [
+                "235cddsd.0d2423"
+            ],
+            [
+                "28147205.c984be"
+            ]
+        ]
+    },
+    {
+        "id": "235cddsd.0d2423",
+        "type": "generateRequestBody",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Create Request Body",
+        "outputs": 1,
+        "x": 480,
+        "y": 420,
+        "wires": [
+            [
+                "28147205.c984be"
+            ]
+        ]
+    },
+    {
+        "id": "28147205.c984be",
+        "type": "toLogicalData",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Transform to Logical Data",
+        "outputs": 1,
+        "x": 270,
+        "y": 60,
+        "wires": [
+            [
+                "07304729123.23455"
+            ]
+        ]
+    },
+    {
+        "id": "07304729123.23455",
+        "type": "function",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Read Attachment",
+        "func": "console.log(' ---------------- HHHH --------------',msg.payload.apiRequestBody.baseEntity);if (msg.payload.apiRequestBody.baseEntity.records && msg.payload.apiRequestBody.baseEntity.records[0] && msg.payload.apiRequestBody.baseEntity.records[0].attachmentData && msg.payload.apiRequestBody.baseEntity.records[0].attachmentData.length > 0 && msg.payload.apiRequestBody.baseEntity.records[0].attachmentData[0].attachment.length > 0) {let fileName = msg.payload.apiRequestBody.baseEntity.records[0].attachmentData[0].attachment[0].fileName;msg.payload.documentName = fileName; let attachmentId = msg.payload.apiRequestBody.baseEntity.records[0].attachmentData[0].attachment[0].attachmentId; let fileNameList = fileName && fileName.split('.'); let extention = fileNameList.slice(-1); fileName = fileName.replace( '.' + extention[0], '_' + attachmentId + '.' + extention[0] ); msg.payload.templateFile = fileName; delete msg.payload.apiRequestBody.baseEntity.records[0].attachmentData; delete msg.payload.entityGroupData.attachmentDetails; delete msg.payload.entityGroupData.logicalData.appData.data[0].attachmentData; } msg.payload.bucketType = 'tempBucket'; msg.payload.headerPosition=4;  msg.payload.skipAttachmentUpload = true; node.send(msg);",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 300,
+        "y": 120,
+        "wires": [
+            [
+                "d07304729123.12345"
+            ]
+        ]
+    },
+    {
+        "id": "d07304729123.12345",
+        "type": "readUploadedExcelNode",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "",
+        "x": 340,
+        "y": 60,
+        "wires": [
+            [
+                "dd6110d4.e2bce11"
+            ]
+        ]
+    },
+    {
+        "id": "dd6110d4.e2bce11",
+        "type": "function",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Set Excel Data",
+        "func": "console.log('msg.payload :::::::::::::::::::::::::', msg.payload); if (msg.payload.excelToJsonFormattedData && Object.keys(msg.payload.excelToJsonFormattedData).length && msg.payload.excelToJsonFormattedData.hasOwnProperty('Page UI Element Upload') && msg.payload.entityGroupData.attachmentDetails && msg.payload.entityGroupData.attachmentDetails.length == 1) { msg.payload.entityGroupData.logicalData.appData.data[0]['excelToJsonFormattedData'] = msg.payload.excelToJsonFormattedData; console.log('::::::::::::::: if :::::::::::::::::::::;'); msg.payload['isErrorCheck'] = false; msg.payload['infoMessage'] = 'Data Uploaded Successfully'; } else { console.log('::::::::::::::: else :::::::::::::::::::::;'); if (!msg.payload.entityGroupData.attachmentDetails) { msg.payload['infoMessage'] = 'Please upload at least one attachment.'; console.log(' :::::: if 22::::::::::::::: error'); } else if (msg.payload.entityGroupData.attachmentDetails && msg.payload.entityGroupData.attachmentDetails.length > 1) { msg.payload['infoMessage'] = 'Only one attachment is allowed. Please remove any additional files and try again.'; console.log(' :::::: else if 33::::::::::::::: error'); } else if (msg.payload.entityGroupData.attachmentDetails && msg.payload.entityGroupData.attachmentDetails.length == 1 && msg.payload.entityGroupData.attachmentDetails[0].attachment && msg.payload.entityGroupData.attachmentDetails[0].attachment.length && msg.payload.entityGroupData.attachmentDetails[0].attachment[0].fileName && !['xlsx','xlsm'].includes(msg.payload.entityGroupData.attachmentDetails[0].attachment[0].fileName.split('.').pop().toLowerCase())) { msg.payload['infoMessage'] = 'Only xlsx/xlsm file types are allowed. Please upload a valid Excel file.'; } else if (msg.payload.entityGroupData.attachmentDetails && msg.payload.entityGroupData.attachmentDetails.length == 1 && msg.payload.excelToJsonFormattedData && Object.keys(msg.payload.excelToJsonFormattedData).length && (!msg.payload.excelToJsonFormattedData['Page UI Element Upload'])) { console.log(' :::::: else if 55::::::::::::::: error'); msg.payload['infoMessage'] = 'Attachment should have Page UI Element Upload.'; } msg.payload['isErrorCheck'] = true; } node.send(msg);",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 300,
+        "y": 120,
+        "wires": [
+            [
+                "5d38e157.b4r7e"
+            ]
+        ]
+    },
+    {
+        "id": "5d38e157.b4r7e",
+        "type": "switch",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Is ErrorCheck",
+        "property": "payload.isErrorCheck",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": true
+            },
+            {
+                "t": false
+            }
+        ],
+        "checkall": true,
+        "repair": false,
+        "outputs": 2,
+        "x": 560,
+        "y": 340,
+        "wires": [
+            [
+                "07304729123.12345"
+            ],
+            [
+                "dd6550d4.e2bce"
+            ]
+        ]
+    },
+    {
+        "id": "dd6550d4.e2bce",
+        "type": "validateData",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Validate Data",
+        "outputs": 1,
+        "x": 510,
+        "y": 60,
+        "wires": [
+            [
+                "15d3d01.01e563"
+            ]
+        ]
+    },
+    {
+        "id": "15d3d01.01e563",
+        "type": "processLogicalData",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Process Logical Data",
+        "outputs": 1,
+        "x": 320,
+        "y": 140,
+        "wires": [
+            [
+                "asfgfgf.e2bce"
+            ]
+        ]
+    },{
+        "id": "asfgfgf.e2bce",
+        "type": "revalidationNode",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Validate Business Data",
+        "outputs": 1,
+        "x": 510,
+        "y": 60,
+        "wires": [
+            [
+                "12345.fgthyyt"
+            ]
+        ]
+    },
+	  {
+        "id": "12345.fgthyyt",
+        "type": "function",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Set Excel Error Data",
+        "func": "function generateExcelData(inputData) { let mainArray = []; for (let data of inputData) { let dataArray = []; if (data.hasOwnProperty('Status')) { dataArray.push(data['Status']); } if (data.hasOwnProperty('Comments')) { dataArray.push(data['Comments']); } for (let key in data) { if (key !== 'Status' && key !== 'Comments') { dataArray.push(data[key]); } } mainArray.push(dataArray); } return mainArray; } console.log('will Enter from here'); let errordataList = []; let parentErrorDataList = []; for (const dataEntry of msg.payload.entityGroupData.logicalData.childLogicalData[0].appData.data) { if (dataEntry.errorMessage) { parentErrorDataList.push(dataEntry.Row_Index); } } for (const logicalData of msg.payload.entityGroupData.logicalData.childLogicalData) {   const dataIndexPass = msg.payload.entityGroupData.logicalData.childLogicalData.indexOf(logicalData); for (const lcData of logicalData.appData.data) { const dataInnerPass = msg.payload.entityGroupData.logicalData.childLogicalData[dataIndexPass].appData.data.indexOf(lcData); let errorMap = {}; errorMap['errorMessage'] = ''; if (lcData.Parent_Index && parentErrorDataList.includes(lcData.Parent_Index)) { errorMap['errorMessage'] = 'Can not processes as Page not persisted. '; } if (lcData.errorMessage) { errorMap['errorMessage'] = errorMap['errorMessage'] + lcData.errorMessage; }   if (!lcData.errorMessage && errorMap['errorMessage']) { msg.payload.entityGroupData.logicalData.childLogicalData[dataIndexPass].appData.data[dataInnerPass]['errorMessage'] = errorMap['errorMessage']; } errorMap['rowIndex'] = lcData.Row_Index; errordataList.push(errorMap); } } errordataList.forEach(error => { if (error.rowIndex) { const index = error.rowIndex - 1; if (msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]) { if (msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Comments'] && msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Status'] && error.errorMessage) { msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Status'] = 'Skipped'; msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Comments'] += `; ${error.errorMessage}`; } else if (error.errorMessage) { msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Status'] = 'Skipped'; msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Comments'] = error.errorMessage; } else if (!(msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]).hasOwnProperty('Comments') && !(msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]).hasOwnProperty('Status')) { msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Status'] = 'Processed'; msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Comments'] = ''; } } } }); msg.payload.documentData = {}; let objectData = {}; objectData['Page UI Element Upload'] = generateExcelData(msg.payload.excelToJsonFormattedData['Page UI Element Upload']); Object.assign(msg.payload.documentData, objectData); msg.payload.result = {}; if (msg.payload.message == 'Validation Failed') { msg.payload['infoMessage'] = 'Records processing is completed. Please check downloaded file for results'; } msg.payload.templateFile = 'Page_UI_Element_Response_Template.xlsm'; msg.payload.startCell = 'A5'; console.log('will call excludeErrorData'); node.send(msg);",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 300,
+        "y": 120,
+        "wires": [
+            [
+                "98647388.2324353"
+            ]
+        ]
+    },
+	{
+        "id": "98647388.2324353",
+        "type": "excludeErrorData",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Remove data to proceed",
+        "outputs": 1,
+        "x": 500,
+        "y": 220,
+        "wires": [
+            [
+                "5d38e157.b4d7e"
+            ]
+        ]
+    },
+    {
+        "id": "5d38e157.b4d7e",
+        "type": "toPhysicalData",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Transform To Physical Data",
+        "outputs": 1,
+        "x": 600,
+        "y": 140,
+        "wires": [
+            [
+                "166e2a96.294bc5"
+            ]
+        ]
+    },
+    {
+        "id": "166e2a96.294bc5",
+        "type": "setMasterEntity",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Set Master Physical Entity",
+        "outputs": 1,
+        "x": 890,
+        "y": 140,
+        "wires": [
+            [
+                "1ad49873.0d4c38"
+            ]
+        ]
+    },
+    {
+        "id": "1ad49873.0d4c38",
+        "type": "processPhysicalData",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Process Physical Data",
+        "outputs": 1,
+        "x": 240,
+        "y": 220,
+        "wires": [
+            [
+                "e45d0331.61ce"
+            ]
+        ]
+    },
+    {
+        "id": "e45d0331.61ce",
+        "type": "processAuditData",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Process Audit",
+        "outputs": 1,
+        "x": 500,
+        "y": 220,
+        "wires": [
+            [
+                "zxcbnh.61ce"
+            ]
+        ]
+    },
+    {
+        "id": "zxcbnh.61ce",
+        "type": "addTransactionDetails",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Process Transaction Detail Queue",
+        "outputs": 1,
+        "x": 500,
+        "y": 220,
+        "wires": [
+            [
+                "edrfrf.2324353"
+            ]
+        ]
+    },
+	{
+        "id": "edrfrf.2324353",
+        "type": "readExcelFileDataNode",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Read Excel from S3",
+        "outputs": 1,
+        "x": 500,
+        "y": 220,
+        "wires": [
+            [
+                "07304729123.12345"
+            ]
+        ]
+    },
+    {
+        "id": "07304729123.12345",
+        "type": "function",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "returnData",
+        "func": "if (msg.payload['isErrorCheck']) { console.log(' is error occured ::::::::::::::::::'); let mode = {}; mode = { mode: 'Enable Message', message: msg.payload['infoMessage'] }; msg.payload['result'] = mode; node.send(msg); } else {   console.log(' is not error occured ::::::::::::::::::'); msg.payload.result.mode = 'Insert'; msg.payload.result.message = msg.payload['infoMessage']; msg.payload.result.documentName = msg.payload.documentName; msg.payload.result.navigation = {}; msg.payload.result.navigation.operationType = 'GenerateExcelTemplateDocument'; node.send(msg); }",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 300,
+        "y": 120,
+        "wires": [
+            [
+                "d0bc38b2.f067c"
+            ]
+        ]
+    },
+    {
+        "id": "a169b948.7886b",
+        "type": "catch",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "Catch Exceptions",
+        "scope": null,
+        "uncaught": false,
+        "x": 520,
+        "y": 220,
+        "wires": [
+            [
+                "d0bc38b2.f067c"
+            ]
+        ]
+    },
+    {
+        "id": "d0bc38b2.f067c",
+        "type": "finish",
+        "z": "266edf9f-a72e-47f7-9d33-ab7e40e59df1",
+        "name": "finish",
+        "targetType": "msg",
+        "x": 760,
+        "y": 120,
+        "wires": []
+    }
+]

@@ -21,7 +21,9 @@ function deleteRecord(primarykey, primarykeyvalue, tablename, functionalareauuid
     }
 }
 
-
+if (input.compositeEntityAction == "Insert") {
+  input["IS_DEFAULT_VIEW"] = 'No';
+}
 if (input.compositeEntityAction == "Delete") {
 
     //for VIEW_UI_ELEMENT

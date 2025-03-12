@@ -1,25 +1,25 @@
 try {
   let input = msg.payload.apiRequestBody.baseEntity.records[0];
-  const AppengProcessConfig = global.get('AppengProcessConfig');
-  const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
-  const testSetQuery = `SELECT TAGS_UUID FROM TEST_SET WHERE TEST_SET_UUID = '${input.TEST_SET_UUID}'`;
-  const testSetQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSetQuery, input);
-  console.log('#######input[0]', input);
-  console.log('::::::::::::::::::::::::: , ', testSetQueryData);
-
   msg.payload.result['mode'] = 'Enable Message';
   msg.payload.result['message'] = 'Deleted Successfully';
   msg.payload.result['pk'] = '';
   msg.payload.result['modifyOtherCard'] = {};
-  let dataGridCard;
-  if (testSetQueryData[0].TAGS_UUID.includes('1b763b10-f81c-11ee-8c09-9376aaa8e4da')) {
-    dataGridCard =
-      input.TEST_SET_UUID + '_5c4b27f5-f2e3-4220-8f6b-4c83604422b9_7771b533-2741-4d2a-a4e6-d08446c3ab81';
-  } else {
-    dataGridCard =
-      input.TEST_SET_UUID + '_e399bb2a-e7b3-4e2c-a9ed-c7fd303d7962_7771b533-2741-4d2a-a4e6-d08446c3ab81';
+  let dataGridCard = input.TEST_SET_UUID;
+  if (input['PARENT_GRID_NAME'] == 'Personal Test Set') {
+    dataGridCard += '_0a10210a-c5d6-40d1-bbc2-cef05bc16e54_7771b533-2741-4d2a-a4e6-d08446c3ab81';
+  } else if (input['PARENT_GRID_NAME'] == 'Unit Functional Test Set') {
+    dataGridCard += '_5c4b27f5-f2e3-4220-8f6b-4c83604422b9_7771b533-2741-4d2a-a4e6-d08446c3ab81';
+  } else if (input['PARENT_GRID_NAME'] == 'Orphan Test Set') {
+    dataGridCard += '_9a903ec6-c08d-4815-b557-5cd4136a588d_7771b533-2741-4d2a-a4e6-d08446c3ab81';
+  } else if (input['PARENT_GRID_NAME'] == 'Test Set') {
+    dataGridCard += '_e399bb2a-e7b3-4e2c-a9ed-c7fd303d7962_7771b533-2741-4d2a-a4e6-d08446c3ab81';
+  } else if (input['PARENT_GRID_NAME'] == 'Personal - Unit Functional Test Set') {
+    dataGridCard += '_f4656ce7-bfbe-471e-a7e1-4c3e5e3543bf_7771b533-2741-4d2a-a4e6-d08446c3ab81';
+  } else if (input['PARENT_GRID_NAME'] == 'Personal - Regular Test Set') {
+    dataGridCard += '_e7168933-8b67-4540-9474-758ed9f27dc9_7771b533-2741-4d2a-a4e6-d08446c3ab81';
+  } else if (input['PARENT_GRID_NAME'] == 'Personal - Orphan Test Set') {
+    dataGridCard += '_4b77f551-e544-4fae-b4df-045ed493345c_7771b533-2741-4d2a-a4e6-d08446c3ab81';
   }
-
   msg.payload.result.modifyOtherCard[dataGridCard] = [
     {
       parameter: 'data',

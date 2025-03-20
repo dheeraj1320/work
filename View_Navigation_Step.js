@@ -1,7 +1,6 @@
 let viewNavigationStepList = [];
 let viewNavigationStepAttributeValueArray = [];
 
-console.log('-------------------------', input);
 async function fetchStepDefinitionTemplateVerbiage(stepDefTemplateVerbiageId) {
     let result = [];
     // firing query to get all the step definition for particular stap def name (verbiage)
@@ -84,8 +83,6 @@ async function changeSequence() {
 
 let stepDefAttributeQueryData = await fetchStepDefinitionTemplateVerbiage("'" + input['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'] + "'");
 let viewNavigationNameStepDefVerbiageStr = stepDefAttributeQueryData[0]['STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME'];
-let stepVerviageID = "{StepVerbiage@#$'" + input['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'] + "'}";
-let viewNavigationNameAttributeKeysStepDefVerbiageStr = [stepVerviageID];
 
 // this createViewNavigationStepAttributeValue function is responsible to create the record for view navigation step attribute value table and also responsible to generete the actual step definition based on selected verbiage
 async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
@@ -96,7 +93,7 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
             object['VIEW_UUID'] = input['VIEW_UUID'];
             switch (codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID']) {
                 case '57b76ab3-8112-4343-af0f-49643c808bf7':
-                    let currentPage = input['NEXT_PAGE_CONTEXT'] ? input['NEXT_PAGE_CONTEXT'] : input['CURRENT_PAGE_CONTEXT'];
+                    let currentPage = input['isMoreThanOneAttribute'] && input['NEXT_PAGE_CONTEXT'] ? input['NEXT_PAGE_CONTEXT'] : input['CURRENT_PAGE_CONTEXT'];
                     // input['CURRENT_PAGE_CONTEXT'] = currentPage;
                     object['VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = currentPage;
                     const pageNewQuery = `SELECT PAGE_NAME FROM PAGE WHERE PAGE_UUID=${"'" + currentPage + "'"} AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
@@ -104,8 +101,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<Page Name>', function () {
                         return "'" + pageNewQueryData['PAGE_NAME'] + "'"
                     });
-
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{PageName@#$' + "'" + currentPage + "'}");
                     break;
 
                 case 'adcf6e25-f890-476c-bdcf-e723c6d7894c':
@@ -115,7 +110,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<UI Element Name>', function () {
                         return "'" + uiElementQueryData['UI_ELEMENT_NAME'] + "'"
                     });
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{UIElementName@#$' + "'" + input['UI_ELEMENT_NAME'] + "'}");
                     break;
 
                 case '7f855066-ad39-4325-8108-30befb2447e6':
@@ -125,7 +119,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<UI Element Type>', function () {
                         return "'" + uiElementTypeQueryData['UI_ELEMENT_TYPE_NAME'] + "'"
                     });
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{UIElementType@#$' + "'" + input['UI_ELEMENT_TYPE'] + "'}");
                     break;
 
                 case '74da67d2-41c9-4cf7-9eea-715243e5fcdc':
@@ -133,8 +126,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<UI Element Value>', input['UI_ELEMENT_VALUE'] ? function () {
                         return "'" + input['UI_ELEMENT_VALUE'] + "'"
                     } : "' '");
-                    let uiElementValueData = isDataAvailable(input['UI_ELEMENT_VALUE']) ? "'" + input['UI_ELEMENT_VALUE'] + "'" : "' '";
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{UIElementValue@#$' + uiElementValueData + "}");
                     break;
 
                 case '235dfa3a-a897-4076-b9bc-ed813ec7c39f':
@@ -142,7 +133,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<Key Name in Keypad>', function () {
                         return "'" + input['KEY_NAME_IN_KEY_PAD'] + "'"
                     });
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{KeyNameinKeypad@#$' + "'" + input['KEY_NAME_IN_KEY_PAD'] + "'}");
                     break;
 
                 case '005d158d-428c-4bca-ae2d-1c3f9630b549':
@@ -150,7 +140,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<Event Type>', input['EVENT_NAME'] ? function () {
                         return "'" + input['EVENT_NAME'] + "'"
                     } : "' '");
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{EventType@#$' + "'" + input['EVENT_NAME'] + "'}");
                     break;
 
                 case 'afe5f489-b9b3-11ee-a0ed-12e85c8c3755':
@@ -158,8 +147,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<Confirm UI Element Value>', input['CONFIRM_UI_ELEMENT_VALUE'] ? function () {
                         return "'" + input['CONFIRM_UI_ELEMENT_VALUE'] + "'"
                     } : "' '");
-                    let confirmUIElementValueData = isDataAvailable(input['CONFIRM_UI_ELEMENT_VALUE']) ? "'" + input['CONFIRM_UI_ELEMENT_VALUE'] + "'" : "' '";
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{ConfirmUIElementValue@#$' + confirmUIElementValueData + "}");
                     break;
                 case '2b7e3ad0-f3e4-11ee-9a12-6fc3e771212a': {
                     object['VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_NAME_1'];
@@ -168,7 +155,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<UI Element Name 1>', function () {
                         return "'" + uiElementQueryData['UI_ELEMENT_NAME'] + "'"
                     });
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{UIElementName1@#$' + "'" + input['UI_ELEMENT_NAME_1'] + "'}");
                 }
                     break;
 
@@ -177,8 +163,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<UI Element Value 1>', input['UI_ELEMENT_VALUE_1'] ? function () {
                         return "'" + input['UI_ELEMENT_VALUE_1'] + "'"
                     } : "' '");
-                    let uiElementValue1Data = isDataAvailable(input['UI_ELEMENT_VALUE_1']) ? "'" + input['UI_ELEMENT_VALUE_1'] + "'" : "' '";
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{UIElementValue1@#$' + uiElementValue1Data + "}");
                     break;
 
                 // user action name
@@ -189,7 +173,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<User Action Name>', function () {
                         return "'" + uiElementQueryData['UI_ELEMENT_NAME'] + "'"
                     });
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{UserActionName@#$' + "'" + input['USER_ACTION_NAME'] + "'}");
                 }
                     break;
                 // user action type
@@ -200,7 +183,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<User Action Type>', function () {
                         return "'" + uiElementTypeQueryData['UI_ELEMENT_TYPE_NAME'] + "'"
                     });
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{UserActionType@#$' + "'" + input['USER_ACTION_TYPE'] + "'}");
                 }
                     break;
                 // page number
@@ -209,8 +191,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<Page Number>', input['PAGE_NUMBER'] ? function () {
                         return "'" + input['PAGE_NUMBER'] + "'"
                     } : "' '");
-                    let pageNumberData = isDataAvailable(input['PAGE_NUMBER']) ? "'" + input['PAGE_NUMBER'] + "'" : "' '";
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{PageNumber@#$' + pageNumberData + "}");
                     break;
 
                 case '3aff7b0e-472c-4393-b6b2-5a61b07cfbff':
@@ -218,8 +198,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<Data Value>', input['DATA_VALUE'] ? function () {
                         return "'" + input['DATA_VALUE'] + "'"
                     } : "' '");
-                    let dataValuesData = isDataAvailable(input['DATA_VALUE']) ? "'" + input['DATA_VALUE'] + "'" : "' '";
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{DataValue@#$' + dataValuesData + "}");
                     break;
 
                 case 'bca9a7f7-1948-407c-9953-2d01356bbd15':
@@ -227,8 +205,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<Data Key>', input['DATA_KEY'] ? function () {
                         return "'" + input['DATA_KEY'] + "'"
                     } : "' '");
-                    let dataKeyData = isDataAvailable(input['DATA_KEY']) ? "'" + input['DATA_KEY'] + "'" : "' '";
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{DataKey@#$' + dataKeyData + "}");
                     break;
 
                 case 'ceb66327-216f-42fd-845b-9f4543c62baa':
@@ -236,8 +212,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<File Name>', input['FILE_NAME'] ? function () {
                         return "'" + input['FILE_NAME'] + "'"
                     } : "' '");
-                    let fileNameData = isDataAvailable(input['FILE_NAME']) ? "'" + input['FILE_NAME'] + "'" : "' '";
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{FileName@#$' + fileNameData + "}");
                     break;
 
                 case 'd20f4347-d4d0-47a1-96f6-190d3b5e4a90':
@@ -245,8 +219,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<Document Parser Name>', input['DOCUMENT_PARSER_NAME'] ? function () {
                         return "'" + input['DOCUMENT_PARSER_NAME'] + "'"
                     } : "' '");
-                    let documentParserNameData = isDataAvailable(input['DOCUMENT_PARSER_NAME']) ? "'" + input['DOCUMENT_PARSER_NAME'] + "'" : "' '";
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{DocumentParserName@#$' + documentParserNameData + "}");
                     break;
 
                 case '36880b70-2e33-11ef-b3ef-e52f192c3af0': {
@@ -256,7 +228,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<API Name>', function () {
                         return "'" + apiQueryData['API_NAME'] + "'"
                     });
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{APIName@#$' + "'" + input['API_UUID'] + "'}");
                 }
                     break;
                 case '46136260-2e33-11ef-b3ef-e52f192c3af0': {
@@ -266,7 +237,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<API Attribute Name>', function () {
                         return "'" + apiAttributeQueryData['ATTRIBUTE_NAME'] + "'"
                     });
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{APIAttributeName@#$' + "'" + input['API_ATTRIBUTE_NAME'] + "'}");
                 }
                     break;
                 case '7182ebf0-2e33-11ef-9033-4bb93e602d01':
@@ -274,8 +244,6 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<API Attribute Value>', input['API_ATTRIBUTE_VALUE'] ? function () {
                         return "'" + input['API_ATTRIBUTE_VALUE'] + "'"
                     } : "' '");
-                    let apiAttributeValueData = isDataAvailable(input['API_ATTRIBUTE_VALUE']) ? "'" + input['API_ATTRIBUTE_VALUE'] + "'" : "' '";
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{APIAttributeValue@#$' + apiAttributeValueData + "}");
                     break;
 
                 case '833eb770-2e33-11ef-9033-4bb93e602d01':
@@ -283,14 +251,11 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<Response Status Code>', input['RESPONSE_CODE_VALUE'] ? function () {
                         return "'" + input['RESPONSE_CODE_VALUE'] + "'"
                     } : "' '");
-                    let responseCodeValueData = isDataAvailable(input['RESPONSE_CODE_VALUE']) ? "'" + input['RESPONSE_CODE_VALUE'] + "'" : "' '";
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{ResponseStatusCode@#$' + responseCodeValueData + "}");
                     break;
 
                 case 'ccd0b030-613e-11ef-81c7-b59b0b9089cd':
                     object['VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_STATE'];
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<UI Element State>', input['UI_ELEMENT_STATE'] ? function () { return "'" + input['UI_ELEMENT_STATE'] + "'" } : "' '");
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{UIElementState@#$' + "'" + input['UI_ELEMENT_STATE'] + "'}");
                     break;
 
                 case '2afdf3ea-2d25-42c6-ab5e-9f5a6b15e0f8':
@@ -298,11 +263,37 @@ async function createViewNavigationStepAttributeValue(stepDefAttributeData) {
                     viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<Timeout>', input['TIMEOUT'] ? function () {
                         return "'" + input['TIMEOUT'] + "'"
                     } : "' '");
-                    let timeoutValueData = isDataAvailable(input['TIMEOUT']) ? "'" + input['TIMEOUT'] + "'" : "' '";
-                    viewNavigationNameAttributeKeysStepDefVerbiageStr.push('{Timeout@#$' + timeoutValueData + "}");
+                    break;
+
+                case '7c7a43c8-e484-11ef-904e-02c8cad0208d':
+                    object['VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['TEST_SET_SCOPE_VARIABLE'];
+                    viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<Test Set Scope Variable>', input['TEST_SET_SCOPE_VARIABLE'] ? function () {
+                        return "'" + input['TEST_SET_SCOPE_VARIABLE'] + "'"
+                    } : "' '");
+                    break;
+
+                case '842981e7-e484-11ef-904e-02c8cad0208d':
+                    object['VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['TEST_CASE_SCOPE_VARIABLE'];
+                    viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<Test Case Scope Variable>', input['TEST_CASE_SCOPE_VARIABLE'] ? function () {
+                        return "'" + input['TEST_CASE_SCOPE_VARIABLE'] + "'"
+                    } : "' '");
+                    break;
+
+                case 'c53a65a0-613e-11ef-81c7-b59b0b9089cd': {
+                    let currentPage = input['NEXT_PAGE_CONTEXT'];
+                    object['VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = currentPage;
+                    const pageNewQuery = `SELECT PAGE_NAME, PAGE_ACCESS_RELATIVE_URL FROM PAGE WHERE PAGE_UUID=${"'" + currentPage + "'"} AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                    let pageNewQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery("PRIMARYSPRINGFM", pageNewQuery, input);
+                    viewNavigationNameStepDefVerbiageStr = viewNavigationNameStepDefVerbiageStr.replaceAll('<Page Name 1>', function () {
+                        return "'" + pageNewQueryData['PAGE_NAME'] + "'"
+                    });
+                }
                     break;
             }
-            viewNavigationStepAttributeValueArray.push(object);
+
+            if (!['005d158d-428c-4bca-ae2d-1c3f9630b549', '7f855066-ad39-4325-8108-30befb2447e6'].includes(codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID'])) {
+                viewNavigationStepAttributeValueArray.push(object);
+            }
         }
     }
 }
@@ -336,7 +327,6 @@ if (stepDefAttributeQueryData && stepDefAttributeQueryData.length && input.compo
     // calling the below function to generate the records for view navigation step attribute value table
     await createViewNavigationStepAttributeValue(stepDefAttributeQueryData);
     input['VIEW_NAVIGATION_STEP_NAME'] = getKeywordByStepType + viewNavigationNameStepDefVerbiageStr;
-    input['VIEW_NAVIGATION_STEP_ATTRIBUTE_KEYS'] = JSON.stringify(viewNavigationNameAttributeKeysStepDefVerbiageStr);
 
     if (!input['isInitialRecord'] && input['IS_PAGE_EXIST_FOR_STEP_DEFINITION'] == 'No' && input['VIEW_NAVIGATION_STEP_POSITION'] == 'Intermediate Page Navigation Step') {
         await changeSequence();
@@ -362,15 +352,14 @@ if (stepDefAttributeQueryData && stepDefAttributeQueryData.length && input.compo
             await changeSequence();
         }
     }
-} else if (input.compositeEntityAction == 'Update') { // the below if block will exist when action is save
+} else if (input.compositeEntityAction == 'Update' && input['IS_STEP_TYPE_DISPLAYED'] == "No") { // the below if block will exist when action is save
     // the below function will delete the existing view navigation step attribute value for the particular view navigation step.
     await deleteViewNavigationStepAttributeData("'" + input.VIEW_NAVIGATION_STEP_UUID + "'");
     // creating the new records in view navigation step attribute value table with new value
     await createViewNavigationStepAttributeValue(stepDefAttributeQueryData);
     input['VIEW_NAVIGATION_STEP_NAME'] = getKeywordByStepType + viewNavigationNameStepDefVerbiageStr;
-    input['VIEW_NAVIGATION_STEP_ATTRIBUTE_KEYS'] = JSON.stringify(viewNavigationNameAttributeKeysStepDefVerbiageStr);
 } else if (input.compositeEntityAction == 'Delete') {
-    if (input['IS_PAGE_EXIST_FOR_STEP_DEFINITION'] == 'Yes') {
+    if (input['IS_PAGE_EXIST_FOR_STEP_DEFINITION'] == 'Yes' && input['isStepExistsAfterCurrentStep'] == 'Yes') {
         await deleteViewNavigationStepAttributeData("'" + input['VIEW_NAVIGATION_STEP_UUID'] + "'");
         let viewNavigationStepIds = '';
         let viewNavigationStepQuery = ``;
@@ -387,12 +376,12 @@ if (stepDefAttributeQueryData && stepDefAttributeQueryData.length && input.compo
             // the below function will delete the existing  view navigation step attribute value for the particular view navigation step
             await deleteViewNavigationStepAttributeData("'" + data['VIEW_NAVIGATION_STEP_UUID'] + "'");
         }
-    } else if (input['IS_PAGE_EXIST_FOR_STEP_DEFINITION'] == 'No') {
+    } else if (input['IS_PAGE_EXIST_FOR_STEP_DEFINITION'] == 'No' || input['isStepExistsAfterCurrentStep'] == 'No') {
         // the below function will delete the existing view navigation step attribute value for the particular view navigation step
         await deleteViewNavigationStepAttributeData("'" + input.VIEW_NAVIGATION_STEP_UUID + "'");
     }
 
-    if (input['VIEW_NAVIGATION_STEP_POSITION'] == 'Intermediate Page Navigation Step' || input['IS_PAGE_EXIST_FOR_STEP_DEFINITION'] == 'No') {
+    if (input['VIEW_NAVIGATION_STEP_POSITION'] == 'Intermediate Page Navigation Step' || input['IS_PAGE_EXIST_FOR_STEP_DEFINITION'] == 'No' || input['isStepExistsAfterCurrentStep'] == 'No') {
         await changeSequence();
     }
 }

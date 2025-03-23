@@ -1,3 +1,5 @@
+console.log('from page view ce ', input);
+
 const VIEW_UI_ELEMENT = [];
 const INTEGRATION_TEST_CASE = [];
 const TEST_CASE_DESCRIPTION = [];
@@ -156,31 +158,6 @@ if (input.compositeEntityAction == "Insert") {
     testCaseDescriptionObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
     testCaseDescriptionObj['TEST_CASE_DESCRIPTION_UUID'] = TEST_CASE_DESCRIPTION_UUID;
     TEST_CASE_DESCRIPTION.push(testCaseDescriptionObj);
-
-    //Adding Test Case Step
-    const TEST_CASE_STEP_UUID = uuid();
-    const testCaseStepObj ={};
-    testCaseStepObj['TEST_CASE_STEP_UUID'] = TEST_CASE_STEP_UUID;
-    testCaseStepObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
-    testCaseStepObj['TEST_SET_UUID'] = testSetQueryData[0]['TEST_SET_UUID'];
-    testCaseStepObj['TEST_CASE_STEP_NAME'] = 'When User is on '+ input['PAGE_NAME']+' Page'
-    testCaseStepObj['PAGE_UUID'] = input["PAGE_UUID"]? input["PAGE_UUID"] : pageID;;
-    testCaseStepObj['VIEW_UUID'] = viewUUID;
-    testCaseStepObj['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'] = '20b169ba-34aa-46d1-888d-9324b9b77bc8';
-    testCaseStepObj['CURRENT_PAGE_CONTEXT'] = input["PAGE_UUID"]? input["PAGE_UUID"] : pageID;;
-    testCaseStepObj['TEST_CASE_STEP_SEQ_ID'] = '1';
-    testCaseStepObj['TEST_CASE_STEP_TYPE'] = 'Given'
-    testCaseStepObj['IS_PURE_NAVIGATION_STEP'] = 'Yes';
-    testCaseStepList.push(testCaseStepObj);
-
-    //Adding Attribute Value For Test Case Step
-    const testCaseStepAttributeObj ={};
-    testCaseStepAttributeObj['STEP_DEFINITION_ATTRIBUTE_UUID'] = '11cf20fb-2cdf-4d03-a0b2-aad3644056af';
-    testCaseStepAttributeObj['TEST_CASE_STEP_ATTRIBUTE_DATA'] = input["PAGE_UUID"]? input["PAGE_UUID"] : pageID;;
-    testCaseStepAttributeObj['TEST_SET_UUID'] = TEST_SET_UUID;
-    testCaseStepAttributeObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
-    testCaseStepAttributeObj['TEST_CASE_STEP_UUID'] = TEST_CASE_STEP_UUID;
-    testCaseStepAttributeValueList.push(testCaseStepAttributeObj);
   }
 
 } 
@@ -214,11 +191,6 @@ else if (input.compositeEntityAction == "Delete") {
 
     if (getTestCaseData && getTestCaseData[0]['TEST_CASE_UUID']) {
         input['TEST_CASE_UUID'] = getTestCaseData[0]['TEST_CASE_UUID'];
-
-        const testCaseObj = {};
-        testCaseObj['TEST_CASE_UUID'] = input['TEST_CASE_UUID'];
-        testCaseObj['compositeEntityAction'] = 'Delete';
-        INTEGRATION_TEST_CASE.push(testCaseObj);
 
         const testCaseStepQuery = `SELECT * FROM TEST_CASE_STEP where TEST_CASE_UUID=:TEST_CASE_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
         let testCaseStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", testCaseStepQuery, input);

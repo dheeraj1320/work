@@ -2,6 +2,10 @@ let createPageList = [];
 let createPageViewList = [];
 let createUIElementList = [];
 
+const TEST_SET_NEW = [];
+const INTEGRATION_TEST_CASE = [];
+const TEST_CASE_DESCRIPTION = [];
+
 function isDataAvailable(str) {
     if (str === null || str === undefined || str.trim() === '' || str === 'null' || str === "' '" || str === 'undefined') {
         return false;
@@ -44,8 +48,10 @@ if (input.compositeEntityAction == 'Upload') {
                     };
 
                     createPageList.push(pageObject);
+                    const viewUUID = uuid();
                     let pageViewObject = {
                         "PAGE_UUID": pageUUID,
+                        "VIEW_UUID": viewUUID,
                         "VIEW_NAME": 'Default View',
                         "IS_DEFAULT_VIEW": "Yes",
                         "Row_Index": page_index,
@@ -54,6 +60,33 @@ if (input.compositeEntityAction == 'Upload') {
                     };
 
                     createPageViewList.push(pageViewObject);
+
+                    // Adding Test Set for the page
+                    const TEST_SET_UUID = uuid();
+                    let testSetObj = {};
+                    testSetObj['TEST_SET_NAME'] = pageName;
+                    testSetObj['TEST_SET_TYPE'] = 'Page Navigation';
+                    testSetObj['TEST_SET_UUID'] = TEST_SET_UUID;
+                    testSetObj['PAGE_UUID'] = pageUUID;
+                    TEST_SET_NEW.push(testSetObj);
+
+                    // Adding Test Case for the page view
+                    const TEST_CASE_UUID = uuid();
+                    const testCaseObj = {};
+                    testCaseObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
+                    testCaseObj['TEST_CASE_NAME'] = 'Default View';
+                    testCaseObj['TEST_CASE_STATUS'] = 'DRAFT';
+                    testCaseObj['TEST_SET_UUID'] = TEST_SET_UUID;
+                    testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Manual';
+                    // testCaseObj['TEST_CASE_TYPE'] =
+                    testCaseObj['ASSOCIATED_VIEW_UUID'] = viewUUID;
+                    testCaseObj['compositeEntityAction'] = 'Insert';
+                    INTEGRATION_TEST_CASE.push(testCaseObj);
+
+                    // Adding Test Case Description
+                    const testCaseDescriptionObj = {};
+                    testCaseDescriptionObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
+                    TEST_CASE_DESCRIPTION.push(testCaseDescriptionObj);
 
                 } else {
                     pageUUID = pagedata[0].PAGE_UUID;
@@ -104,3 +137,6 @@ if (input.compositeEntityAction == 'Upload') {
 input["AppEngChildEntity:PAGE"] = createPageList;
 input["AppEngChildEntity:PAGE_VIEW"] = createPageViewList;
 input["AppEngChildEntity:UI_ELEMENT"] = createUIElementList;
+input["AppEngChildEntity:TEST_SET_NEW"] = TEST_SET_NEW;
+input["AppEngChildEntity:INTEGRATION_TEST_CASE"] = INTEGRATION_TEST_CASE;
+input['AppEngChildEntity:TEST_CASE_DESCRIPTION'] = TEST_CASE_DESCRIPTION;

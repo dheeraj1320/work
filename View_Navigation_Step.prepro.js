@@ -12,9 +12,16 @@ input[0]['IS_STEP_TYPE_DISPLAYED'] = "No";
 input[0]['CODE_SET_UUID'] = "";
 input[0]['CODESET_UUID_1'] = "";
 input[0]['SELECTED_UI_ELEMENT_COLUMN_HEADER'] = "";
+input[0]['IS_VALUE_CHANGED'] = 'No';
 
 let predDefValue1;
 let predDefValue;
+
+function isOldValueChanged(currentValue, existingValue) {
+    if (currentValue && existingValue && currentValue != existingValue) {
+        input[0]['IS_VALUE_CHANGED'] = 'Yes';
+    }
+}
 
 async function fetchStepDefinitionTemplateVerbiage() {
     let result = [];
@@ -206,10 +213,12 @@ else if (input[0]['VIEW_NAVIGATION_STEP_UUID']) {
                     input[0]['IS_PAGE_EXIST_FOR_STEP_DEFINITION'] = 'Yes';
                     break;
 
-                case 'adcf6e25-f890-476c-bdcf-e723c6d7894c':
+                case 'adcf6e25-f890-476c-bdcf-e723c6d7894c':{
                     currentUIElementName = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     input[0]['UI_ELEMENT_NAME'] = !input[0]['UI_ELEMENT_NAME'] ? currentUIElementName : input[0]['UI_ELEMENT_NAME'];
-                    break;
+                    isOldValueChanged(input[0]['UI_ELEMENT_NAME'], currentUIElementName);
+                }
+                break;
 
                 case '7f855066-ad39-4325-8108-30befb2447e6': {
                     let selectedUIElement = input[0]['UI_ELEMENT_NAME'] && input[0]['UI_ELEMENT_NAME'] != actualUIElementUUID ? input[0]['UI_ELEMENT_NAME'] : actualUIElementUUID;
@@ -224,9 +233,12 @@ else if (input[0]['VIEW_NAVIGATION_STEP_UUID']) {
                     predDefValue = getPreDefinedValueValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     break;
 
-                case '235dfa3a-a897-4076-b9bc-ed813ec7c39f':
-                    input[0]['KEY_NAME_IN_KEY_PAD'] = !input[0]['KEY_NAME_IN_KEY_PAD'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['KEY_NAME_IN_KEY_PAD'];
-                    break;
+                case '235dfa3a-a897-4076-b9bc-ed813ec7c39f': {
+                    let keyNameInKeyPad = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['KEY_NAME_IN_KEY_PAD'] = !input[0]['KEY_NAME_IN_KEY_PAD'] ? keyNameInKeyPad : input[0]['KEY_NAME_IN_KEY_PAD'];
+                    isOldValueChanged(input[0]['KEY_NAME_IN_KEY_PAD'], keyNameInKeyPad);
+                }
+                break;
 
                 case '005d158d-428c-4bca-ae2d-1c3f9630b549': {
                     decideAndSetOrder(stepDefAttributeQueryData);
@@ -248,9 +260,12 @@ else if (input[0]['VIEW_NAVIGATION_STEP_UUID']) {
                     input[0]['CONFIRM_UI_ELEMENT_VALUE'] = !input[0]['CONFIRM_UI_ELEMENT_VALUE'] && !input[0]['confirmUIElementValCodeDesc'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['CONFIRM_UI_ELEMENT_VALUE'];
                     break;
 
-                case '2b7e3ad0-f3e4-11ee-9a12-6fc3e771212a':
-                    input[0]['UI_ELEMENT_NAME_1'] = !input[0]['UI_ELEMENT_NAME_1'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['UI_ELEMENT_NAME_1'];
-                    break;
+                case '2b7e3ad0-f3e4-11ee-9a12-6fc3e771212a':{
+                    const uiElementName1 = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'])
+                    input[0]['UI_ELEMENT_NAME_1'] = !input[0]['UI_ELEMENT_NAME_1'] ? uiElementName1 : input[0]['UI_ELEMENT_NAME_1'];
+                    isOldValueChanged(input[0]['UI_ELEMENT_NAME_1'], uiElementName1);
+                }
+                break;
 
                 case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a':
                     input[0]['UI_ELEMENT_VALUE_1'] = !input[0]['UI_ELEMENT_VALUE_1'] && !input[0]['uiElementVal1CodeDesc'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['UI_ELEMENT_VALUE_1'];
@@ -258,121 +273,182 @@ else if (input[0]['VIEW_NAVIGATION_STEP_UUID']) {
                     break;
 
                 // user action name
-                case '903cf3b0-f8a5-11ee-a163-cdf5a57b7d43':
+                case '903cf3b0-f8a5-11ee-a163-cdf5a57b7d43': {
                     currentUserActionName = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     input[0]['USER_ACTION_NAME'] = !input[0]['USER_ACTION_NAME'] ? currentUserActionName : input[0]['USER_ACTION_NAME'];
+                    isOldValueChanged(input[0]['USER_ACTION_NAME'], currentUserActionName)
+                }
                     break;
                 // user action type
                 case '99cf0e40-f8a5-11ee-a163-cdf5a57b7d43':
                     input[0]['USER_ACTION_TYPE'] = !input[0]['USER_ACTION_TYPE'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['USER_ACTION_TYPE'];
                     break;
 
-                case '6c698ae8-6305-4bb6-8c23-3a938e7234bd':
+                case '6c698ae8-6305-4bb6-8c23-3a938e7234bd':{
                     currentFunctionName = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     input[0]['FUNCTION_UUID'] = !input[0]['FUNCTION_UUID'] ? currentFunctionName : input[0]['FUNCTION_UUID'];
+                    isOldValueChanged(input[0]['FUNCTION_UUID'], currentFunctionName);
+                }
                     break;
 
-                case '5c3edc60-f290-11ee-a7a7-c7f3437be2cf':
+                case '5c3edc60-f290-11ee-a7a7-c7f3437be2cf':{
                     currentUIElementGroupName = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     input[0]['UI_ELEMENT_GROUP_UUID'] = !input[0]['UI_ELEMENT_GROUP_UUID'] ? currentUIElementGroupName : input[0]['UI_ELEMENT_GROUP_UUID'];
+                    isOldValueChanged(input[0]['UI_ELEMENT_GROUP_UUID'], currentUIElementGroupName);
+                }
                     break;
 
                 // page number
-                case '2dc3a50e-004d-4dec-8270-c7ec5d36cb2c':
-                    input[0]['PAGE_NUMBER'] = !input[0]['PAGE_NUMBER'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['PAGE_NUMBER'];
+                case '2dc3a50e-004d-4dec-8270-c7ec5d36cb2c': {
+                    let pageNumber = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['PAGE_NUMBER'] = !input[0]['PAGE_NUMBER'] ? pageNumber : input[0]['PAGE_NUMBER'];
+                    isOldValueChanged(input[0]['PAGE_NUMBER'], pageNumber);
+                }
                     break;
 
-                case '3aff7b0e-472c-4393-b6b2-5a61b07cfbff':
-                    input[0]['DATA_VALUE'] = !input[0]['DATA_VALUE'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['DATA_VALUE'];
+                case '3aff7b0e-472c-4393-b6b2-5a61b07cfbff':{
+                    let dataValue = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['DATA_VALUE'] = !input[0]['DATA_VALUE'] ? dataValue : input[0]['DATA_VALUE'];
+                    isOldValueChanged(input[0]['DATA_VALUE'], dataValue);
+                }
                     break;
 
-                case 'bca9a7f7-1948-407c-9953-2d01356bbd15':
-                    input[0]['DATA_KEY'] = !input[0]['DATA_KEY'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['DATA_KEY'];
+                case 'bca9a7f7-1948-407c-9953-2d01356bbd15': {
+                    let dataKey = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['DATA_KEY'] = !input[0]['DATA_KEY'] ? dataKey : input[0]['DATA_KEY'];
+                    isOldValueChanged(input[0]['DATA_KEY'], dataKey);
+                }
                     break;
 
-                case 'ceb66327-216f-42fd-845b-9f4543c62baa':
-                    input[0]['FILE_NAME'] = !input[0]['FILE_NAME'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['FILE_NAME'];
+                case 'ceb66327-216f-42fd-845b-9f4543c62baa': {
+                    let fileName = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['FILE_NAME'] = !input[0]['FILE_NAME'] ? fileName : input[0]['FILE_NAME'];
+                    isOldValueChanged(input[0]['FILE_NAME'], fileName);
+                }
                     break;
 
-                case 'd20f4347-d4d0-47a1-96f6-190d3b5e4a90':
-                    input[0]['DOCUMENT_PARSER_NAME'] = !input[0]['DOCUMENT_PARSER_NAME'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['DOCUMENT_PARSER_NAME'];
+                case 'd20f4347-d4d0-47a1-96f6-190d3b5e4a90':{
+                    let documentParserName = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['DOCUMENT_PARSER_NAME'] = !input[0]['DOCUMENT_PARSER_NAME'] ? documentParserName : input[0]['DOCUMENT_PARSER_NAME'];
+                    isOldValueChanged(input[0]['DOCUMENT_PARSER_NAME'], documentParserName);
+                }
                     break;
 
                 case '36880b70-2e33-11ef-b3ef-e52f192c3af0':
                     input[0]['IS_API_EXIST_FOR_STEP_DEFINITION'] = 'Yes';
                     // input[0]['API_UUID'] = !input[0]['API_UUID'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['API_UUID'];
+                    isOldValueChanged(input[0]['API_UUID'], getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']));
                     break;
 
-                case '46136260-2e33-11ef-b3ef-e52f192c3af0':
-                    input[0]['API_ATTRIBUTE_NAME'] = !input[0]['API_ATTRIBUTE_NAME'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['API_ATTRIBUTE_NAME'];
+                case '46136260-2e33-11ef-b3ef-e52f192c3af0': {
+                    let apiAttributeName = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['API_ATTRIBUTE_NAME'] = !input[0]['API_ATTRIBUTE_NAME'] ? apiAttributeName : input[0]['API_ATTRIBUTE_NAME'];
+                    isOldValueChanged(input[0]['API_ATTRIBUTE_NAME'], apiAttributeName);
+                }
                     break;
 
                 case '7182ebf0-2e33-11ef-9033-4bb93e602d01':
                     input[0]['API_ATTRIBUTE_VALUE'] = !input[0]['API_ATTRIBUTE_VALUE'] && !input[0]['apiAttributeValueCodeDesc'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['API_ATTRIBUTE_VALUE'];
                     break;
 
-                case '833eb770-2e33-11ef-9033-4bb93e602d01':
-                    input[0]['RESPONSE_CODE_VALUE'] = !input[0]['RESPONSE_CODE_VALUE'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['RESPONSE_CODE_VALUE'];
+                case '833eb770-2e33-11ef-9033-4bb93e602d01': {
+                    let responseCodeValue = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['RESPONSE_CODE_VALUE'] = !input[0]['RESPONSE_CODE_VALUE'] ? responseCodeValue : input[0]['RESPONSE_CODE_VALUE'];
+                    isOldValueChanged(input[0]['RESPONSE_CODE_VALUE'], responseCodeValue);
+                }
                     break;
 
-                case 'ccd0b030-613e-11ef-81c7-b59b0b9089cd':
-                    input[0]['UI_ELEMENT_STATE'] = !input[0]['UI_ELEMENT_STATE'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['UI_ELEMENT_STATE'];
+                case 'ccd0b030-613e-11ef-81c7-b59b0b9089cd': {
+                    let uiElementState = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['UI_ELEMENT_STATE'] = !input[0]['UI_ELEMENT_STATE'] ? uiElementState : input[0]['UI_ELEMENT_STATE'];
+                    isOldValueChanged(input[0]['UI_ELEMENT_STATE'], uiElementState);
+                }
                     break;
 
-                case '2afdf3ea-2d25-42c6-ab5e-9f5a6b15e0f8':
-                    input[0]['TIMEOUT'] = !input[0]['TIMEOUT'] && !input[0]['timeoutCodeDesc'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['TIMEOUT'];
+                case '2afdf3ea-2d25-42c6-ab5e-9f5a6b15e0f8': {
+                    let timeout =  getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['TIMEOUT'] = !input[0]['TIMEOUT'] && !input[0]['timeoutCodeDesc'] ? timeout : input[0]['TIMEOUT'];
+                    isOldValueChanged(input[0]['TIMEOUT'], timeout);
+                }
                     break;
 
-                case '7c7a43c8-e484-11ef-904e-02c8cad0208d':
-                    input[0]['TEST_SET_SCOPE_VARIABLE'] = !input[0]['TEST_SET_SCOPE_VARIABLE'] && !input[0]['testSetScopeCodeDesc'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['TEST_SET_SCOPE_VARIABLE'];
+                case '7c7a43c8-e484-11ef-904e-02c8cad0208d': {
+                    let testSetScopeVariable = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['TEST_SET_SCOPE_VARIABLE'] = !input[0]['TEST_SET_SCOPE_VARIABLE'] && !input[0]['testSetScopeCodeDesc'] ? testSetScopeVariable : input[0]['TEST_SET_SCOPE_VARIABLE'];
+                    isOldValueChanged(input[0]['TEST_SET_SCOPE_VARIABLE'], testSetScopeVariable);
+                }
                     break;
 
-                case '842981e7-e484-11ef-904e-02c8cad0208d':
-                    input[0]['TEST_CASE_SCOPE_VARIABLE'] = !input[0]['TEST_CASE_SCOPE_VARIABLE'] && !input[0]['testCaseScopeCodeDesc'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['TEST_CASE_SCOPE_VARIABLE'];
+                case '842981e7-e484-11ef-904e-02c8cad0208d': {
+                    let testCaseScopeVariable = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['TEST_CASE_SCOPE_VARIABLE'] = !input[0]['TEST_CASE_SCOPE_VARIABLE'] && !input[0]['testCaseScopeCodeDesc'] ? testCaseScopeVariable : input[0]['TEST_CASE_SCOPE_VARIABLE'];
+                    isOldValueChanged(input[0]['TEST_CASE_SCOPE_VARIABLE'], testCaseScopeVariable);
+                }
                     break;
 
                 case 'c53a65a0-613e-11ef-81c7-b59b0b9089cd':
                     input[0]['IS_PAGE_EXIST_FOR_STEP_DEFINITION'] = 'Yes';
                     break;
 
-                case 'e0568059-ce39-4a69-aadd-6a0dccba696d':
-                    input[0]['TIME_INTERVAL'] = !input[0]['TIME_INTERVAL'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['TIME_INTERVAL'];
+                case 'e0568059-ce39-4a69-aadd-6a0dccba696d': {
+                    let timeInterval = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['TIME_INTERVAL'] = !input[0]['TIME_INTERVAL'] ? timeInterval : input[0]['TIME_INTERVAL'];
+                    isOldValueChanged(input[0]['TIME_INTERVAL'], timeInterval);
+                }
                     break;
 
-                case '9d27f361-ac8b-4673-82fe-66c40b2cb634':
-                    input[0]['ATTEMPTS'] = !input[0]['ATTEMPTS'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['ATTEMPTS'];
+                case '9d27f361-ac8b-4673-82fe-66c40b2cb634': {
+                    let attempts = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['ATTEMPTS'] = !input[0]['ATTEMPTS'] ? attempts : input[0]['ATTEMPTS'];
+                    isOldValueChanged(input[0]['ATTEMPTS'], attempts);
+                }
                     break;
 
-                case 'd797acb4-5e5c-447b-b0c5-60dad38e39a5':
-                    input[0]['COLUMN_HEADER'] = !input[0]['COLUMN_HEADER'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['COLUMN_HEADER'];
+                case 'd797acb4-5e5c-447b-b0c5-60dad38e39a5': {
+                    let columnHeader = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['COLUMN_HEADER'] = !input[0]['COLUMN_HEADER'] ? columnHeader : input[0]['COLUMN_HEADER'];
+                    isOldValueChanged(input[0]['COLUMN_HEADER'], columnHeader);
+                }
                     break;
 
                 case '75b16425-1531-4cee-8c09-30f5be70c4b0':
                     input[0]['CELL_VALUE'] = !input[0]['CELL_VALUE'] && !input[0]['cellValueCodeDesc'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['CELL_VALUE'];
                     break;
 
-                case 'ed2ebd4b-9267-4e41-8f56-d5a61abe7ba5':
-                    input[0]['ROW_NUMBER'] = !input[0]['ROW_NUMBER'] && !input[0]['rowNumberCodeDesc'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['ROW_NUMBER'];
+                case 'ed2ebd4b-9267-4e41-8f56-d5a61abe7ba5': {
+                    let rowNumber = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['ROW_NUMBER'] = !input[0]['ROW_NUMBER'] && !input[0]['rowNumberCodeDesc'] ? rowNumber : input[0]['ROW_NUMBER'];
+                    isOldValueChanged(input[0]['ROW_NUMBER'], rowNumber);
+                }
                     break;
 
                 case 'd25a4d7f-5c5d-4117-b325-1c669b9a42ab':
                     input[0]['TABLE_NAME'] = !input[0]['TABLE_NAME'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['TABLE_NAME'];
                     break;
 
-                case '078e6534-f38f-4aad-b89d-cad8216ad86b':
-                    input[0]['COLUMN_HEADER_1'] = !input[0]['COLUMN_HEADER_1'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['COLUMN_HEADER_1'];
+                case '078e6534-f38f-4aad-b89d-cad8216ad86b': {
+                    let columnHeader1 = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['COLUMN_HEADER_1'] = !input[0]['COLUMN_HEADER_1'] ? columnHeader1 : input[0]['COLUMN_HEADER_1'];
+                    isOldValueChanged(input[0]['COLUMN_HEADER_1'], columnHeader1);
+                }
                     break;
 
                 case 'ba1ef281-412a-4544-b615-7767b06eb489':
                     input[0]['CELL_VALUE_1'] = !input[0]['CELL_VALUE_1'] && !input[0]['cellValue1CodeDesc'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['CELL_VALUE_1'];
                     break;
 
-                case 'f7b6ba5d-74a7-4d36-82cd-222d57b2ce83':
-                    input[0]['COLUMN_NUMBER'] = !input[0]['COLUMN_NUMBER'] && !input[0]['columnNumberCodeDesc'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['COLUMN_NUMBER'];
+                case 'f7b6ba5d-74a7-4d36-82cd-222d57b2ce83': {
+                    let columnNumber = getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['COLUMN_NUMBER'] = !input[0]['COLUMN_NUMBER'] && !input[0]['columnNumberCodeDesc'] ? columnNumber : input[0]['COLUMN_NUMBER'];
+                    isOldValueChanged(input[0]['COLUMN_NUMBER'], columnNumber);
+                }
                     break;
 
-                case '28058e26-fa09-42fb-868a-1988bd0a746c':
-                    input[0]['FILE_FULL_PATH'] = !input[0]['FILE_FULL_PATH'] && !input[0]['fileFullPathCodeDesc'] ? getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) : input[0]['FILE_FULL_PATH'];
+                case '28058e26-fa09-42fb-868a-1988bd0a746c': {
+                    let fileFullPath =  getDataFromAttributeValue(testCaseStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
+                    input[0]['FILE_FULL_PATH'] = !input[0]['FILE_FULL_PATH'] && !input[0]['fileFullPathCodeDesc'] ? fileFullPath : input[0]['FILE_FULL_PATH'];
+                    isOldValueChanged(input[0]['FILE_FULL_PATH'], fileFullPath);
+                }
                     break;
 
                 default: null

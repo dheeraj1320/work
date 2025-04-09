@@ -1,10 +1,13 @@
 let createPageList = [];
 let createPageViewList = [];
 let createUIElementList = [];
+let testCaseStepList = [];
+let testCaseStepAttributeValueList = [];
 
 const TEST_SET_NEW = [];
 const INTEGRATION_TEST_CASE = [];
 const TEST_CASE_DESCRIPTION = [];
+let TEST_SUITE_TEST_SET = [];
 
 function isDataAvailable(str) {
     if (str === null || str === undefined || str.trim() === '' || str === 'null' || str === "' '" || str === 'undefined') {
@@ -70,12 +73,24 @@ if (input.compositeEntityAction == 'Upload') {
                     testSetObj['PAGE_UUID'] = pageUUID;
                     TEST_SET_NEW.push(testSetObj);
 
+                    // Linking test set to Page Navigation Test Suite
+                    const suiteQuery = `SELECT TEST_SUITE_UUID FROM TEST_SUITE WHERE FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID AND TEST_SUITE_TYPE = 'Page Navigation'`;
+                    const suiteQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", suiteQuery, input);
+
+                    if(suiteQueryData.length > 0) {
+                        const testSetTestSuiteObj = {};
+                        testSetTestSuiteObj['TEST_SET_UUID'] = TEST_SET_UUID;
+                        testSetTestSuiteObj['TEST_SUITE_UUID'] = suiteQueryData[0]['TEST_SUITE_UUID'];
+                        testSetTestSuiteObj['FUNCTIONAL_AREA_UUID'] = input.APP_LOGGED_IN_FUNTIONAL_AREA_ID;
+                        TEST_SUITE_TEST_SET.push(testSetTestSuiteObj);
+                    }
+
                     // Adding Test Case for the page view
                     const TEST_CASE_UUID = uuid();
                     const testCaseObj = {};
                     testCaseObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
                     testCaseObj['TEST_CASE_NAME'] = 'Default View';
-                    testCaseObj['TEST_CASE_STATUS'] = 'DRAFT';
+                    testCaseObj['TEST_CASE_STATUS'] = 'COMMITTED';
                     testCaseObj['TEST_SET_UUID'] = TEST_SET_UUID;
                     testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Manual';
                     // testCaseObj['TEST_CASE_TYPE'] =
@@ -87,6 +102,37 @@ if (input.compositeEntityAction == 'Upload') {
                     const testCaseDescriptionObj = {};
                     testCaseDescriptionObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
                     TEST_CASE_DESCRIPTION.push(testCaseDescriptionObj);
+					
+					
+					// Adding Test Case Step
+                    const TEST_CASE_STEP_UUID = uuid();
+                    const testCaseStepObj = {};
+                    testCaseStepObj['TEST_CASE_STEP_UUID'] = TEST_CASE_STEP_UUID;
+                    testCaseStepObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
+                    testCaseStepObj['TEST_SET_UUID'] = TEST_SET_UUID;
+                    testCaseStepObj['TEST_CASE_STEP_NAME'] = 'When User is on ' + pageName + ' Page'
+                    testCaseStepObj['PAGE_UUID'] = pageUUID;
+                    testCaseStepObj['VIEW_UUID'] = viewUUID;
+                    testCaseStepObj['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'] = '20b169ba-34aa-46d1-888d-9324b9b77bc8';
+                    testCaseStepObj['CURRENT_PAGE_CONTEXT'] = pageUUID;
+                    testCaseStepObj['TEST_CASE_STEP_SEQ_ID'] = '1';
+                    testCaseStepObj['TEST_CASE_STEP_TYPE'] = 'Given'
+                    testCaseStepObj['IS_PURE_NAVIGATION_STEP'] = 'Yes';
+                    testCaseStepObj['IS_UI_ELEMENT_GROUP_STEP'] = 'No';
+                    testCaseStepObj['IS_FUNCTION_STEP'] = 'No';
+                    testCaseStepList.push(testCaseStepObj);
+
+					
+					
+					//Adding Attribute Value For Test Case Step
+                    const testCaseStepAttributeObj ={};
+                    testCaseStepAttributeObj['STEP_DEFINITION_ATTRIBUTE_UUID'] = '11cf20fb-2cdf-4d03-a0b2-aad3644056af';
+                    testCaseStepAttributeObj['TEST_CASE_STEP_ATTRIBUTE_DATA'] = pageUUID;
+                    testCaseStepAttributeObj['TEST_SET_UUID'] = TEST_SET_UUID;
+                    testCaseStepAttributeObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
+                    testCaseStepAttributeObj['TEST_CASE_STEP_UUID'] = TEST_CASE_STEP_UUID;
+                    testCaseStepAttributeValueList.push(testCaseStepAttributeObj);
+					
 
                 } else {
                     pageUUID = pagedata[0].PAGE_UUID;
@@ -115,7 +161,7 @@ if (input.compositeEntityAction == 'Upload') {
                             "UI_ELEMENT_UUID": uiElementUUID,
                             "UI_ELEMENT_NAME": pageDetails["UI Element Name"] ? pageDetails["UI Element Name"] : null,
                             "UI_ELEMENT_TYPE": uiElementTypeStr ? uiElementTypeStr : null,
-                            "LOCATOR_TYPE": pageDetails["Locator Type"] ? pageDetails["Locator Type"] : 'Recorded',
+                            "LOCATOR_TYPE": pageDetails["Locator Type"] ? pageDetails["Locator Type"] : null,
                             "LOCATOR_VALUE": pageDetails["Locator Value"],
                             "IS_PAGE_IDENTIFIER": pageDetails["Is Page Identifier"],
                             "EVENT_NAME": pageDetails["Event Name"] ? pageDetails["Event Name"] : null,
@@ -134,9 +180,13 @@ if (input.compositeEntityAction == 'Upload') {
     }
 }
 
+input['AppEngChildEntity:TEST_CASE_STEP_NEW'] = testCaseStepList;
+input['AppEngChildEntity:TEST_CASE_STEP_ATTRIBUTE_VALUE'] = testCaseStepAttributeValueList;
 input["AppEngChildEntity:PAGE"] = createPageList;
 input["AppEngChildEntity:PAGE_VIEW"] = createPageViewList;
 input["AppEngChildEntity:UI_ELEMENT"] = createUIElementList;
+
 input["AppEngChildEntity:TEST_SET_NEW"] = TEST_SET_NEW;
+input['AppEngChildEntity:TEST_SUITE_TEST_SET'] = TEST_SUITE_TEST_SET;
 input["AppEngChildEntity:INTEGRATION_TEST_CASE"] = INTEGRATION_TEST_CASE;
 input['AppEngChildEntity:TEST_CASE_DESCRIPTION'] = TEST_CASE_DESCRIPTION;

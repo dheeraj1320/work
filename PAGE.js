@@ -65,6 +65,9 @@ function deleteRecord(primarykey, primarykeyvalue, deleteType, functionalareauui
     case 'TEST_SET':
       testSetlist.push(deleteParameter);
       break;
+    case 'TEST_SUITE_TEST_SET':
+      TEST_SUITE_TEST_SET.push(deleteParameter);
+      break;
     case 'TEST_CASE':
       TEST_CASE_FOR_PAGE_VIEW.push(deleteParameter);
       break;
@@ -403,6 +406,13 @@ if (input.compositeEntityAction == "Update") {
   if(testSetQueryData && testSetQueryData.length > 0){
     deleteRecord('TEST_SET_UUID', testSetQueryData[0]['TEST_SET_UUID'], 'TEST_SET', input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
 
+    const testSetTestSuiteQuery = `SELECT TEST_SUITE_TEST_SET_UUID FROM TEST_SUITE_TEST_SET WHERE TEST_SET_UUID = '${testSetQueryData[0]['TEST_SET_UUID']}'`;
+    const testSetTestSuiteQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", testSetTestSuiteQuery, input);
+
+    for (data of testSetTestSuiteQueryData) {
+      deleteRecord('TEST_SUITE_TEST_SET_UUID', data['TEST_SUITE_TEST_SET_UUID'], 'TEST_SUITE_TEST_SET', input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+    }
+
     const testCaseQuery = `SELECT TEST_CASE_UUID, TEST_CASE_DESCRIPTION_UUID FROM TEST_CASE WHERE TEST_SET_UUID = '${testSetQueryData[0]['TEST_SET_UUID']}'`;
     const testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", testCaseQuery, input);
 
@@ -456,11 +466,13 @@ if (input.compositeEntityAction == "Update") {
   const suiteQuery = `SELECT TEST_SUITE_UUID FROM TEST_SUITE WHERE FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID AND TEST_SUITE_TYPE = 'Page Navigation'`;
   const suiteQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", suiteQuery, input);
 
-  const testSetTestSuiteObj = {};
-  testSetTestSuiteObj['TEST_SET_UUID'] = TEST_SET_UUID;
-  testSetTestSuiteObj['TEST_SUITE_UUID'] = suiteQueryData[0]['TEST_SUITE_UUID'];
-  testSetTestSuiteObj['FUNCTIONAL_AREA_UUID'] = input.APP_LOGGED_IN_FUNTIONAL_AREA_ID;
-  TEST_SUITE_TEST_SET.push(testSetTestSuiteObj);
+  if(suiteQueryData.length){
+    const testSetTestSuiteObj = {};
+    testSetTestSuiteObj['TEST_SET_UUID'] = TEST_SET_UUID;
+    testSetTestSuiteObj['TEST_SUITE_UUID'] = suiteQueryData[0]['TEST_SUITE_UUID'];
+    testSetTestSuiteObj['FUNCTIONAL_AREA_UUID'] = input.APP_LOGGED_IN_FUNTIONAL_AREA_ID;
+    TEST_SUITE_TEST_SET.push(testSetTestSuiteObj);
+  }
 
 
   // Adding Test Case for the page view
@@ -469,7 +481,7 @@ if (input.compositeEntityAction == "Update") {
   const testCaseObj = {};
   testCaseObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
   testCaseObj['TEST_CASE_NAME'] = 'Default View';
-  testCaseObj['TEST_CASE_STATUS'] = 'DRAFT';
+  testCaseObj['TEST_CASE_STATUS'] = 'COMMITTED';
   testCaseObj['TEST_SET_UUID'] = TEST_SET_UUID;
   testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Manual';
   testCaseObj['ASSOCIATED_VIEW_UUID'] = viewUUID;
@@ -497,6 +509,8 @@ if (input.compositeEntityAction == "Update") {
   testCaseStepObj['TEST_CASE_STEP_SEQ_ID'] = '1';
   testCaseStepObj['TEST_CASE_STEP_TYPE'] = 'Given'
   testCaseStepObj['IS_PURE_NAVIGATION_STEP'] = 'Yes';
+  testCaseStepObj['IS_UI_ELEMENT_GROUP_STEP'] = 'No';
+  testCaseStepObj['IS_FUNCTION_STEP'] = 'No';
   testCaseStepList.push(testCaseStepObj);
 
   //Adding Attribute Value For Test Case Step

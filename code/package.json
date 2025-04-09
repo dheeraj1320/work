@@ -1,6 +1,7 @@
 {
   "name": "code",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
   "main": "Client Report.js",
   "scripts": {

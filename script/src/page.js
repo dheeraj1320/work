@@ -7,7 +7,7 @@ const updateSequence = async (mainKnex, tableName, newId) => {
 
 const getData = async (req, res, mainKnex, auditKnex) => {
     try {
-        const functionalAreas = await mainKnex.select('*').from('FUNCTIONAL_AREA').orderBy('FUNCTIONAL_AREA_ID', 'desc');
+        // const functionalAreas = await mainKnex.select('*').from('FUNCTIONAL_AREA').orderBy('FUNCTIONAL_AREA_ID', 'desc');
                         
         const testSuiteMaxId = await mainKnex.select('*').from('SEQUENCE').where({TABLE_NAME: 'TEST_SUITE'});
         let TEST_SUITE_ID =  Number(testSuiteMaxId[0]['MAX_TABLE_SEQ_ID']);
@@ -31,7 +31,10 @@ const getData = async (req, res, mainKnex, auditKnex) => {
         let TEST_CASE_STEP_ATTRIBUTE_VALUE_ID =  Number(testCaseStepAttributeQ[0]['MAX_TABLE_SEQ_ID']);
         
         
-        
+        const functionalAreas = [
+          { FUNCTIONAL_AREA_UUID: 'a64e22ab-6b23-4a5b-a645-af71a8ffb2f8', FUNCTIONAL_AREA_NAME: "Pulse 3" },
+          { FUNCTIONAL_AREA_UUID: '0cf4bf15-811c-4617-8ad8-40b574c94043', FUNCTIONAL_AREA_NAME: "Eligibility0205"  },
+        ];
         for(let funcArea of functionalAreas){
             // if(true){ 
             // let funcArea = 'c126381e-dfe1-4b36-b738-3a33ba2c9633';
@@ -79,7 +82,7 @@ const getData = async (req, res, mainKnex, auditKnex) => {
                 newTestSuite["OPERATION_PERFORMED_BY"] = MY_ID;
                 let result = JSON.parse(JSON.stringify(newTestSuite));
 
-                await auditKnex('TEST_SUITE_AUDIT').insert(result);
+                // await auditKnex('TEST_SUITE_AUDIT').insert(result);
 
 
                 // USer Action test suite
@@ -114,7 +117,7 @@ const getData = async (req, res, mainKnex, auditKnex) => {
                 uaTestSuite["OPERATION_PERFORMED_BY"] = MY_ID;
                 let uaTestSuiteResult = JSON.parse(JSON.stringify(uaTestSuite));
 
-                await auditKnex('TEST_SUITE_AUDIT').insert(uaTestSuiteResult);
+                // await auditKnex('TEST_SUITE_AUDIT').insert(uaTestSuiteResult);
 
             }
 
@@ -163,7 +166,7 @@ const getData = async (req, res, mainKnex, auditKnex) => {
                 setObj["OPERATION_PERFORMED_BY"] = MY_ID;
                 let result = JSON.parse(JSON.stringify(setObj));
 
-                await auditKnex('TEST_SET_AUDIT').insert(result);
+                // await auditKnex('TEST_SET_AUDIT').insert(result);
 
 
                 // mapping to test suite
@@ -200,7 +203,7 @@ const getData = async (req, res, mainKnex, auditKnex) => {
                 testSuiteTestSetObj["OPERATION_PERFORMED_BY"] = MY_ID;
 
                 let mappresult = JSON.parse(JSON.stringify(testSuiteTestSetObj));
-                await auditKnex('TEST_SUITE_TEST_SET_AUDIT').insert(mappresult);
+                // await auditKnex('TEST_SUITE_TEST_SET_AUDIT').insert(mappresult);
 
                 //  views
                 const views = await mainKnex.select('*').from('PAGE_VIEW').where({PAGE_UUID: page['PAGE_UUID']}).orderBy('VIEW_ID', 'asc');
@@ -244,7 +247,7 @@ const getData = async (req, res, mainKnex, auditKnex) => {
                     testCaseObj["OPERATION_PERFORMED_BY"] = MY_ID;
                     let result = JSON.parse(JSON.stringify(testCaseObj));
 
-                    await auditKnex('TEST_CASE_AUDIT').insert(result);
+                    // await auditKnex('TEST_CASE_AUDIT').insert(result);
 
 
                     // Description
@@ -276,7 +279,7 @@ const getData = async (req, res, mainKnex, auditKnex) => {
                     testCaseDescriptionObj["OPERATION_PERFORMED_BY"] = MY_ID;
                     let descResult = JSON.parse(JSON.stringify(testCaseDescriptionObj));
 
-                    await auditKnex('TEST_CASE_DESCRIPTION_AUDIT').insert(descResult);
+                    // await auditKnex('TEST_CASE_DESCRIPTION_AUDIT').insert(descResult);
 
 
                     // test_case_Step
@@ -324,7 +327,7 @@ const getData = async (req, res, mainKnex, auditKnex) => {
 
                     let stepResult = JSON.parse(JSON.stringify(testCaseStepObj));
 
-                    await auditKnex('TEST_CASE_STEP_AUDIT').insert(stepResult);
+                    // await auditKnex('TEST_CASE_STEP_AUDIT').insert(stepResult);
 
 
                     // attribute
@@ -363,7 +366,7 @@ const getData = async (req, res, mainKnex, auditKnex) => {
 
                     let attrResult = JSON.parse(JSON.stringify(testCaseStepAttributeObj));
 
-                    await auditKnex('TEST_CASE_STEP_ATTRIBUTE_VALUE_AUDIT').insert(attrResult);
+                    // await auditKnex('TEST_CASE_STEP_ATTRIBUTE_VALUE_AUDIT').insert(attrResult);
                     
                 }
 
@@ -381,8 +384,7 @@ const getData = async (req, res, mainKnex, auditKnex) => {
         await updateSequence(mainKnex, 'TEST_CASE_STEP', TEST_CASE_STEP_ID);
         await updateSequence(mainKnex, 'TEST_CASE_STEP_ATTRIBUTE_VALUE', TEST_CASE_STEP_ATTRIBUTE_VALUE_ID);
 
-
-        
+        console.log('Script executed successfully ✅✅✅');
 
         return res.json({ success: true, message: 'Script executed successfully' });
     }

@@ -4,7 +4,7 @@ try {
   console.log('inputtttttt', input);
   let AppengProcessConfig = global.get('AppengProcessConfig');
   const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
-  let QuerytoFetchNavigationStep = `select VIEW_NAVIGATION_STEP_UUID from VIEW_NAVIGATION_STEP where VIEW_UUID in (select VIEW_UUID from PAGE_VIEW where PAGE_UUID='${input[0]['PAGE_UUID']}' AND IS_DEFAULT_VIEW = 'Yes') AND FUNCTIONAL_AREA_UUID = '${input[0]['APP_LOGGED_IN_FUNTIONAL_AREA_ID']}'`;
+  let QuerytoFetchNavigationStep = `SELECT tcs.TEST_CASE_STEP_UUID FROM TEST_CASE_STEP tcs JOIN TEST_CASE tc ON tcs.TEST_CASE_UUID = tc.TEST_CASE_UUID JOIN PAGE_VIEW pv ON tc.ASSOCIATED_VIEW_UUID = pv.VIEW_UUID WHERE pv.PAGE_UUID = :PAGE_UUID AND pv.IS_DEFAULT_VIEW = 'Yes';`;
   let QuerytoFetchNavigationStepData = await serviceOrchestrator.selectRecordsUsingQuery(
     'PRIMARYSPRINGFM',
     QuerytoFetchNavigationStep,

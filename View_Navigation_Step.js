@@ -31,6 +31,410 @@ function isDataAvailable(str) {
     }
 }
 
+
+function getDataFromAttributeUUID(attributeValueQueryData, stepDefArrributeId, attrPK) {
+    let result = attributeValueQueryData.filter((item) => item['STEP_DEFINITION_ATTRIBUTE_UUID'] == stepDefArrributeId);
+    if (result && result.length) {
+      return result[0][attrPK];
+    } else {
+      return '';
+    }
+  }
+
+// function to update attrubute values for copy steps TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE 
+function updateAttributeValuesForTCVNS(tcvnsData, stepDefAttributeQueryData, tcvnStepAttrQueryData) {
+    for (let codeDesc of stepDefAttributeQueryData) {
+      if (codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID'] && codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) {
+        let object = {};
+        object['TEST_CASE_STEP_UUID'] = tcvnsData['TEST_CASE_STEP_UUID'];
+        object['FUNCTION_UUID'] = tcvnsData['FUNCTION_UUID'];
+        object['compositeEntityAction'] = "Update";
+        object['STEP_DEFINITION_ATTRIBUTE_UUID'] = codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'];
+        object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID'] = getDataFromAttributeUUID(tcvnStepAttrQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID');
+        switch (codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID']) {
+          case '57b76ab3-8112-4343-af0f-49643c808bf7':
+            let currentPage = input['isMoreThanOneAttribute'] && input['NEXT_PAGE_CONTEXT'] ? input['NEXT_PAGE_CONTEXT'] : input['CURRENT_PAGE_CONTEXT'];
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = currentPage;
+            break;
+  
+          case 'adcf6e25-f890-476c-bdcf-e723c6d7894c':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_NAME'];
+            break;
+  
+          case '7f855066-ad39-4325-8108-30befb2447e6':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_TYPE'];
+            break;
+  
+          case '74da67d2-41c9-4cf7-9eea-715243e5fcdc':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_VALUE'];
+            if (input['PRE_DEFINED_VALUES_UUID'] && input['PRE_DEFINED_VALUES_UUID'] != 'a1112471-fd9e-11ef-ba34-02a48541b261') {
+              object['PRE_DEFINED_VALUES_UUID'] = input['PRE_DEFINED_VALUES_UUID']
+            }
+            break;
+  
+          case '235dfa3a-a897-4076-b9bc-ed813ec7c39f':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['KEY_NAME_IN_KEY_PAD'];
+            break;
+  
+          case '005d158d-428c-4bca-ae2d-1c3f9630b549':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['EVENT_NAME'];
+            break;
+  
+          case 'afe5f489-b9b3-11ee-a0ed-12e85c8c3755':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['CONFIRM_UI_ELEMENT_VALUE'];
+            break;
+  
+          case '2b7e3ad0-f3e4-11ee-9a12-6fc3e771212a': {
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_NAME_1'];
+          }
+            break;
+  
+          case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a': {
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_VALUE_1'];
+            if (input['PRE_DEFINED_VALUES_UUID_1'] && input['PRE_DEFINED_VALUES_UUID_1'] != 'a1112471-fd9e-11ef-ba34-02a48541b261') {
+              object['PRE_DEFINED_VALUES_UUID'] = input['PRE_DEFINED_VALUES_UUID_1']
+            }
+          }
+            break;
+  
+          // user action name
+          case '903cf3b0-f8a5-11ee-a163-cdf5a57b7d43':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['USER_ACTION_NAME'];
+            break;
+          // user action type
+          case '99cf0e40-f8a5-11ee-a163-cdf5a57b7d43':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['USER_ACTION_TYPE'];
+            break;
+  
+          case '5c3edc60-f290-11ee-a7a7-c7f3437be2cf':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_GROUP_UUID'];
+            break;
+  
+          // page number
+          case '2dc3a50e-004d-4dec-8270-c7ec5d36cb2c':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['PAGE_NUMBER'];
+            break;
+  
+          case '3aff7b0e-472c-4393-b6b2-5a61b07cfbff':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['DATA_VALUE'];
+            break;
+  
+          case 'bca9a7f7-1948-407c-9953-2d01356bbd15':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['DATA_KEY'];
+            break;
+  
+          case 'ceb66327-216f-42fd-845b-9f4543c62baa':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['FILE_NAME'];
+            break;
+  
+          case 'd20f4347-d4d0-47a1-96f6-190d3b5e4a90':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['DOCUMENT_PARSER_NAME'];
+            break;
+  
+          case '36880b70-2e33-11ef-b3ef-e52f192c3af0':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['API_UUID'];
+            break;
+  
+          case '46136260-2e33-11ef-b3ef-e52f192c3af0':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['API_ATTRIBUTE_NAME'];
+            break;
+  
+          case '7182ebf0-2e33-11ef-9033-4bb93e602d01':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['API_ATTRIBUTE_VALUE'];
+            break;
+  
+          case '833eb770-2e33-11ef-9033-4bb93e602d01':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['RESPONSE_CODE_VALUE'];
+            break;
+  
+          case 'c53a65a0-613e-11ef-81c7-b59b0b9089cd': {
+            let currentPage = input['NEXT_PAGE_CONTEXT'];
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = currentPage;
+          }
+            break;
+  
+          case 'ccd0b030-613e-11ef-81c7-b59b0b9089cd':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_STATE'];
+            break;
+  
+          case '2afdf3ea-2d25-42c6-ab5e-9f5a6b15e0f8':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['TIMEOUT'];;
+            break;
+  
+          case '7c7a43c8-e484-11ef-904e-02c8cad0208d':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['TEST_SET_SCOPE_VARIABLE'];
+            break;
+  
+          case '842981e7-e484-11ef-904e-02c8cad0208d':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['TEST_CASE_SCOPE_VARIABLE'];
+            break;
+  
+          case 'e0568059-ce39-4a69-aadd-6a0dccba696d':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['TIME_INTERVAL'];
+            break;
+  
+          case '9d27f361-ac8b-4673-82fe-66c40b2cb634':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['ATTEMPTS'];
+            break;
+  
+          case 'd797acb4-5e5c-447b-b0c5-60dad38e39a5':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['COLUMN_HEADER'];
+            break;
+  
+          case '75b16425-1531-4cee-8c09-30f5be70c4b0':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['CELL_VALUE'];
+            break;
+  
+          case 'ed2ebd4b-9267-4e41-8f56-d5a61abe7ba5':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['ROW_NUMBER'];
+            break;
+  
+          case 'd25a4d7f-5c5d-4117-b325-1c669b9a42ab':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['TABLE_NAME'];
+            break;
+  
+          case '078e6534-f38f-4aad-b89d-cad8216ad86b':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['COLUMN_HEADER_1'];
+            break;
+  
+          case 'ba1ef281-412a-4544-b615-7767b06eb489':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['CELL_VALUE_1'];
+            break;
+  
+          case 'f7b6ba5d-74a7-4d36-82cd-222d57b2ce83':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['COLUMN_NUMBER'];
+            break;
+  
+          case '28058e26-fa09-42fb-868a-1988bd0a746c':
+            object['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['FILE_FULL_PATH'];
+            break;
+  
+          default: null
+        }
+  
+        if (!['005d158d-428c-4bca-ae2d-1c3f9630b549', '7f855066-ad39-4325-8108-30befb2447e6'].includes(codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID'])) {
+          TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE.push(object);
+        }
+      }
+    }
+}
+
+// function to update attrubute values for copy steps TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE 
+function updateAttributeValuesForFVNS(fvsData, stepDefAttributeQueryData, fcvnStepAttrQueryData) {
+    for (let codeDesc of stepDefAttributeQueryData) {
+      if (codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID'] && codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) {
+        let object = {};
+        object['FUNCTION_UUID'] = fvsData['FUNCTION_UUID'];
+        object['compositeEntityAction'] = "Update";
+        object['STEP_DEFINITION_ATTRIBUTE_UUID'] = codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'];
+        object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID'] = getDataFromAttributeUUID(fcvnStepAttrQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID');
+        switch (codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID']) {
+          case '57b76ab3-8112-4343-af0f-49643c808bf7':
+            let currentPage = input['isMoreThanOneAttribute'] && input['NEXT_PAGE_CONTEXT'] ? input['NEXT_PAGE_CONTEXT'] : input['CURRENT_PAGE_CONTEXT'];
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = currentPage;
+            break;
+  
+          case 'adcf6e25-f890-476c-bdcf-e723c6d7894c':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_NAME'];
+            break;
+  
+          case '7f855066-ad39-4325-8108-30befb2447e6':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_TYPE'];
+            break;
+  
+          case '74da67d2-41c9-4cf7-9eea-715243e5fcdc':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_VALUE'];
+            if (input['PRE_DEFINED_VALUES_UUID'] && input['PRE_DEFINED_VALUES_UUID'] != 'a1112471-fd9e-11ef-ba34-02a48541b261') {
+              object['PRE_DEFINED_VALUES_UUID'] = input['PRE_DEFINED_VALUES_UUID']
+            }
+            break;
+  
+          case '235dfa3a-a897-4076-b9bc-ed813ec7c39f':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['KEY_NAME_IN_KEY_PAD'];
+            break;
+  
+          case '005d158d-428c-4bca-ae2d-1c3f9630b549':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['EVENT_NAME'];
+            break;
+  
+          case 'afe5f489-b9b3-11ee-a0ed-12e85c8c3755':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['CONFIRM_UI_ELEMENT_VALUE'];
+            break;
+  
+          case '2b7e3ad0-f3e4-11ee-9a12-6fc3e771212a': {
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_NAME_1'];
+          }
+            break;
+  
+          case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a': {
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_VALUE_1'];
+            if (input['PRE_DEFINED_VALUES_UUID_1'] && input['PRE_DEFINED_VALUES_UUID_1'] != 'a1112471-fd9e-11ef-ba34-02a48541b261') {
+              object['PRE_DEFINED_VALUES_UUID'] = input['PRE_DEFINED_VALUES_UUID_1']
+            }
+          }
+            break;
+  
+          // user action name
+          case '903cf3b0-f8a5-11ee-a163-cdf5a57b7d43':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['USER_ACTION_NAME'];
+            break;
+          // user action type
+          case '99cf0e40-f8a5-11ee-a163-cdf5a57b7d43':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['USER_ACTION_TYPE'];
+            break;
+  
+          case '5c3edc60-f290-11ee-a7a7-c7f3437be2cf':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_GROUP_UUID'];
+            break;
+  
+          // page number
+          case '2dc3a50e-004d-4dec-8270-c7ec5d36cb2c':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['PAGE_NUMBER'];
+            break;
+  
+          case '3aff7b0e-472c-4393-b6b2-5a61b07cfbff':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['DATA_VALUE'];
+            break;
+  
+          case 'bca9a7f7-1948-407c-9953-2d01356bbd15':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['DATA_KEY'];
+            break;
+  
+          case 'ceb66327-216f-42fd-845b-9f4543c62baa':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['FILE_NAME'];
+            break;
+  
+          case 'd20f4347-d4d0-47a1-96f6-190d3b5e4a90':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['DOCUMENT_PARSER_NAME'];
+            break;
+  
+          case '36880b70-2e33-11ef-b3ef-e52f192c3af0':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['API_UUID'];
+            break;
+  
+          case '46136260-2e33-11ef-b3ef-e52f192c3af0':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['API_ATTRIBUTE_NAME'];
+            break;
+  
+          case '7182ebf0-2e33-11ef-9033-4bb93e602d01':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['API_ATTRIBUTE_VALUE'];
+            break;
+  
+          case '833eb770-2e33-11ef-9033-4bb93e602d01':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['RESPONSE_CODE_VALUE'];
+            break;
+  
+          case 'c53a65a0-613e-11ef-81c7-b59b0b9089cd': {
+            let currentPage = input['NEXT_PAGE_CONTEXT'];
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = currentPage;
+          }
+            break;
+  
+          case 'ccd0b030-613e-11ef-81c7-b59b0b9089cd':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['UI_ELEMENT_STATE'];
+            break;
+  
+          case '2afdf3ea-2d25-42c6-ab5e-9f5a6b15e0f8':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['TIMEOUT'];;
+            break;
+  
+          case '7c7a43c8-e484-11ef-904e-02c8cad0208d':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['TEST_SET_SCOPE_VARIABLE'];
+            break;
+  
+          case '842981e7-e484-11ef-904e-02c8cad0208d':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['TEST_CASE_SCOPE_VARIABLE'];
+            break;
+  
+          case 'e0568059-ce39-4a69-aadd-6a0dccba696d':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['TIME_INTERVAL'];
+            break;
+  
+          case '9d27f361-ac8b-4673-82fe-66c40b2cb634':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['ATTEMPTS'];
+            break;
+  
+          case 'd797acb4-5e5c-447b-b0c5-60dad38e39a5':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['COLUMN_HEADER'];
+            break;
+  
+          case '75b16425-1531-4cee-8c09-30f5be70c4b0':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['CELL_VALUE'];
+            break;
+  
+          case 'ed2ebd4b-9267-4e41-8f56-d5a61abe7ba5':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['ROW_NUMBER'];
+            break;
+  
+          case 'd25a4d7f-5c5d-4117-b325-1c669b9a42ab':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['TABLE_NAME'];
+            break;
+  
+          case '078e6534-f38f-4aad-b89d-cad8216ad86b':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['COLUMN_HEADER_1'];
+            break;
+  
+          case 'ba1ef281-412a-4544-b615-7767b06eb489':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['CELL_VALUE_1'];
+            break;
+  
+          case 'f7b6ba5d-74a7-4d36-82cd-222d57b2ce83':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['COLUMN_NUMBER'];
+            break;
+  
+          case '28058e26-fa09-42fb-868a-1988bd0a746c':
+            object['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = input['FILE_FULL_PATH'];
+            break;
+  
+          default: null
+        }
+  
+        if (!['005d158d-428c-4bca-ae2d-1c3f9630b549', '7f855066-ad39-4325-8108-30befb2447e6'].includes(codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID'])) {
+          FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE.push(object);
+        }
+      }
+    }
+}
+
+  async function updateViewNavCopyStepAttributeData(stepDefAttributeQueryData, newStepName) {
+
+    const tcvnsQuery = `SELECT TEST_CASE_VIEW_NAVIGATION_STEP_UUID, FUNCTION_UUID, TEST_CASE_STEP_UUID FROM TEST_CASE_VIEW_NAVIGATION_STEP WHERE VIEW_NAVIGATION_STEP_UUID =:VIEW_NAVIGATION_STEP_UUID`;
+    const tcvnsQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", tcvnsQuery, input);
+
+    
+    for(let tcvnsData of tcvnsQueryData) {
+        const tcvnStep = tcvnsData['TEST_CASE_VIEW_NAVIGATION_STEP_UUID'];
+        const newTcvns = {};
+        newTcvns['TEST_CASE_VIEW_NAVIGATION_STEP_UUID'] = tcvnStep;
+        newTcvns['TEST_CASE_VIEW_NAVIGATION_STEP_NAME'] = newStepName;
+        newTcvns['compositeEntityAction'] = 'Update';
+        TEST_CASE_VIEW_NAVIGATION_STEP.push(newTcvns);
+
+
+        const tcvnStepAttrQuery = `SELECT * FROM TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE where TEST_CASE_VIEW_NAVIGATION_STEP_UUID = '${tcvnStep}' and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+        const tcvnStepAttrQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", tcvnStepAttrQuery, input);
+
+        updateAttributeValuesForTCVNS(tcvnsData, stepDefAttributeQueryData, tcvnStepAttrQueryData);
+    }
+
+    const fvsQuery = `SELECT FUNCTION_VIEW_NAVIGATION_STEP_UUID, FUNCTION_UUID FROM FUNCTION_VIEW_NAVIGATION_STEP WHERE VIEW_NAVIGATION_STEP_UUID =:VIEW_NAVIGATION_STEP_UUID`;
+    const fvsQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", fvsQuery, input);
+
+    for(fvsData of fvsQueryData) {
+        const fvnStep = fvsData['FUNCTION_VIEW_NAVIGATION_STEP_UUID'];
+        const newFvs = {};
+        newFvs['FUNCTION_VIEW_NAVIGATION_STEP_UUID'] = fvnStep;
+        newFvs['FUNCTION_VIEW_NAVIGATION_STEP_NAME'] = newStepName;
+        newFvs['compositeEntityAction'] = 'Update';
+        FUNCTION_VIEW_NAVIGATION_STEP.push(newFvs);
+
+        const fcvnStepAttrQuery = `SELECT * FROM FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE where FUNCTION_VIEW_NAVIGATION_STEP_UUID = '${fvnStep}' and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+        const fcvnStepAttrQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", fcvnStepAttrQuery, input);
+
+        updateAttributeValuesForFVNS(fvsData, stepDefAttributeQueryData, fcvnStepAttrQueryData);
+    }
+  }
+
 const updateSequenceForCopySteps = async (viewNavigationStepUUID, updatedSequence) => {
     const tcvnStepQuery = `SELECT TEST_CASE_VIEW_NAVIGATION_STEP_UUID FROM TEST_CASE_VIEW_NAVIGATION_STEP WHERE VIEW_NAVIGATION_STEP_UUID='${viewNavigationStepUUID}'`;
     const tcvnStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", tcvnStepQuery, input);
@@ -490,7 +894,6 @@ const deleteTestCaseViewNavAttributeData = async (tcvnsIdStr) => {
 }
 
 const deleteFunctionViewNavAttributeData = async (fcvnsIdStr) => {
-    // console.log(fcvnsIdStr,'fcvnsIdStr******');
     if (!fcvnsIdStr || !fcvnsIdStr.trim()) return;
     const fcvnattDataQuery = `SELECT FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID FROM FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE WHERE FUNCTION_VIEW_NAVIGATION_STEP_UUID in (${fcvnsIdStr})`;
     const fcvnattDataQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", fcvnattDataQuery, input);
@@ -637,6 +1040,12 @@ if (stepDefAttributeQueryData && stepDefAttributeQueryData.length && input.compo
 } else if (input.compositeEntityAction == 'Update' && input['IS_STEP_TYPE_DISPLAYED'] == "No") { // the below if block will exist when action is save
     // the below function will delete the existing view navigation step attribute value for the particular view navigation step.
     await deleteViewNavigationStepAttributeData("'" + input.VIEW_NAVIGATION_STEP_UUID + "'");
+
+    if(input['IS_VALUE_CHANGED'] == 'Yes') {
+        // deleteCopyViewNavigationData("'" + input.VIEW_NAVIGATION_STEP_UUID + "'", false);
+        await updateViewNavCopyStepAttributeData(stepDefAttributeQueryData, getKeywordByStepType + viewNavigationNameStepDefVerbiageStr);
+    }
+
     // creating the new records in view navigation step attribute value table with new value
     await createViewNavigationStepAttributeValue(stepDefAttributeQueryData);
     input['VIEW_NAVIGATION_STEP_NAME'] = getKeywordByStepType + viewNavigationNameStepDefVerbiageStr;

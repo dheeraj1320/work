@@ -1,6 +1,7 @@
-console.log('from page view ce ', input);
-
 const VIEW_UI_ELEMENT = [];
+const VIEW_NAVIGATION_STEP = [];
+const VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE = [];
+
 const INTEGRATION_TEST_CASE = [];
 const TEST_CASE_DESCRIPTION = [];
 
@@ -14,6 +15,11 @@ const testCaseUIElementGroupStepList = [];
 const testCaseFunctionUIElementGroupStepAttributeList = [];
 const testCaseFunctionUIElementGroupStepList = [];
 
+const TEST_CASE_VIEW_NAVIGATION_STEP = [];
+const TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE = [];
+const FUNCTION_VIEW_NAVIGATION_STEP = [];
+const FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE = [];
+
 
 
 function deleteRecord(primarykey, primarykeyvalue, deleteType, functionalareauuid) {
@@ -26,7 +32,14 @@ function deleteRecord(primarykey, primarykeyvalue, deleteType, functionalareauui
     
     if (deleteType == 'VIEW_UI_ELEMENT') {
       VIEW_UI_ELEMENT.push(deleteParamenter);
-    } else if (deleteType === 'TEST_CASE') {
+    }
+    else if(deleteType == 'VIEW_NAVIGATION_STEP'){
+      VIEW_NAVIGATION_STEP.push(deleteParamenter);
+    }
+    else if(deleteType == 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE'){
+      VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE.push(deleteParamenter);
+    }
+    else if (deleteType === 'TEST_CASE') {
       INTEGRATION_TEST_CASE.push(deleteParamenter);
     } else if (deleteType === 'TEST_CASE_DESCRIPTION') {
       TEST_CASE_DESCRIPTION.push(deleteParamenter);
@@ -48,6 +61,14 @@ function deleteRecord(primarykey, primarykeyvalue, deleteType, functionalareauui
       testCaseFunctionUIElementGroupStepAttributeList.push(deleteParamenter);
     } else if (deleteType === 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP') {
       testCaseFunctionUIElementGroupStepList.push(deleteParamenter);
+    } else if (deleteType === 'TEST_CASE_VIEW_NAVIGATION_STEP') {
+        TEST_CASE_VIEW_NAVIGATION_STEP.push(deleteParamenter);
+    } else if (deleteType === 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE') {
+        TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE.push(deleteParamenter);
+    } else if (deleteType === 'FUNCTION_VIEW_NAVIGATION_STEP') {
+        FUNCTION_VIEW_NAVIGATION_STEP.push(deleteParamenter);
+    } else if (deleteType === 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE') {
+        FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE.push(deleteParamenter);
     }
 }
 
@@ -145,7 +166,7 @@ if (input.compositeEntityAction == "Insert") {
     const testCaseObj = {};
     testCaseObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
     testCaseObj['TEST_CASE_NAME'] = input['VIEW_NAME'];
-    testCaseObj['TEST_CASE_STATUS'] = 'DRAFT';
+    testCaseObj['TEST_CASE_STATUS'] = 'COMMITTED';
     testCaseObj['TEST_SET_UUID'] = testSetQueryData[0]['TEST_SET_UUID'];
     testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Manual';
     testCaseObj['ASSOCIATED_VIEW_UUID'] = input['VIEW_UUID'];
@@ -158,6 +179,37 @@ if (input.compositeEntityAction == "Insert") {
     testCaseDescriptionObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
     testCaseDescriptionObj['TEST_CASE_DESCRIPTION_UUID'] = TEST_CASE_DESCRIPTION_UUID;
     TEST_CASE_DESCRIPTION.push(testCaseDescriptionObj);
+
+    const pageQuery =  `SELECT PAGE_NAME FROM PAGE where PAGE_UUID=:PAGE_UUID`;
+    const pageQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", pageQuery, input);
+
+
+    //Adding Test Case Step
+    const TEST_CASE_STEP_UUID = uuid();
+    const testCaseStepObj ={};
+    testCaseStepObj['TEST_CASE_STEP_UUID'] = TEST_CASE_STEP_UUID;
+    testCaseStepObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
+    testCaseStepObj['TEST_SET_UUID'] = testSetQueryData[0]['TEST_SET_UUID'];
+    testCaseStepObj['TEST_CASE_STEP_NAME'] = 'When User is on '+ pageQueryData[0]['PAGE_NAME']+' Page'
+    testCaseStepObj['PAGE_UUID'] = input["PAGE_UUID"];
+    testCaseStepObj['VIEW_UUID'] = input['VIEW_UUID'];
+    testCaseStepObj['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'] = '20b169ba-34aa-46d1-888d-9324b9b77bc8';
+    testCaseStepObj['CURRENT_PAGE_CONTEXT'] = input["PAGE_UUID"];
+    testCaseStepObj['TEST_CASE_STEP_SEQ_ID'] = '1';
+    testCaseStepObj['TEST_CASE_STEP_TYPE'] = 'Given'
+    testCaseStepObj['IS_PURE_NAVIGATION_STEP'] = 'Yes';
+    testCaseStepObj['IS_UI_ELEMENT_GROUP_STEP'] = 'No';
+    testCaseStepObj['IS_FUNCTION_STEP'] = 'No';
+    testCaseStepList.push(testCaseStepObj);
+
+    //Adding Attribute Value For Test Case Step
+    const testCaseStepAttributeObj ={};
+    testCaseStepAttributeObj['STEP_DEFINITION_ATTRIBUTE_UUID'] = '11cf20fb-2cdf-4d03-a0b2-aad3644056af';
+    testCaseStepAttributeObj['TEST_CASE_STEP_ATTRIBUTE_DATA'] = input["PAGE_UUID"];
+    testCaseStepAttributeObj['TEST_SET_UUID'] = testSetQueryData[0]['TEST_SET_UUID'];
+    testCaseStepAttributeObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
+    testCaseStepAttributeObj['TEST_CASE_STEP_UUID'] = TEST_CASE_STEP_UUID;
+    testCaseStepAttributeValueList.push(testCaseStepAttributeObj);
   }
 
 } 
@@ -184,6 +236,55 @@ else if (input.compositeEntityAction == "Delete") {
         deleteRecord("VIEW_UI_ELEMENT_UUID", data["VIEW_UI_ELEMENT_UUID"], "VIEW_UI_ELEMENT", input.APP_LOGGED_IN_FUNTIONAL_AREA_ID)
     }
 
+    // for VIEW_NAVIGATION_STEPS
+    let QuerytoFetchViewNavigationSteps = `SELECT VIEW_NAVIGATION_STEP_UUID FROM VIEW_NAVIGATION_STEP WHERE VIEW_UUID = :VIEW_UUID`;
+    let QuerytoFetchViewNavigationStepsData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", QuerytoFetchViewNavigationSteps, input );
+
+    for(data of QuerytoFetchViewNavigationStepsData){
+        deleteRecord("VIEW_NAVIGATION_STEP_UUID", data["VIEW_NAVIGATION_STEP_UUID"], "VIEW_NAVIGATION_STEP", input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+    }
+
+    
+    //for VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE
+    let QuerytoFetchNavigationStepAtt = `SELECT VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID FROM VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE WHERE VIEW_UUID = :VIEW_UUID`;
+
+    let QuerytoFetchNavigationStepAttData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", QuerytoFetchNavigationStepAtt,input);
+
+    for(data of QuerytoFetchNavigationStepAttData){
+        deleteRecord("VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID", data["VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID"], "VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE", input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+    }
+
+    // for TEST_CASE_VIEW_NAVIGATION_STEP
+    let tcvnsQuery = `SELECT TEST_CASE_VIEW_NAVIGATION_STEP_UUID FROM TEST_CASE_VIEW_NAVIGATION_STEP WHERE VIEW_UUID = :VIEW_UUID`;
+    let tcvnsQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", tcvnsQuery, input);
+
+    for(data of tcvnsQueryData){
+        deleteRecord("TEST_CASE_VIEW_NAVIGATION_STEP_UUID", data["TEST_CASE_VIEW_NAVIGATION_STEP_UUID"], "TEST_CASE_VIEW_NAVIGATION_STEP", input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+    }
+
+    // for TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE
+    let tcvnsavQuery = `SELECT TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID FROM TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE WHERE VIEW_UUID = :VIEW_UUID`;
+    let tcvnsavQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", tcvnsavQuery, input);
+
+    for(data of tcvnsavQueryData){
+        deleteRecord("TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID", data["TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID"], "TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE", input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+    }
+
+    // for FUNCTION_VIEW_NAVIGATION_STEP
+    let fvnsQuery = `SELECT FUNCTION_VIEW_NAVIGATION_STEP_UUID FROM FUNCTION_VIEW_NAVIGATION_STEP WHERE VIEW_UUID = :VIEW_UUID`;
+    let fvnsQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", fvnsQuery, input);
+
+    for(data of fvnsQueryData){
+        deleteRecord("FUNCTION_VIEW_NAVIGATION_STEP_UUID", data["FUNCTION_VIEW_NAVIGATION_STEP_UUID"], "FUNCTION_VIEW_NAVIGATION_STEP", input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+    }
+
+    // for FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE
+    let fvnsavQuery = `SELECT FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID FROM FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE WHERE VIEW_UUID = :VIEW_UUID`;
+    let fvnsavQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", fvnsavQuery, input);
+
+    for(data of fvnsavQueryData){
+        deleteRecord("FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID", data["FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID"], "FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE", input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+    }
 
     // Delete The whole test case heirarchy
     const getTestCase = `SELECT * FROM TEST_CASE where ASSOCIATED_VIEW_UUID=:VIEW_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
@@ -191,6 +292,11 @@ else if (input.compositeEntityAction == "Delete") {
 
     if (getTestCaseData && getTestCaseData[0]['TEST_CASE_UUID']) {
         input['TEST_CASE_UUID'] = getTestCaseData[0]['TEST_CASE_UUID'];
+
+        const testCaseObj = {};
+        testCaseObj['TEST_CASE_UUID'] = input['TEST_CASE_UUID'];
+        testCaseObj['compositeEntityAction'] = 'Delete';
+        INTEGRATION_TEST_CASE.push(testCaseObj);
 
         const testCaseStepQuery = `SELECT * FROM TEST_CASE_STEP where TEST_CASE_UUID=:TEST_CASE_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
         let testCaseStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", testCaseStepQuery, input);
@@ -227,6 +333,9 @@ else if (input.compositeEntityAction == "Delete") {
     }
 }
 
+input["AppEngChildEntity:VIEW_NAVIGATION_STEP"] = VIEW_NAVIGATION_STEP;
+input["AppEngChildEntity:VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE"] = VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE;
+
 input["AppEngChildEntity:VIEW_UI_ELEMENT_CHILD_OF_VIEW_UI_ELEMENT"] = VIEW_UI_ELEMENT;
 input["AppEngChildEntity:INTEGRATION_TEST_CASE"] = INTEGRATION_TEST_CASE;
 input['AppEngChildEntity:TEST_CASE_DESCRIPTION'] = TEST_CASE_DESCRIPTION;
@@ -243,3 +352,8 @@ input['AppEngChildEntity:TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE'] = tes
 input['AppEngChildEntity:TEST_CASE_UI_ELEMENT_GROUP_STEP'] = testCaseUIElementGroupStepList;
 input['AppEngChildEntity:TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE'] = testCaseFunctionUIElementGroupStepAttributeList;
 input['AppEngChildEntity:TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP'] = testCaseFunctionUIElementGroupStepList;
+
+input['AppEngChildEntity:TEST_CASE_VIEW_NAVIGATION_STEP'] = TEST_CASE_VIEW_NAVIGATION_STEP;
+input['AppEngChildEntity:TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE'] = TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE;
+input['AppEngChildEntity:FUNCTION_VIEW_NAVIGATION_STEP'] = FUNCTION_VIEW_NAVIGATION_STEP;
+input['AppEngChildEntity:FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE'] = FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE;

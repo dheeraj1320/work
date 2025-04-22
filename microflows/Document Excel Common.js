@@ -48,6 +48,7 @@ function generateExcelData(inputData) {
   return mainArray;
 }
 let input = msg.payload.apiRequestBody;
+debugger;
 function ConcatinateURL(data) {
   data.forEach((item) => {
     if (item['Page Direct Access URL']) {
@@ -407,6 +408,7 @@ let uiElementTypeQueryDataList = await serviceOrchestrator.selectRecordsUsingQue
   uiElementTypeQuery,
   input
 );
+debugger;
 if (
   input.APPLICATION_ENVIRONMENT_BASE_URL &&
   input.TEST_SET_UUID &&
@@ -433,7 +435,7 @@ if (
   let versionMaster =
     versionIdqueryData && versionIdqueryData.length ? versionIdqueryData[0]['MASTER_CODE_VERSION_ID'] : null;
   input['MASTER_CODE_VERSION_ID'] = versionMaster;
-  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID', :APP_LOGGED_IN_USER_ID as 'User UUID', :MASTER_CODE_VERSION_ID as 'Version ID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID', :APP_LOGGED_IN_USER_ID as 'User UUID', :MASTER_CODE_VERSION_ID as 'Version Number' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
     'PRIMARYSPRINGFM',
     functionalAreaQuery,
@@ -1463,7 +1465,13 @@ if (
 ) {
   msg.payload.result = {};
   let maxLength = 200;
-  let documentName = input.TEST_CASE_NAME ? input.TEST_CASE_NAME.replaceAll(/[^A-Z0-9-]+/gi, '_') : 'GeneratedTestCase';
+  let docName =
+    input.PARENT_GRID_NAME == 'Page Navigation Test Set'
+      ? input.TEST_SET_NAME
+        ? input.TEST_SET_NAME + ' ' + input.TEST_CASE_NAME
+        : input.TEST_CASE_NAME
+      : input.TEST_CASE_NAME;
+  let documentName = docName ? docName.replaceAll(/[^A-Z0-9-]+/gi, '_') : 'GeneratedTestCase';
   msg.payload.result.documentName =
     documentName && documentName.length > maxLength ? documentName.substring(0, maxLength) : documentName;
   let versionIdquery = `SELECT MASTER_CODE_VERSION_ID FROM AUTOMATION_CODE_VERSION WHERE VERSION_STATUS='Active' and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
@@ -1471,7 +1479,7 @@ if (
   let versionMaster =
     versionIdqueryData && versionIdqueryData.length ? versionIdqueryData[0]['MASTER_CODE_VERSION_ID'] : null;
   input['MASTER_CODE_VERSION_ID'] = versionMaster;
-  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version ID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
     'PRIMARYSPRINGFM',
     functionalAreaQuery,
@@ -2510,7 +2518,7 @@ if (
   let versionMaster =
     versionIdqueryData && versionIdqueryData.length ? versionIdqueryData[0]['MASTER_CODE_VERSION_ID'] : null;
   input['MASTER_CODE_VERSION_ID'] = versionMaster;
-  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version ID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
     'PRIMARYSPRINGFM',
     functionalAreaQuery,
@@ -3484,7 +3492,7 @@ if (
   let versionMaster =
     versionIdqueryData && versionIdqueryData.length ? versionIdqueryData[0]['MASTER_CODE_VERSION_ID'] : null;
   input['MASTER_CODE_VERSION_ID'] = versionMaster;
-  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID',:TEST_SUITE_UUID as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version ID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID',:TEST_SUITE_UUID as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
     'PRIMARYSPRINGFM',
     functionalAreaQuery,
@@ -3578,7 +3586,7 @@ if (
       )
     );
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionNavigationStepQueryData);
-    let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', concat( TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, concat( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfuegs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcfs.TEST_CASE_FUNCTION_STEP_UUID = tcfuegs.TEST_CASE_FUNCTION_STEP_UUID AND tcs.TEST_SET_UUID in(${testSetID}) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'COMMITTED' ORDER BY TEST_CASE_STEP_ID asc, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID asc`;
+    let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', concat( TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, concat( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfuegs.TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcfs.TEST_CASE_FUNCTION_STEP_UUID = tcfuegs.TEST_CASE_FUNCTION_STEP_UUID AND tcs.TEST_SET_UUID in(${testSetID}) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'COMMITTED' ORDER BY TEST_CASE_STEP_ID asc, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID asc`;
     let testCaseFunctionUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
       'PRIMARYSPRINGFM',
       testCaseFunctionUIElementGroupStepQuery,
@@ -4598,7 +4606,7 @@ if (
   let versionMaster =
     versionIdqueryData && versionIdqueryData.length ? versionIdqueryData[0]['MASTER_CODE_VERSION_ID'] : null;
   input['MASTER_CODE_VERSION_ID'] = versionMaster;
-  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version ID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
     'PRIMARYSPRINGFM',
     functionalAreaQuery,

@@ -11,7 +11,7 @@ const knex = require('knex')({
     host: 'ae-development-infoapps.cnoaycsucdmt.us-east-1.rds.amazonaws.com',
     user: 'admin',
     password: 'aurora123',
-    database: `mig_featuremanagemt_app`,
+    database: `featuremanagement_app`,
   },
 });
 
@@ -21,7 +21,7 @@ const auditKnex = require('knex')({
     host: 'ae-development-infoapps.cnoaycsucdmt.us-east-1.rds.amazonaws.com',
     user: 'admin',
     password: 'aurora123',
-    database: `uat_featuremanagement_app_audit`,
+    database: `featuremanagement_app_audit`,
   },
 });
 

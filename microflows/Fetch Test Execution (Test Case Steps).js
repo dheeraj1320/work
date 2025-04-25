@@ -4,33 +4,33 @@ try {
   let queryData = [];
   let input = Object.assign(msg.payload.apiRequestBody, msg.payload.referenceData);
   let selectQuery;
-  const getFirstCoverStep = (group) => {
+  const getFirstCoverStepDetails = (group) => {
     if (group.includes('Function')) {
       const funcArr = group.split(' - ');
       const functionName = funcArr[0].trim().slice(0, -8).trim();
-      return `Call '${functionName}' Function`;
+      return { name: `Call '${functionName}' Function`, type: 'Function' };
     } else if (group.includes('Navigation Step')) {
       const pageArr = group.split(' - ');
       const pageName = pageArr[pageArr.length - 2].trim().slice(0, -4).trim();
-      return `User is on '${pageName}' Page`;
+      return { name: `User is on '${pageName}' Page`, type: 'Navigation Step' };
     } else if (group.includes('UI Element Group')) {
       const uiElementGroupArr = group.split(' - ');
       const uiElementGroup = uiElementGroupArr[uiElementGroupArr.length - 1].trim().slice(0, -16).trim();
-      return `Call '${uiElementGroup}' UI Element Group`;
+      return { name: `Call '${uiElementGroup}' UI Element Group`, type: 'UI Element Group' };
     }
-    return '';
+    return { name: '', type: '' };
   };
-  const getSecondCoverStep = (group) => {
+  const getSecondCoverStepDetails = (group) => {
     if (group.includes('Navigation Step')) {
       const pageArr = group.split(' - ');
       const pageName = pageArr[pageArr.length - 2].trim().slice(0, -4).trim();
-      return `User is on '${pageName}' Page`;
+      return { name: `User is on '${pageName}' Page`, type: 'Navigation Step' };
     } else if (group.includes('UI Element Group')) {
       const uiElementGroupArr = group.split(' - ');
       const uiElementGroup = uiElementGroupArr[uiElementGroupArr.length - 1].trim().slice(0, -16).trim();
-      return `Call '${uiElementGroup}' UI Element Group`;
+      return { name: `Call '${uiElementGroup}' UI Element Group`, type: 'UI Element Group' };
     }
-    return '';
+    return { name: '', type: '' };
   };
   const getPath = (path, level) => {
     console.log('getting path for path ', path, 'and level ', level);
@@ -68,14 +68,20 @@ try {
           data.TEST_CASE_STEP_PATH_ID = getPath(data.TEST_CASE_STEP_PATH, 0);
           const duration = Number(timeMap.get(parentPath)).toFixed(3) + ' sec.';
           if (data.TEST_CASE_STEP_PATH && data.TEST_CASE_STEP_PATH.includes('-')) {
+            const groupDetails = getFirstCoverStepDetails(data.TEST_CASE_STEP_GROUP_NAME);
             return {
               ...data,
               TEST_CASE_STEP_DURATION: duration,
               TEST_CASE_STEP_PATH: parentPath,
-              TEST_CASE_STEP_NAME: getFirstCoverStep(data.TEST_CASE_STEP_GROUP_NAME),
+              TEST_CASE_STEP_NAME: groupDetails.name,
+              CHILD_STEP_TYPE: groupDetails.type,
             };
           }
-          return { ...data, TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3) + ' sec.' };
+          return {
+            ...data,
+            TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3) + ' sec.',
+            CHILD_STEP_TYPE: null,
+          };
         });
       queryData = filteredData;
     } catch (e) {
@@ -106,14 +112,20 @@ try {
             const parentPathArr = data.TEST_CASE_STEP_PATH.trim().split('-');
             const parentPath = parentPathArr[0] + '-' + parentPathArr[1] + '-';
             const duration = Number(timeMap.get(parentPath)).toFixed(3) + ' sec.';
+            const groupDetails = getSecondCoverStepDetails(data.TEST_CASE_STEP_GROUP_NAME);
             return {
               ...data,
               TEST_CASE_STEP_DURATION: duration,
               TEST_CASE_STEP_PATH: parentPath,
-              TEST_CASE_STEP_NAME: getSecondCoverStep(data.TEST_CASE_STEP_GROUP_NAME),
+              TEST_CASE_STEP_NAME: groupDetails.name,
+              CHILD_STEP_TYPE: groupDetails.type,
             };
           }
-          return { ...data, TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3) + ' sec.' };
+          return {
+            ...data,
+            TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3) + ' sec.',
+            CHILD_STEP_TYPE: null,
+          };
         });
       queryData = filteredData;
     } catch (e) {
@@ -128,6 +140,7 @@ try {
           ...data,
           TEST_CASE_STEP_PATH_ID: getPath(data.TEST_CASE_STEP_PATH, 2),
           TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3) + ' sec.',
+          CHILD_STEP_TYPE: null,
         };
       });
       queryData = filteredData;

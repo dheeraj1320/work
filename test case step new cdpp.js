@@ -658,3 +658,18 @@ if (!input[0]['STEP_FILTER']) {
 } else {
     input[0]['STEP_DEFINITION_FILTER'] = '#do-not-match';
 }
+
+if(input[0]['TEST_CASE_STEP_UUID'] && !input[0]['GRAND_PARENT_GRID_NAME'] && input[0]['TEST_SET_UUID']){
+    const testSetTypeQuery = `SELECT TEST_SET_TYPE, PAGE_UUID FROM TEST_SET WHERE TEST_SET_UUID = '${input[0]['TEST_SET_UUID']}'`;
+    const testSetTypeData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", testSetTypeQuery, input[0]);
+    console.log('Query fired to get test set type :::::::::::::::::::::::::::::::::::::: ');
+    if(testSetTypeData && testSetTypeData.length && testSetTypeData[0]['TEST_SET_TYPE'] == 'Page Navigation'){
+
+        const viewQuery = `SELECT ASSOCIATED_VIEW_UUID FROM TEST_CASE WHERE TEST_CASE_UUID = '${input[0]['TEST_CASE_UUID']}'`
+        const viewData =  await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", viewQuery, input[0]);
+
+        input[0]['GRAND_PARENT_GRID_NAME'] = 'Page Navigation Test Set';
+        input[0]['ORIGINAL_PAGE_UUID'] = testSetTypeData[0]['PAGE_UUID'];
+        input[0]['ASSOCIATED_VIEW_UUID'] = viewData[0]['ASSOCIATED_VIEW_UUID'];
+    } 
+}

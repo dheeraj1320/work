@@ -2022,6 +2022,198 @@ if (input.compositeEntityAction == 'Create Entity') {
     input["AppEngChildEntity:DATA_SET_UI_VIEW_TREE"] = dataSetUiComponentTree;
     input["AppEngChildEntity:DATA_SET_RELATIONSHIP_UI_VIEW_TREE"] = dataSetRelationUiComponentTree;
 }
+
+//  ---------------------------------------------------------- Create Logical & Physical Entitites Block -----------------------------------------------------
+
+if (input.compositeEntityAction == 'Create Logical & Physical Entitites') {
+
+    // --------------------------------------------- Validation Block----------------------------------------
+    const QUERY_DataElement = "SELECT * FROM DATA_ELEMENT where DATA_SET_UUID=:DATA_SET_UUID AND (IS_TIME_SENSITIVE = 'No' OR IS_TIME_SENSITIVE IS NULL) order by DATA_ELEMENT_ID asc";
+    const data_ElementId = await serviceOrchestrator.selectRecordsUsingQuery("INFO_APPS", QUERY_DataElement, input);
+    const TimeSensitive_DataElement = "SELECT * FROM DATA_ELEMENT where DATA_SET_UUID=:DATA_SET_UUID AND IS_TIME_SENSITIVE = 'Yes' order by DATA_ELEMENT_ID asc";
+    const TimeSensitive_DataElementId = await serviceOrchestrator.selectRecordsUsingQuery("INFO_APPS", TimeSensitive_DataElement, input);
+
+    const dataSetQuery = `select * from DATA_SET Where DATA_SET_UUID in(Select PARENT_DATA_SET_UUID from DATA_ELEMENT  Where DATA_SET_UUID =:DATA_SET_UUID and DATA_KEY ='FOREIGN_KEY') and isnull(PHYSICAL_TABLE_NAME) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+    const parsedData = await serviceOrchestrator.selectRecordsUsingQuery('INFO_APPS', dataSetQuery, input);
+
+    const isDataElementsValid = validateDataElements(data_ElementId);
+    const isParentEntityCreated = parsedData.length > 0 ? false : true;
+
+    if (!(isDataElementsValid && isParentEntityCreated)) return;
+    // --------------------------------------------- Entity Block----------------------------------------
+    input.PHYSICAL_TABLE_NAME = entity_name;
+    const QUERY = "SELECT PROPERTYVALUE,PROPERTYNAME,ITEMID FROM CONFIGITEMPROPERTY where PROPERTYNAME='LOOKUP_KEY' and ITEMID in (SELECT ITEMID FROM CONFIGITEMPROPERTY  where PROPERTYNAME = 'APPLICATION_ID' and PROPERTYVALUE =:AE_APPLICATION_UUID and ITEMID in (select ITEMID from CONFIGITEM where PROJECTID=:PROJECTID and ITEMTYPE = 'DataSource' and ISDELETED='0' ));";
+
+    let mainDataSource = await serviceOrchestrator.selectSingleRecordUsingQuery("INFOAPPS_MD", QUERY, input);
+
+    auditApplicationID = input['AE_APPLICATION_UUID'] + "_AUDIT"
+
+    const AUDIT_QUERY = `SELECT PROPERTYVALUE,PROPERTYNAME,ITEMID FROM CONFIGITEMPROPERTY  where PROPERTYNAME='LOOKUP_KEY' and  ITEMID in (SELECT ITEMID FROM CONFIGITEMPROPERTY  where  PROPERTYNAME = 'APPLICATION_ID' and PROPERTYVALUE="${auditApplicationID}" and ITEMID in (select ITEMID from CONFIGITEM where  PROJECTID=:PROJECTID and ITEMTYPE = 'DataSource' and ISDELETED='0' ));`
+
+    let auditDataSource = await serviceOrchestrator.selectSingleRecordUsingQuery("INFOAPPS_MD", AUDIT_QUERY, input);
+
+    const QUERY_Schema = `SELECT PROPERTYVALUE,PROPERTYNAME FROM CONFIGITEMPROPERTY WHERE PROPERTYNAME ='DB_NAME' AND ITEMID IN (SELECT CHILDITEMID FROM CONFIGITEMRELATION WHERE PARENTITEMID ='${mainDataSource.ITEMID}' )`;
+    let schemaname = await serviceOrchestrator.selectSingleRecordUsingQuery("INFOAPPS_MD", QUERY_Schema, input);
+
+    let commonFields = [{
+        'dbCode': entity_name + '_UUID',
+        'type': 'VARCHAR',
+        'length': 50,
+        'isunique': 'No'
+    }];
+
+    let jsonFields = [
+        { 'dbCode': entity_name + '_LONGTEXT_DATA_UUID', 'type': 'VARCHAR', 'length': 50, 'isunique': 'No' },
+        { 'dbCode': entity_name + '_LONGTEXT_DATA_ID', 'type': 'NUMBER', 'length': 10, 'isunique': 'No' },
+        ...commonFields
+    ];
+
+    // Utility function to build a table data object
+    const buildTableDataObject = (columnList, tableName, primaryDbCode, incrementalUuid, sequencePrimaryDbCode = null) => ({
+        "COLUMN_LIST": columnList,
+        "TABLE_NAME": tableName,
+        "PRIMARY_DBCODE": primaryDbCode,
+        "INCREMENTAL_UUID": incrementalUuid,
+        ...(sequencePrimaryDbCode ? { "SEQUENCE_PRIMARY_DBCODE": sequencePrimaryDbCode } : {})
+    });
+
+    let create_table_list = [...commonFields];
+    let create_audit_table_list = [...commonFields];
+    let createjsonTableElementList = [...jsonFields];
+    let createjsonTableElementAuditList = [...jsonFields];
+    let isLongTextDataExist = false;
+    let constraintDetails = {};
+    const commonAuditFields = [
+        { dbCode: 'AE_INSERT_ID', type: 'VARCHAR', length: 45 },
+        { dbCode: 'AE_UPDATE_ID', type: 'VARCHAR', length: 45 },
+        { dbCode: 'AE_TRANSACTION_ID', type: 'VARCHAR', length: 45 },
+        { dbCode: 'AE_INSERT_TS', type: 'TIMESTAMP', length: 3 },
+        { dbCode: 'AE_UPDATE_TS', type: 'TIMESTAMP', length: 3 }
+    ];
+    const auditTable = [
+        { dbCode: 'AE_AUDIT_UUID', type: 'VARCHAR', length: 50, isunique: 'No' },
+        { dbCode: 'OPERATION_PERFORMED_BY', type: 'VARCHAR', length: 50 },
+        { dbCode: 'AE_OPERATION_TYPE', type: 'VARCHAR', length: 25 },
+        { dbCode: 'AE_TIMESTAMP', type: 'TIMESTAMP', length: 3 },
+        { dbCode: 'TENANT_ID', type: 'VARCHAR', length: 50 },
+        { dbCode: 'AE_OLD_NEW_COMPARISION_DETAILS', type: 'LONGTEXT' },
+        ...commonAuditFields
+    ];
+    // Define UI component data
+    dataSetFormFieldUiComponentData = [{
+        "title": `${input.DATA_SET_NAME} UI View (Add/Edit)`,
+        "className": "DATA_SET_UI_VIEW",
+        "primaryKey": "",
+        "parentNodeID": "",
+        "parentNodeClassName": "",
+        "level": 1,
+        "children": input.IS_ATTACHMENT_CAPABLITY_REQUIRED === 'Yes' ? [{
+            "title": `${input.DATA_SET_NAME} Tab`,
+            "className": "TAB_CONTAINER",
+            "parentNodeClassName": "DATA_SET_UI_VIEW",
+            "primaryKey": "",
+            "parentNodeID": "",
+            "level": 2,
+            "children": [],
+            "expanded": true
+        }, {
+            "title": "Attachment Tab",
+            "className": "TAB_CONTAINER",
+            "parentNodeClassName": "DATA_SET_UI_VIEW",
+            "primaryKey": "",
+            "parentNodeID": "",
+            "level": 2,
+            "children": [],
+            "expanded": true
+        }] : [],
+        "expanded": true
+    }];
+
+    if (data_ElementId.length) {
+        data_ElementId.forEach(element => {
+            const columnDetails = createColumnDetails(element);
+            const get_dbcode_name = columnDetails.dbCode;
+
+            if (['FOREIGN_KEY', 'AUTO_INCREMENT_UNIQUE_KEY'].includes(element.DATA_KEY)) {
+                constraintDetails[get_dbcode_name] = element.DATA_KEY;
+            }
+
+            if (element.DATA_TYPE === 'LONGTEXT') {
+                isLongTextDataExist = true;
+                createjsonTableElementList.push(columnDetails);
+                createjsonTableElementAuditList.push(columnDetails);
+            } else {
+                create_table_list.push(columnDetails);
+                create_audit_table_list.push(columnDetails);
+            }
+        });
+
+        let updatedMainTableDetails = [];
+        let updatedAuditMainTableDetails = [];
+
+        for (let columnDetails of create_table_list) {
+            let columnObject = {};
+            columnObject["dbCode"] = columnDetails.dbCode;
+            columnObject["type"] = columnDetails.type ? columnDetails.type : "VARCHAR";
+            columnObject["length"] = columnDetails.length ? columnDetails.length : columnDetails.type == 'TIMESTAMP'? 3 : 1024;
+            columnObject["isunique"] = columnDetails.isunique;
+            columnObject["isRequired"] = columnDetails.isRequired;
+            columnObject["data_col_key"] = columnDetails.data_col_key;
+            updatedMainTableDetails.push(columnObject);
+            updatedAuditMainTableDetails.push(columnObject);
+        }
+
+
+        create_table_list.push(...commonAuditFields);
+        create_audit_table_list.push(...auditTable);
+        updatedMainTableDetails.push(...commonAuditFields);
+        updatedAuditMainTableDetails.push(...auditTable);
+
+        await serviceOrchestrator.createTable(entity_name, updatedMainTableDetails, mainDataSource.PROPERTYVALUE, `${entity_name}_UUID`, 'KNEX_DYNAMIC');
+        await serviceOrchestrator.createTable(`${entity_name}_AUDIT`, updatedAuditMainTableDetails, auditDataSource.PROPERTYVALUE, 'AE_AUDIT_UUID', 'KNEX_DYNAMIC');
+
+        if (isLongTextDataExist) {
+            createjsonTableElementList.push(...commonAuditFields);
+            createjsonTableElementAuditList.push(...auditTable);
+            await serviceOrchestrator.createTable(`${entity_name}_LONGTEXT_DATA`, createjsonTableElementList, mainDataSource.PROPERTYVALUE, `${entity_name}_LONGTEXT_DATA_UUID`, 'KNEX_DYNAMIC');
+            await serviceOrchestrator.createTable(`${entity_name}_LONGTEXT_DATA_AUDIT`, createjsonTableElementAuditList, auditDataSource.PROPERTYVALUE, 'AE_AUDIT_UUID', 'KNEX_DYNAMIC');
+        }
+    }
+
+
+    // Generate column lists using map for better performance
+    const columnList = create_table_list.map(item => item.dbCode);
+    const auditColumnList = create_audit_table_list.map(item => item.dbCode);
+    const longtextColumnList = isLongTextDataExist ? createjsonTableElementList.map(item => item.dbCode) : [];
+
+    // Build table data objects
+    const mainTableDataObject = buildTableDataObject(columnList, entity_name, `${entity_name}_UUID`, `${entity_name}_ID`);
+    const auditTableDataObject = buildTableDataObject(auditColumnList, `${entity_name}_AUDIT`, `${entity_name}_UUID`, `${entity_name}_ID`);
+    const longTextTableDataObject = isLongTextDataExist ? buildTableDataObject(longtextColumnList, `${entity_name}_LONGTEXT_DATA`, `${entity_name}_UUID`, `${entity_name}_LONGTEXT_DATA_ID`, `${entity_name}_LONGTEXT_DATA_UUID`) : null;
+
+
+
+    let mainlogicalEntityConfigId = createLogicalEntity(entity_name);
+    let [mainPhysicalEntityConfigId, mainSingleSelectQuery] = createPhysicalEntity(entity_name, mainlogicalEntityConfigId, mainTableDataObject, isLongTextDataExist, schemaname, mainDataSource, auditDataSource);
+    createPhysicalColumn(mainPhysicalEntityConfigId, create_table_list, entity_name);
+    let mainLogicalColumnDetails = createLogicalColumn(mainlogicalEntityConfigId, create_table_list, entity_name, constraintDetails,mainDataSource);
+
+    populatePhysicalColumnName(data_ElementId);
+    populatePhysicalColumnName(TimeSensitive_DataElementId);
+
+    console.log('dataElements ::::::::: ', dataElements)
+    console.log('configItemList ::::::::: ', configItemList)
+    console.log('configpropertyList ::::::::: ', configpropertyList)
+    console.log('configrelationList ::::::::: ', configrelationList)
+
+    input["AppEngChildEntity:DATA_ELEMENT"] = dataElements;
+    input["AppEngChildEntity:CONFIGITEM"] = configItemList;
+    input["AppEngChildEntity:CONFIGITEMPROPERTY"] = configpropertyList;
+    input["AppEngChildEntity:CONFIGITEMPRIVILEGE"] = configprivilegeList;
+    input["AppEngChildEntity:CONFIGITEMRELATION"] = configrelationList;
+
+}
+
 // ----------------------------------------------------------- Save Block ---------------------------------------------------------------------
 // the below if block is responsible to create the auto increment data element column when action is save 
 if (input.compositeEntityAction == 'Save') {

@@ -25,8 +25,47 @@ if (input[0].STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID !== null || input[0].STEP_DE
     }
 }
 
-if(input[0]['SDTV_TENANT_ID']){
-    const splittedTenantIds = input[0]['SDTV_TENANT_ID'].split(',').join("','");
-    console.log('splittedTenantIds', splittedTenantIds);
-    input[0]['SPLIT_TENANT_IDS'] = splittedTenantIds;
+if(input[0]['HAS_FORM_RERENDERED'] === 'Yes'){
+    if(input[0]['OLD_SDTV_TENANT_ID'] !== input[0]['SDTV_TENANT_ID']){
+        input[0]['SDTV_FUNCTIONAL_AREA_UUID'] = 'All';
+        input[0]['OLD_SDTV_TENANT_ID'] = input[0]['SDTV_TENANT_ID'];
+    }
+} else {
+    input[0]['HAS_FORM_RERENDERED'] = 'Yes';
+    input[0]['OLD_SDTV_TENANT_ID'] = input[0]['SDTV_TENANT_ID'];
 }
+
+if(input[0]['SDTV_TENANT_ID']){
+    let splittedTenantIds = input[0]['SDTV_TENANT_ID'].split(',');
+    // let splittedTenantIds = input[0]['SDTV_TENANT_ID'].split(',').join("','");
+
+
+    if(splittedTenantIds.includes('All') && splittedTenantIds.length > 1){
+        if(splittedTenantIds[0] === 'All'){
+            splittedTenantIds.shift();
+        } else if(splittedTenantIds[splittedTenantIds.length - 1] === 'All'){
+            splittedTenantIds = ['All'];
+        }
+    }
+    console.log('splittedTenantIds', splittedTenantIds);
+    input[0]['SPLIT_TENANT_IDS'] = splittedTenantIds.join("','");
+    input[0]['SDTV_TENANT_ID'] = splittedTenantIds.join(",");
+    input[0]['OLD_SDTV_TENANT_ID'] = input[0]['SDTV_TENANT_ID'];
+} else {
+    input[0]['SDTV_TENANT_ID'] = 'All';
+    input[0]['OLD_SDTV_TENANT_ID'] = 'All';
+}
+
+if(input[0]['SDTV_FUNCTIONAL_AREA_UUID'] && input[0]['SDTV_FUNCTIONAL_AREA_UUID'].includes('All')){
+    if(input[0]['SDTV_FUNCTIONAL_AREA_UUID'].startsWith('All')){
+        input[0]['SDTV_FUNCTIONAL_AREA_UUID'] = input[0]['SDTV_FUNCTIONAL_AREA_UUID'].replace('All,', '');
+    } else if(input[0]['SDTV_FUNCTIONAL_AREA_UUID'].endsWith('All')){
+        input[0]['SDTV_FUNCTIONAL_AREA_UUID'] = 'All';
+    }
+}
+
+if(!input[0]['SDTV_FUNCTIONAL_AREA_UUID']){
+    input[0]['SDTV_FUNCTIONAL_AREA_UUID'] = 'All'
+}
+
+console.log('inside pre process ',  input[0]);

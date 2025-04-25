@@ -18,6 +18,42 @@ function isDataAvailable(str) {
   }
 }
 
+
+async function createTestCaseFunctionUIElementGroupStepWhileUpdate(testCaseFunctionStep) {
+  for (let functionUIElementGroupStep of functionUIElementGroupStepList) {
+    if (functionUIElementGroupStep['compositeEntityAction'] != 'Delete') {
+      let testCaseFunctionUIElementGroupStepObject = {}
+      testCaseFunctionUIElementGroupStepObject['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID'] = uuid();
+      testCaseFunctionUIElementGroupStepObject['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_NAME'] = functionUIElementGroupStep['FUNCTION_UI_ELEMENT_GROUP_STEP_NAME'];
+      testCaseFunctionUIElementGroupStepObject['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'] = functionUIElementGroupStep['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
+      testCaseFunctionUIElementGroupStepObject['CURRENT_PAGE_CONTEXT'] = functionUIElementGroupStep['CURRENT_PAGE_CONTEXT'];
+      testCaseFunctionUIElementGroupStepObject['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE'] = functionUIElementGroupStep['FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE'];
+      testCaseFunctionUIElementGroupStepObject['TEST_CASE_STEP_UUID'] = testCaseFunctionStep['TEST_CASE_STEP_UUID'];
+      testCaseFunctionUIElementGroupStepObject['UI_ELEMENT_GROUP_UUID'] = functionUIElementGroupStep['UI_ELEMENT_GROUP_UUID'];
+      testCaseFunctionUIElementGroupStepObject['FUNCTION_UI_ELEMENT_GROUP_STEP_UUID'] = functionUIElementGroupStep['FUNCTION_UI_ELEMENT_GROUP_STEP_UUID'];
+      testCaseFunctionUIElementGroupStepObject['UI_ELEMENT_GROUP_STEP_UUID'] = functionUIElementGroupStep['UI_ELEMENT_GROUP_STEP_UUID'];
+      testCaseFunctionUIElementGroupStepObject['TEST_CASE_FUNCTION_STEP_UUID'] = testCaseFunctionStep['TEST_CASE_FUNCTION_STEP_UUID'];
+  
+      testCaseFunctionUIElementGroupStepList.push(testCaseFunctionUIElementGroupStepObject);
+      await createTestCaseFunctionUIElementGroupStepAttributeValue(testCaseFunctionUIElementGroupStepObject);
+    }
+  }
+}
+
+async function createTestCaseFunctionUIElementGroupStepAttributeValueWhileUpdate(testCaseFunctionUIElementGroupStepObject) {
+  for (let attribute of functionUIElementGroupStepAttributeList) {
+    let testCaseFunctionUIElementGroupAttributeValue = {};
+    testCaseFunctionUIElementGroupAttributeValue['STEP_DEFINITION_ATTRIBUTE_UUID'] = attribute['STEP_DEFINITION_ATTRIBUTE_UUID'];
+    testCaseFunctionUIElementGroupAttributeValue['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'] = attribute['FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'];
+    testCaseFunctionUIElementGroupAttributeValue['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID'] = testCaseFunctionUIElementGroupStepObject['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID'];
+    testCaseFunctionUIElementGroupAttributeValue['TEST_CASE_STEP_UUID'] = testCaseFunctionUIElementGroupStepObject['TEST_CASE_STEP_UUID'];
+    testCaseFunctionUIElementGroupAttributeValue['UI_ELEMENT_GROUP_UUID'] = testCaseFunctionUIElementGroupStepObject['UI_ELEMENT_GROUP_UUID'];
+    testCaseFunctionUIElementGroupAttributeValue['TEST_CASE_FUNCTION_STEP_UUID'] = testCaseFunctionUIElementGroupStepObject['TEST_CASE_FUNCTION_STEP_UUID'];
+    testCaseFunctionUIElementGroupAttributeValue['PRE_DEFINED_VALUES_UUID'] = attribute['PRE_DEFINED_VALUES_UUID'];
+    testCaseFunctionUIElementGroupStepAttributeList.push(testCaseFunctionUIElementGroupAttributeValue);
+  }
+}
+
 // firing query to get all the step definition for particular stap def name (verbiage)
 async function fetchStepDefinitionTemplateVerbiage(stepDefTemplateVerbiageId) {
   let result = [];
@@ -39,16 +75,19 @@ async function fetchStepDefinitionTemplateVerbiage(stepDefTemplateVerbiageId) {
 function getDataFromAttributeUUID(attributeValueQueryData, stepDefArrributeId) {
   let result = attributeValueQueryData.filter((item) => item['STEP_DEFINITION_ATTRIBUTE_UUID'] == stepDefArrributeId);
   if (result && result.length) {
-      return result[0]['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE_UUID'];
+    return result[0]['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE_UUID'];
   } else {
-      return '';
+    return '';
   }
 }
 
-function updateTestCaseFunctionStepAttributeValue(testCaseFunctionStep,stepDefAttributeData,testCaseFunctionStepAttributeValueQueryData) {
+function updateTestCaseFunctionStepAttributeValue(testCaseFunctionStep, stepDefAttributeData, testCaseFunctionStepAttributeValueQueryData) {
   for (let codeDesc of stepDefAttributeData) {
     if (codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID'] && codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']) {
-      let object = {...testCaseFunctionStep};
+      let object = {};
+      object['TEST_CASE_FUNCTION_STEP_UUID'] = testCaseFunctionStep['TEST_CASE_FUNCTION_STEP_UUID'];
+      object['TEST_CASE_STEP_UUID'] = testCaseFunctionStep['TEST_CASE_STEP_UUID'];
+      object['FUNCTION_UUID'] = testCaseFunctionStep['FUNCTION_UUID'];
       object['compositeEntityAction'] = "Update";
       object['STEP_DEFINITION_ATTRIBUTE_UUID'] = codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'];
       object['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE_UUID'] = getDataFromAttributeUUID(testCaseFunctionStepAttributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
@@ -220,7 +259,7 @@ function updateTestCaseFunctionStepAttributeValue(testCaseFunctionStep,stepDefAt
   }
 }
 
-async function updateTestCaseFunctionStepAttributeData() {
+async function updateTestCaseFunctionStepAttributeData(stepDefAttributeQueryData, stepDefVerbiageStr, isUIElementGroup) {
   let testCaseFunctionStepQuery = `SELECT * FROM TEST_CASE_FUNCTION_STEP where FUNCTION_STEP_UUID=:FUNCTION_STEP_UUID  and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let testCaseFunctionStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", testCaseFunctionStepQuery, input);
   for (let testCaseFunctionStep of testCaseFunctionStepQueryData) {
@@ -229,9 +268,19 @@ async function updateTestCaseFunctionStepAttributeData() {
     let testCaseFunctionStepAttributeValueQuery = `SELECT * FROM TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE where TEST_CASE_FUNCTION_STEP_UUID in(${testCaseFunctionStepId}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
     let testCaseFunctionStepAttributeValueQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", testCaseFunctionStepAttributeValueQuery, input);
 
-    updateTestCaseFunctionStepAttributeValue(testCaseFunctionStep,stepDefAttributeQueryData,testCaseFunctionStepAttributeValueQueryData);
-   
-   // await deleteTestCaseFunctionStepAttributeData(testCaseFunctionStepId);
+    let testCaseFunctionStepObject = {};
+    testCaseFunctionStepObject['TEST_CASE_FUNCTION_STEP_UUID'] = testCaseFunctionStep['TEST_CASE_FUNCTION_STEP_UUID'];
+    testCaseFunctionStepObject['TEST_CASE_FUNCTION_STEP_NAME'] = testCaseFunctionStep['TEST_CASE_FUNCTION_STEP_TYPE'] + ' ' + stepDefVerbiageStr;
+    testCaseFunctionStepObject['compositeEntityAction'] = "Update";
+    testCaseFunctionStepArray.push(testCaseFunctionStepObject);
+
+    updateTestCaseFunctionStepAttributeValue(testCaseFunctionStep, stepDefAttributeQueryData, testCaseFunctionStepAttributeValueQueryData);
+
+    if (isUIElementGroup == 'Yes') {
+      await deleteTestCaseFunctionUIElementGroupStepData(testCaseFunctionStepId);
+      await createTestCaseFunctionUIElementGroupStepWhileUpdate(testCaseFunctionStep);
+    }
+    // await deleteTestCaseFunctionStepAttributeData(testCaseFunctionStepId);
   }
 }
 
@@ -1222,7 +1271,7 @@ if (stepDefAttributeQueryData && stepDefAttributeQueryData.length && input.compo
     input['FUNCTION_STEP_NAME'] = getKeywordByStepType + stepDefVerbiageStr;
 
     if (input['IS_VALUE_CHANGED'].length > 0) {
-      await updateTestCaseFunctionStepAttributeData(stepDefAttributeQueryData);
+      await updateTestCaseFunctionStepAttributeData(stepDefAttributeQueryData, stepDefVerbiageStr, 'No');
     }
 
   } else if (input['UI_ELEMENT_GROUP_UUID']) {
@@ -1232,6 +1281,10 @@ if (stepDefAttributeQueryData && stepDefAttributeQueryData.length && input.compo
       await deleteFunctionUIElementGroupStepAttributeData("'" + input.FUNCTION_STEP_UUID + "'");
       await createFunctionUIElementGroupStep();
       await createFunctionStepAttributeValue(stepDefAttributeQueryData);
+
+      if (input['IS_VALUE_CHANGED'].length > 0) {
+        await updateTestCaseFunctionStepAttributeData(stepDefAttributeQueryData, stepDefVerbiageStr, 'Yes');
+      }
     }
     let modifiedFunctionStep = await modifyFunctionNameStep();
     input['FUNCTION_STEP_NAME'] = getKeywordByStepType + modifiedFunctionStep;

@@ -52,12 +52,12 @@ async function checkIsCodeSetExist(data) {
 
 async function fetchStepDefinitionTemplateVerbiage() {
     let result = [];
-    const stepDefAttributeQuery = `SELECT STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME,IS_PAGE_CONTEXT_SETTER,IS_API_CONTEXT_SETTER,'Yes' as IS_ATTRIBUTE_EXIST FROM STEP_DEFINITION_TEMPLATE_VERBIAGE sdtv,STEP_DEFINITION_ATTRIBUTE sda where sdtv.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID=sda.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND sdtv.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID=:STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID`;
+    const stepDefAttributeQuery = `SELECT STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME,IS_PAGE_CONTEXT_SETTER,IS_API_CONTEXT_SETTER,'Yes' as IS_ATTRIBUTE_EXIST, IS_PURE_NAVIGATION_STEP FROM STEP_DEFINITION_TEMPLATE_VERBIAGE sdtv,STEP_DEFINITION_ATTRIBUTE sda where sdtv.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID=sda.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND sdtv.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID=:STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID`;
     let stepDefAttributeQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", stepDefAttributeQuery, input[0]);
     if (stepDefAttributeQueryData && stepDefAttributeQueryData.length) {
         result = stepDefAttributeQueryData;
     } else {
-        const stepDefQuery = `SELECT STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME,'No' as IS_ATTRIBUTE_EXIST FROM STEP_DEFINITION_TEMPLATE_VERBIAGE where STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID=:STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID`;
+        const stepDefQuery = `SELECT STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME,'No' as IS_ATTRIBUTE_EXIST, IS_PURE_NAVIGATION_STEP FROM STEP_DEFINITION_TEMPLATE_VERBIAGE where STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID=:STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID`;
         let stepDefQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", stepDefQuery, input[0]);
         if (stepDefQueryData.length) {
             result = stepDefQueryData;
@@ -80,6 +80,21 @@ if (stepDefAttributeVerbiageQueryData && stepDefAttributeVerbiageQueryData.lengt
             input[0]['isOnlyOneAttribute'] = true;
         }
     }
+
+    input[0]['IS_PURE_NAVIGATION_STEP_FOR_VIEW'] = stepDefAttributeVerbiageQueryData[0]['IS_PURE_NAVIGATION_STEP'] || "No"
+    if(input[0]['IS_PURE_NAVIGATION_STEP_FOR_VIEW'] == 'Yes' && input[0]['CURRENT_PAGE_CONTEXT'] && !input[0]['VIEW_UUID']){
+        const viewQuery = `SELECT VIEW_UUID, IS_DEFAULT_VIEW  FROM PAGE_VIEW WHERE PAGE_UUID = :CURRENT_PAGE_CONTEXT`;
+        let viewQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", viewQuery, input[0]);
+        if(viewQueryData && viewQueryData.length <= 1){
+            input[0]['MULTIPLE_VIEWS_FOR_PAGE_PRESENT'] = 'No';
+        } else {
+            input[0]['MULTIPLE_VIEWS_FOR_PAGE_PRESENT'] = 'Yes';
+        }
+
+        const defaultView = viewQueryData.filter((item) => item['IS_DEFAULT_VIEW'] == 'Yes');
+        input[0]['VIEW_UUID'] = defaultView[0]['VIEW_UUID'];
+    }
+
 }
 
 // firing query to check any test case step exist or not
@@ -554,7 +569,7 @@ if (input[0]['testSetScopeCodeDesc'] == '7c7a43c8-e484-11ef-904e-02c8cad0208d' |
             let splitedTestCaseScope = input[0]['TEST_SET_SCOPE_VARIABLE'].split('(:)');
             let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${splitedTestCaseScope[0]}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
             let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input[0]);
-            testCaseScopeData = functionQueryData['FUNCTION_NAME'] + ' : ' + splitedTestCaseScope[1];
+            testCaseScopeData = functionQueryData['FUNCTION_NAME'] + ' $ ' + splitedTestCaseScope[1];
         } else {
             testCaseScopeData = input[0]['TEST_SET_SCOPE_VARIABLE'];
         }
@@ -572,7 +587,7 @@ if (input[0]['testCaseScopeCodeDesc'] == '842981e7-e484-11ef-904e-02c8cad0208d' 
             let splitedTestCaseScope = input[0]['TEST_CASE_SCOPE_VARIABLE'].split('(:)');
             let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${splitedTestCaseScope[0]}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
             let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input[0]);
-            testCaseScopeData = functionQueryData['FUNCTION_NAME'] + ' : ' + splitedTestCaseScope[1];
+            testCaseScopeData = functionQueryData['FUNCTION_NAME'] + ' $ ' + splitedTestCaseScope[1];
         } else {
             testCaseScopeData = input[0]['TEST_CASE_SCOPE_VARIABLE'];
         }
@@ -620,6 +635,7 @@ if (!input[0]['STEP_FILTER']) {
     input[0]['STEP_DEFINITION_FILTER'] = '#do-not-match';
 }
 
+console.log("Inside  test case step cdpp -------------  ", input[0]);
 
 // if (input[0]['UI_ELEMENT_NAME']) {
 //   const CodeSetQuery = `SELECT de.CODE_SET_UUID FROM UI_ELEMENT ue JOIN DATA_ELEMENT de ON de.DATA_ELEMENT_UUID = ue.DATA_ELEMENT_UUID where ue.UI_ELEMENT_UUID=:UI_ELEMENT_NAME`;

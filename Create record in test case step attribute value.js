@@ -7,15 +7,18 @@ let testCaseFunctionUIElementGroupStepList = [];
 let testCaseUIElementGroupStepAttributeList = [];
 let testCaseUIElementGroupStepList = [];
 
+let testCaseViewNavigationStepList = [];
+let testCaseViewNavigationStepAttributeValueList = [];
+
 async function fetchStepDefinitionTemplateVerbiage(stepDefTemplateVerbiageId) {
     let result = [];
     // firing query to get all the step definition for particular stap def name (verbiage)
-    const stepDefAttributeQuery = `SELECT STEP_DEFINITION_ATTRIBUTE_UUID,STEP_DEFINITION_ATTRIBUTE_MASTER_UUID,STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME FROM STEP_DEFINITION_ATTRIBUTE sda,STEP_DEFINITION_TEMPLATE_VERBIAGE sdtv where sda.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID=sdtv.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID and sda.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID in(${stepDefTemplateVerbiageId}) order by STEP_DEFINITION_ATTRIBUTE_ID asc`;
+    const stepDefAttributeQuery = `SELECT STEP_DEFINITION_ATTRIBUTE_UUID,STEP_DEFINITION_ATTRIBUTE_MASTER_UUID,STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME, IS_PURE_NAVIGATION_STEP FROM STEP_DEFINITION_ATTRIBUTE sda,STEP_DEFINITION_TEMPLATE_VERBIAGE sdtv where sda.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID=sdtv.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID and sda.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID in(${stepDefTemplateVerbiageId}) order by STEP_DEFINITION_ATTRIBUTE_ID asc`;
     let stepDefAttributeQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", stepDefAttributeQuery, input);
     if (stepDefAttributeQueryData.length) {
         result = stepDefAttributeQueryData;
     } else {
-        const stepDefQuery = `SELECT STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME FROM STEP_DEFINITION_TEMPLATE_VERBIAGE where STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID in(${stepDefTemplateVerbiageId})`;
+        const stepDefQuery = `SELECT STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME, IS_PURE_NAVIGATION_STEP FROM STEP_DEFINITION_TEMPLATE_VERBIAGE where STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID in(${stepDefTemplateVerbiageId})`;
         let stepDefQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", stepDefQuery, input);
         if (stepDefQueryData.length) {
             result = stepDefQueryData;
@@ -143,7 +146,7 @@ async function createTestCaseStepAttributeValue(stepDefAttributeData) {
                     testCaseNameStepDefVerbiageStr = testCaseNameStepDefVerbiageStr.replaceAll('<UI Element Value>', input['UI_ELEMENT_VALUE'] ? function () {
                         return "'" + input['UI_ELEMENT_VALUE'] + "'"
                     } : "' '");
-                    if(input['PRE_DEFINED_VALUES_UUID'] && input['PRE_DEFINED_VALUES_UUID'] != 'a1112471-fd9e-11ef-ba34-02a48541b261' ){
+                    if (input['PRE_DEFINED_VALUES_UUID'] && input['PRE_DEFINED_VALUES_UUID'] != 'a1112471-fd9e-11ef-ba34-02a48541b261') {
                         object['PRE_DEFINED_VALUES_UUID'] = input['PRE_DEFINED_VALUES_UUID']
                     }
                     break;
@@ -193,7 +196,7 @@ async function createTestCaseStepAttributeValue(stepDefAttributeData) {
                     testCaseNameStepDefVerbiageStr = testCaseNameStepDefVerbiageStr.replaceAll('<UI Element Value 1>', input['UI_ELEMENT_VALUE_1'] ? function () {
                         return "'" + input['UI_ELEMENT_VALUE_1'] + "'"
                     } : "' '");
-                    if(input['PRE_DEFINED_VALUES_UUID_1'] && input['PRE_DEFINED_VALUES_UUID_1'] != 'a1112471-fd9e-11ef-ba34-02a48541b261' ){
+                    if (input['PRE_DEFINED_VALUES_UUID_1'] && input['PRE_DEFINED_VALUES_UUID_1'] != 'a1112471-fd9e-11ef-ba34-02a48541b261') {
                         object['PRE_DEFINED_VALUES_UUID'] = input['PRE_DEFINED_VALUES_UUID_1']
                     }
                     break;
@@ -320,18 +323,45 @@ async function createTestCaseStepAttributeValue(stepDefAttributeData) {
                     } : "' '");
                     break;
 
-                case '7c7a43c8-e484-11ef-904e-02c8cad0208d':
-                    object['TEST_CASE_STEP_ATTRIBUTE_DATA'] = input['TEST_SET_SCOPE_VARIABLE'];
-                    testCaseNameStepDefVerbiageStr = testCaseNameStepDefVerbiageStr.replaceAll('<Test Set Scope Variable>', input['TEST_SET_SCOPE_VARIABLE'] ? function () {
-                        return "'" + input['TEST_SET_SCOPE_VARIABLE'] + "'"
+                case '7c7a43c8-e484-11ef-904e-02c8cad0208d': {
+                    let testSetScopeData = '';
+                    if (input['TEST_SET_SCOPE_VARIABLE'].includes('(:)')) {
+                        let splitedTestCaseScope = input['TEST_SET_SCOPE_VARIABLE'].split('(:)');
+                        object['FUNCTION_UUID'] = splitedTestCaseScope[0];
+                        object['TEST_CASE_STEP_ATTRIBUTE_DATA'] = splitedTestCaseScope[1];
+                        let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${splitedTestCaseScope[0]}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                        let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
+                        testSetScopeData = functionQueryData['FUNCTION_NAME'] + ' $ ' + splitedTestCaseScope[1];
+                    } else {
+                        object['TEST_CASE_STEP_ATTRIBUTE_DATA'] = input['TEST_SET_SCOPE_VARIABLE'];
+                        testSetScopeData = input['TEST_SET_SCOPE_VARIABLE'];
+                    }
+
+                    testCaseNameStepDefVerbiageStr = testCaseNameStepDefVerbiageStr.replaceAll('<Test Set Scope Variable>', testSetScopeData ? function () {
+                        return "'" + testSetScopeData + "'"
                     } : "' '");
+                }
                     break;
 
-                case '842981e7-e484-11ef-904e-02c8cad0208d':
-                    object['TEST_CASE_STEP_ATTRIBUTE_DATA'] = input['TEST_CASE_SCOPE_VARIABLE'];
-                    testCaseNameStepDefVerbiageStr = testCaseNameStepDefVerbiageStr.replaceAll('<Test Case Scope Variable>', input['TEST_CASE_SCOPE_VARIABLE'] ? function () {
-                        return "'" + input['TEST_CASE_SCOPE_VARIABLE'] + "'"
+                case '842981e7-e484-11ef-904e-02c8cad0208d': {
+                    let testCaseScopeData = '';
+                    if (input['TEST_CASE_SCOPE_VARIABLE'].includes('(:)')) {
+                        let splitedTestCaseScope = input['TEST_CASE_SCOPE_VARIABLE'].split('(:)');
+                        object['FUNCTION_UUID'] = splitedTestCaseScope[0];
+                        object['TEST_CASE_STEP_ATTRIBUTE_DATA'] = splitedTestCaseScope[1];
+                        let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${splitedTestCaseScope[0]}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                        let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
+                        testCaseScopeData = functionQueryData['FUNCTION_NAME'] + ' $ ' + splitedTestCaseScope[1];
+                    } else {
+                        object['TEST_CASE_STEP_ATTRIBUTE_DATA'] = input['TEST_CASE_SCOPE_VARIABLE'];
+                        testCaseScopeData = input['TEST_CASE_SCOPE_VARIABLE'];
+                    }
+
+                    testCaseNameStepDefVerbiageStr = testCaseNameStepDefVerbiageStr.replaceAll('<Test Case Scope Variable>', testCaseScopeData ? function () {
+                        return "'" + testCaseScopeData + "'"
                     } : "' '");
+                }
+
                     break;
             }
 
@@ -361,7 +391,12 @@ function deleteRecords(key, value, deleteType) {
         testCaseFunctionUIElementGroupStepAttributeList.push(deleteParamenter);
     } else if (deleteType === "TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP") {
         testCaseFunctionUIElementGroupStepList.push(deleteParamenter);
+    } else if (deleteType === "TEST_CASE_VIEW_NAVIGATION_STEP") {
+        testCaseViewNavigationStepList.push(deleteParamenter);
+    } else if (deleteType === "TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE") {
+        testCaseViewNavigationStepAttributeValueList.push(deleteParamenter);
     }
+
 }
 
 async function deleteTestCaseStepAttributeData(testCaseStepStr) {
@@ -457,7 +492,8 @@ async function createTestCaseFunctionStep() {
                 FUNCTION_STEP_UUID: data['FUNCTION_STEP_UUID'],
                 FUNCTION_UUID: input['FUNCTION_UUID'],
                 TEST_CASE_FUNCTION_STEP_SEQ_ID: data['FUNCTION_STEP_SEQ_ID'],
-                IS_PURE_NAVIGATION_STEP: data['IS_PURE_NAVIGATION_STEP']
+                IS_PURE_NAVIGATION_STEP: data['IS_PURE_NAVIGATION_STEP'],
+                VIEW_UUID: data['VIEW_UUID']
             };
 
             let functionStepId = `'` + data['FUNCTION_STEP_UUID'] + `'`;
@@ -473,6 +509,7 @@ async function createTestCaseFunctionStep() {
                     object['STEP_DEFINITION_ATTRIBUTE_UUID'] = codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'];
                     object['TEST_CASE_FUNCTION_STEP_UUID'] = testCaseFunctionStepId;
                     object['FUNCTION_UUID'] = input['FUNCTION_UUID'];
+                    object['PRE_DEFINED_VALUES_UUID'] = functionStepAttribute['PRE_DEFINED_VALUES_UUID'];
                     switch (codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID']) {
                         //page
                         case '57b76ab3-8112-4343-af0f-49643c808bf7':
@@ -487,8 +524,12 @@ async function createTestCaseFunctionStep() {
                             object['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'] = functionStepAttribute['FUNCTION_STEP_ATTRIBUTE_DATA'];
                             break;
                         // ui element value
-                        case '74da67d2-41c9-4cf7-9eea-715243e5fcdc':
+                        case '74da67d2-41c9-4cf7-9eea-715243e5fcdc': {
                             object['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'] = functionStepAttribute['FUNCTION_STEP_ATTRIBUTE_DATA'];
+                            if (functionStepAttribute['PRE_DEFINED_VALUES_UUID'] && functionStepAttribute['PRE_DEFINED_VALUES_UUID'] != 'a1112471-fd9e-11ef-ba34-02a48541b261') {
+                                object['PRE_DEFINED_VALUES_UUID'] = functionStepAttribute['PRE_DEFINED_VALUES_UUID']
+                            }
+                        }
                             break;
 
                         // key name in key pad
@@ -511,8 +552,12 @@ async function createTestCaseFunctionStep() {
                             object['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'] = functionStepAttribute['FUNCTION_STEP_ATTRIBUTE_DATA'];
                             break;
                         // ui element value 1
-                        case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a':
+                        case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a': {
                             object['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'] = functionStepAttribute['FUNCTION_STEP_ATTRIBUTE_DATA'];
+                            if (functionStepAttribute['PRE_DEFINED_VALUES_UUID'] && functionStepAttribute['PRE_DEFINED_VALUES_UUID'] != 'a1112471-fd9e-11ef-ba34-02a48541b261') {
+                                object['PRE_DEFINED_VALUES_UUID'] = functionStepAttribute['PRE_DEFINED_VALUES_UUID']
+                            }
+                        }
                             break;
                         // user action name
                         case '903cf3b0-f8a5-11ee-a163-cdf5a57b7d43':
@@ -575,12 +620,20 @@ async function createTestCaseFunctionStep() {
                             object['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'] = functionStepAttribute['FUNCTION_STEP_ATTRIBUTE_DATA'];
                             break;
 
-                        case '7c7a43c8-e484-11ef-904e-02c8cad0208d':
+                        case '7c7a43c8-e484-11ef-904e-02c8cad0208d': {
+                            // let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID=:FUNCTION_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                            // let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
+                            // object['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'] = functionQueryData['FUNCTION_NAME'] + ' : ' + functionStepAttribute['FUNCTION_STEP_ATTRIBUTE_DATA'];
                             object['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'] = functionStepAttribute['FUNCTION_STEP_ATTRIBUTE_DATA'];
+                        }
                             break;
 
-                        case '842981e7-e484-11ef-904e-02c8cad0208d':
+                        case '842981e7-e484-11ef-904e-02c8cad0208d': {
+                            // let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID=:FUNCTION_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                            // let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
+                            // object['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'] = functionQueryData['FUNCTION_NAME'] + ' : ' + functionStepAttribute['FUNCTION_STEP_ATTRIBUTE_DATA'];
                             object['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'] = functionStepAttribute['FUNCTION_STEP_ATTRIBUTE_DATA'];
+                        }
                             break;
 
                         default: null
@@ -601,6 +654,51 @@ async function createTestCaseFunctionStep() {
                 await createTestCaseFunctionUIElementGroupStep(functionUIElementGroupStepQueryData, testCaseFunctionStepId);
             }
             testCaseFunctionStepArray.push(testCaseFunctionStep);
+
+            if (data['IS_PURE_NAVIGATION_STEP'] == 'Yes') {
+                const functionViewNavigationQuery = `SELECT * FROM FUNCTION_VIEW_NAVIGATION_STEP WHERE FUNCTION_UUID = '${data['FUNCTION_UUID']}' AND FUNCTION_STEP_UUID = '${data['FUNCTION_STEP_UUID']}' `;
+                const functionViewNavigationData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionViewNavigationQuery, input);
+
+                if (functionViewNavigationData && functionViewNavigationData.length) {
+                    for (const funcData of functionViewNavigationData) {
+                        let tcFuncViewObj = {};
+                        const TEST_CASE_VIEW_NAVIGATION_STEP_UUID = uuid();
+
+                        tcFuncViewObj['TEST_CASE_VIEW_NAVIGATION_STEP_UUID'] = TEST_CASE_VIEW_NAVIGATION_STEP_UUID;
+                        tcFuncViewObj['FUNCTION_UUID'] = funcData['FUNCTION_UUID'];
+                        tcFuncViewObj['FUNCTION_STEP_UUID'] = funcData['FUNCTION_STEP_UUID'];
+                        tcFuncViewObj['VIEW_UUID'] = funcData['VIEW_UUID'];
+                        tcFuncViewObj['FUNCTIONAL_AREA_UUID'] = input['APP_LOGGED_IN_FUNTIONAL_AREA_ID'];
+                        tcFuncViewObj['TEST_CASE_STEP_UUID'] = input['TEST_CASE_STEP_UUID'];
+                        tcFuncViewObj['NEXT_PAGE_CONTEXT'] = funcData['NEXT_PAGE_CONTEXT'];
+                        tcFuncViewObj['CURRENT_PAGE_CONTEXT'] = funcData['CURRENT_PAGE_CONTEXT'];
+                        tcFuncViewObj['TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID'] = funcData['FUNCTION_VIEW_NAVIGATION_STEP_SEQ_ID'];
+                        tcFuncViewObj['TEST_CASE_VIEW_NAVIGATION_STEP_TYPE'] = funcData['FUNCTION_VIEW_NAVIGATION_STEP_TYPE'];
+                        tcFuncViewObj['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'] = funcData['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
+                        tcFuncViewObj['TEST_CASE_VIEW_NAVIGATION_STEP_NAME'] = funcData['FUNCTION_VIEW_NAVIGATION_STEP_NAME'];
+                        tcFuncViewObj['VIEW_NAVIGATION_STEP_UUID'] = funcData['VIEW_NAVIGATION_STEP_UUID'];
+
+                        testCaseViewNavigationStepList.push(tcFuncViewObj);
+
+
+                        const functionViewNavigationAttrQuery = `SELECT * FROM FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE WHERE FUNCTION_VIEW_NAVIGATION_STEP_UUID = '${funcData['FUNCTION_VIEW_NAVIGATION_STEP_UUID']}'`
+                        const functionViewNavigationAttrData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionViewNavigationAttrQuery, input);
+
+                        for (const funcAttrData of functionViewNavigationAttrData) {
+                            const tcFuncViewAttrObj = {};
+                            tcFuncViewAttrObj['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = funcAttrData['FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'];
+                            tcFuncViewAttrObj['STEP_DEFINITION_ATTRIBUTE_UUID'] = funcAttrData['STEP_DEFINITION_ATTRIBUTE_UUID'];
+                            tcFuncViewAttrObj['VIEW_UUID'] = funcAttrData['VIEW_UUID'];
+                            tcFuncViewAttrObj['TEST_CASE_STEP_UUID'] = input['TEST_CASE_STEP_UUID'];
+                            tcFuncViewAttrObj['TEST_CASE_VIEW_NAVIGATION_STEP_UUID'] = TEST_CASE_VIEW_NAVIGATION_STEP_UUID;
+                            tcFuncViewAttrObj['FUNCTIONAL_AREA_UUID'] = input['APP_LOGGED_IN_FUNTIONAL_AREA_ID'];
+                            tcFuncViewAttrObj['PRE_DEFINED_VALUES_UUID'] = funcAttrData['PRE_DEFINED_VALUES_UUID'];
+                            tcFuncViewAttrObj['FUNCTION_UUID'] = funcAttrData['FUNCTION_UUID'];
+                            testCaseViewNavigationStepAttributeValueList.push(tcFuncViewAttrObj);
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -636,8 +734,9 @@ async function createTestCaseFunctionUIElementGroupStep(functionUIElementGroupSt
                     let object = {};
                     object['STEP_DEFINITION_ATTRIBUTE_UUID'] = codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'];
                     object['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID'] = testCaseFunctionUIElementGroupStepId;
-                    object['UI_ELEMENT_GROUP_UUID'] = data['UI_ELEMENT_GROUP_UUID'],
-                        object['TEST_CASE_FUNCTION_STEP_UUID'] = testCaseFunctionStepId
+                    object['UI_ELEMENT_GROUP_UUID'] = data['UI_ELEMENT_GROUP_UUID'];
+                    object['PRE_DEFINED_VALUES_UUID'] = functiomUIElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID'];
+                    object['TEST_CASE_FUNCTION_STEP_UUID'] = testCaseFunctionStepId
                     switch (codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID']) {
                         //page
                         case '57b76ab3-8112-4343-af0f-49643c808bf7':
@@ -652,8 +751,12 @@ async function createTestCaseFunctionUIElementGroupStep(functionUIElementGroupSt
                             object['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'] = functiomUIElementGroupStepAttribute['FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA']
                             break;
                         // ui element value
-                        case '74da67d2-41c9-4cf7-9eea-715243e5fcdc':
+                        case '74da67d2-41c9-4cf7-9eea-715243e5fcdc': {
                             object['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'] = functiomUIElementGroupStepAttribute['FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA']
+                            if (functiomUIElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID'] && functiomUIElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID'] != 'a1112471-fd9e-11ef-ba34-02a48541b261') {
+                                object['PRE_DEFINED_VALUES_UUID'] = functiomUIElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID']
+                            }
+                        }
                             break;
 
                         // key name in key pad
@@ -676,8 +779,12 @@ async function createTestCaseFunctionUIElementGroupStep(functionUIElementGroupSt
                             object['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'] = functiomUIElementGroupStepAttribute['FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA']
                             break;
                         // ui element value 1
-                        case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a':
+                        case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a': {
                             object['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'] = functiomUIElementGroupStepAttribute['FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA']
+                            if (functiomUIElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID'] && functiomUIElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID'] != 'a1112471-fd9e-11ef-ba34-02a48541b261') {
+                                object['PRE_DEFINED_VALUES_UUID'] = functiomUIElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID']
+                            }
+                        }
                             break;
                         // user action name
                         case '903cf3b0-f8a5-11ee-a163-cdf5a57b7d43':
@@ -738,6 +845,7 @@ async function createTestCaseUIElementGroupStep() {
                     object['STEP_DEFINITION_ATTRIBUTE_UUID'] = codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'];
                     object['TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID'] = testCaseUIElementGroupStepId;
                     object['UI_ELEMENT_GROUP_UUID'] = input['UI_ELEMENT_GROUP_UUID'];
+                    object['PRE_DEFINED_VALUES_UUID'] = uiElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID'];
                     switch (codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID']) {
                         //page
                         case '57b76ab3-8112-4343-af0f-49643c808bf7':
@@ -753,7 +861,12 @@ async function createTestCaseUIElementGroupStep() {
                             break;
                         // ui element value
                         case '74da67d2-41c9-4cf7-9eea-715243e5fcdc':
-                            object['TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'] = uiElementGroupStepAttribute['UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'];
+                            {
+                                object['TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'] = uiElementGroupStepAttribute['UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'];
+                                if (uiElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID'] && uiElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID'] != 'a1112471-fd9e-11ef-ba34-02a48541b261') {
+                                    object['PRE_DEFINED_VALUES_UUID'] = uiElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID']
+                                }
+                            }
                             break;
 
                         // key name in key pad
@@ -776,8 +889,12 @@ async function createTestCaseUIElementGroupStep() {
                             object['TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'] = uiElementGroupStepAttribute['UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA']
                             break;
                         // ui element value 1
-                        case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a':
+                        case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a': {
                             object['TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'] = uiElementGroupStepAttribute['UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA']
+                            if (uiElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID'] && uiElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID'] != 'a1112471-fd9e-11ef-ba34-02a48541b261') {
+                                object['PRE_DEFINED_VALUES_UUID'] = uiElementGroupStepAttribute['PRE_DEFINED_VALUES_UUID']
+                            }
+                        }
                             break;
                         // user action name
                         case '903cf3b0-f8a5-11ee-a163-cdf5a57b7d43':
@@ -883,6 +1000,47 @@ if (stepDefAttributeQueryData && stepDefAttributeQueryData.length && input.compo
             await changeSequence();
         }
     }
+
+    // Adding copy navigation records under test case step
+    if (stepDefAttributeQueryData[0]['IS_PURE_NAVIGATION_STEP'] == "Yes" && input['CURRENT_PAGE_CONTEXT']) {
+        const viewNavigationQuery = `SELECT * FROM VIEW_NAVIGATION_STEP WHERE VIEW_UUID=:VIEW_UUID`;
+        const viewNavigationData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', viewNavigationQuery, input);
+
+        for (let viewNavigation of viewNavigationData) {
+            const testCaseViewNavigationObject = {};
+            const TEST_CASE_VIEW_NAVIGATION_STEP_UUID = uuid();
+
+            testCaseViewNavigationObject['TEST_CASE_VIEW_NAVIGATION_STEP_UUID'] = TEST_CASE_VIEW_NAVIGATION_STEP_UUID;
+            testCaseViewNavigationObject['TEST_CASE_STEP_UUID'] = input['TEST_CASE_STEP_UUID'];
+            testCaseViewNavigationObject['VIEW_NAVIGATION_STEP_UUID'] = viewNavigation['VIEW_NAVIGATION_STEP_UUID'];
+            testCaseViewNavigationObject['TEST_CASE_VIEW_NAVIGATION_STEP_NAME'] = viewNavigation['VIEW_NAVIGATION_STEP_NAME'];
+            testCaseViewNavigationObject['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'] = viewNavigation['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
+            testCaseViewNavigationObject['TEST_CASE_VIEW_NAVIGATION_STEP_TYPE'] = viewNavigation['VIEW_NAVIGATION_STEP_TYPE'];
+            testCaseViewNavigationObject['TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID'] = viewNavigation['VIEW_NAVIGATION_STEP_SEQ_ID'];
+            testCaseViewNavigationObject['CURRENT_PAGE_CONTEXT'] = viewNavigation['CURRENT_PAGE_CONTEXT'];
+            testCaseViewNavigationObject['NEXT_PAGE_CONTEXT'] = viewNavigation['NEXT_PAGE_CONTEXT'];
+            testCaseViewNavigationObject['VIEW_UUID'] = viewNavigation['VIEW_UUID'];
+            testCaseViewNavigationObject['FUNCTIONAL_AREA_UUID'] = input['APP_LOGGED_IN_FUNTIONAL_AREA_ID'];
+
+            testCaseViewNavigationStepList.push(testCaseViewNavigationObject);
+
+            const viewNavAttributeQuery = `SELECT * FROM VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE WHERE VIEW_NAVIGATION_STEP_UUID = '${viewNavigation['VIEW_NAVIGATION_STEP_UUID']}'`
+            const viewNavAttributeData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', viewNavAttributeQuery, input);
+
+            for (const attrData of viewNavAttributeData) {
+                const tcViewNavAttrObj = {};
+                tcViewNavAttrObj['TEST_CASE_VIEW_NAVIGATION_STEP_UUID'] = TEST_CASE_VIEW_NAVIGATION_STEP_UUID;
+                tcViewNavAttrObj['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'] = attrData['VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'];
+                tcViewNavAttrObj['STEP_DEFINITION_ATTRIBUTE_UUID'] = attrData['STEP_DEFINITION_ATTRIBUTE_UUID'];
+                tcViewNavAttrObj['VIEW_UUID'] = attrData['VIEW_UUID'];
+                tcViewNavAttrObj['TEST_CASE_STEP_UUID'] = input['TEST_CASE_STEP_UUID'];
+                tcViewNavAttrObj['FUNCTIONAL_AREA_UUID'] = input['APP_LOGGED_IN_FUNTIONAL_AREA_ID'];
+                tcViewNavAttrObj['PRE_DEFINED_VALUES_UUID'] = attrData['PRE_DEFINED_VALUES_UUID'] || null;
+                testCaseViewNavigationStepAttributeValueList.push(tcViewNavAttrObj);
+            }
+        }
+    }
+
 } else if (input.compositeEntityAction == 'Update' && input['IS_STEP_TYPE_DISPLAYED'] == "No") { // the below if block will exist when action is save
     if (!input['FUNCTION_UUID'] && !input['UI_ELEMENT_GROUP_UUID']) {
         // the below function will delete the existing test case step attribute value for the particular test case step.
@@ -981,6 +1139,22 @@ else if (input.compositeEntityAction == 'Delete') {
     if (input['TEST_CASE_STEP_POSITION'] == 'Intermediate Test Case Step' || (input['IS_PAGE_EXIST_FOR_STEP_DEFINITION'] == 'No' && input['IS_API_EXIST_FOR_STEP_DEFINITION'] == 'No') || input['isStepExistsAfterCurrentStep'] == 'No') {
         await changeSequence();
     }
+
+    const viewNavigationDataQuery = `SELECT TEST_CASE_VIEW_NAVIGATION_STEP_UUID FROM TEST_CASE_VIEW_NAVIGATION_STEP WHERE TEST_CASE_STEP_UUID = :TEST_CASE_STEP_UUID;`
+    const viewNavigationData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', viewNavigationDataQuery, input);
+
+    for (const [index, viewNavigation] of viewNavigationData.entries()) {
+        deleteRecords('TEST_CASE_VIEW_NAVIGATION_STEP_UUID', viewNavigation['TEST_CASE_VIEW_NAVIGATION_STEP_UUID'], 'TEST_CASE_VIEW_NAVIGATION_STEP');
+
+        const viewNavAttributeQuery = `SELECT TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID FROM TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE WHERE TEST_CASE_VIEW_NAVIGATION_STEP_UUID = '${viewNavigation['TEST_CASE_VIEW_NAVIGATION_STEP_UUID']}'`
+        const viewNavAttributeData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', viewNavAttributeQuery, input);
+
+        for (const attrData of viewNavAttributeData) {
+            deleteRecords('TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID', attrData['TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID'], 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE');
+        }
+
+    }
+
 }
 input["AppEngChildEntity:INTEGRATION TEST_CASE_STEP"] = testCaseStepList;
 input['AppEngChildEntity:TEST_CASE_FUNCTION_STEP'] = testCaseFunctionStepArray;
@@ -990,4 +1164,6 @@ input["AppEngChildEntity:TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE"] = testCaseFun
 input['AppEngChildEntity:TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP'] = testCaseFunctionUIElementGroupStepList;
 input['AppEngChildEntity:TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE'] = testCaseFunctionUIElementGroupStepAttributeList;
 input['AppEngChildEntity:TEST_CASE_UI_ELEMENT_GROUP_STEP'] = testCaseUIElementGroupStepList;
-input['AppEngChildEntity:TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE'] = testCaseUIElementGroupStepAttributeList;q      
+input['AppEngChildEntity:TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE'] = testCaseUIElementGroupStepAttributeList;
+input['AppEngChildEntity:TEST_CASE_VIEW_NAVIGATION_STEP'] = testCaseViewNavigationStepList;
+input['AppEngChildEntity:TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE'] = testCaseViewNavigationStepAttributeValueList;

@@ -3,7 +3,7 @@ function escapeSingleQuote(inpt) {
 }
 AppengProcessConfig = global.get('AppengProcessConfig');
 const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
-let input = msg.payload.apiRequestBody.baseEntity.records[0];
+let input = Object.assign(msg.payload.apiRequestBody, msg.payload.referenceData);
 const stepDefAttributeQueryList = `SELECT * FROM STEP_DEFINITION_ATTRIBUTE order by STEP_DEFINITION_ATTRIBUTE_ID asc`;
 let stepDefAttributeQueryDataList = await serviceOrchestrator.selectRecordsUsingQuery(
   'PRIMARYSPRINGFM',
@@ -22,17 +22,24 @@ let uiElementTypeQueryDataList = await serviceOrchestrator.selectRecordsUsingQue
   uiElementTypeQuery,
   input
 );
-function getSuffix(className) {
-  if (['ONLINE_SCREEN', 'PAGE', 'USER_ACTION'].includes(className)) {
-    return (
-      ' - ' +
-      className
-        .split('_')
-        .map((word) => word[0] + word.substring(1).toLowerCase())
-        .join(' ')
-    );
+function getFunctionDataFromAttributeValue(attributeValueQueryData, stepDefArrributeId) {
+  let result = attributeValueQueryData.filter((item) => item['STEP_DEFINITION_ATTRIBUTE_UUID'] == stepDefArrributeId);
+  if (result && result.length) {
+    return result[0]['FUNCTION_UUID'];
+  } else {
+    return '';
   }
-  return '';
+}
+function generateExcelData(inputData, inputHeader) {
+  let mainArray = [inputHeader];
+  for (let data of inputData) {
+    let dataArray = [];
+    for (let key in data) {
+      dataArray.push(data[key]);
+    }
+    mainArray.push(dataArray);
+  }
+  return mainArray;
 }
 function getDataFromAttributeValue(attributeValueQueryData, stepDefArrributeId, attributeData) {
   let result = attributeValueQueryData.filter((item) => item['STEP_DEFINITION_ATTRIBUTE_UUID'] == stepDefArrributeId);
@@ -42,106 +49,59 @@ function getDataFromAttributeValue(attributeValueQueryData, stepDefArrributeId, 
     return '';
   }
 }
-function getFunctionDataFromAttributeValue(attributeValueQueryData, stepDefArrributeId) {
-  let result = attributeValueQueryData.filter((item) => item['STEP_DEFINITION_ATTRIBUTE_UUID'] == stepDefArrributeId);
-  if (result && result.length) {
-    return result[0]['FUNCTION_UUID'];
-  } else {
-    return '';
+function groupedByTitleAndRequirement(data) {
+  if (data && data.length) {
+    let groupedData = data.reduce((acc, item) => {
+      const title = item.RequirementTitle;
+      const group = item.RequirementGroup;
+      const name = item.RequirementName;
+      if (!acc[title]) {
+        acc[title] = {};
+      }
+      if (!acc[title][group]) {
+        acc[title][group] = {};
+      }
+      if (!acc[title][group][name]) {
+        acc[title][group][name] = [];
+      }
+      if (item.ConditionOfSatisfaction) {
+        acc[title][group][name].push(item.ConditionOfSatisfaction || 'N/A');
+      }
+      return acc;
+    }, {});
+    let htmlString = '';
+    for (const title in groupedData) {
+      htmlString += title == 'null' || !title ? `` : `<p>${title}</p>`;
+      for (const group in groupedData[title]) {
+        if ((title == 'null' && group == 'null') || (!title && !group)) {
+          htmlString += ``;
+        } else if ((title != 'null' && group != 'null') || (title && group && group != 'null')) {
+          htmlString += `<p>&nbsp;&nbsp;${group}</p>`;
+        } else if ((title == 'null' && group != 'null') || (!title && group)) {
+          htmlString += `<p>${group}</p>`;
+        }
+        for (const name in groupedData[title][group]) {
+          if ((title == 'null' && group == 'null') || (!title && !group)) {
+            htmlString += `<p>${name}</p>`;
+          } else if ((title != 'null' && group != 'null') || (title && group)) {
+            htmlString += `<p>&nbsp;&nbsp;&nbsp;&nbsp;${name}</p>`;
+          } else if ((title == 'null' && group != 'null') || (!title && group)) {
+            htmlString += `<p>&nbsp;&nbsp;${name}</p>`;
+          }
+          groupedData[title][group][name].forEach((condition) => {
+            if ((title == 'null' && group == 'null') || (!title && !group)) {
+              htmlString += `<p>&nbsp;&nbsp;${condition}</p>`;
+            } else if ((title != 'null' && group != 'null') || (title && group)) {
+              htmlString += `<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${condition}</p>`;
+            } else if ((title == 'null' && group != 'null') || (!title && group)) {
+              htmlString += `<p>&nbsp;&nbsp;&nbsp;&nbsp;${condition}</p>`;
+            }
+          });
+        }
+      }
+    }
+    return htmlString;
   }
-}
-function formatDataToArray(nodes, parentKey = null, depth = 0, result = []) {
-  nodes.forEach((node) => {
-    if (node.parentNodeID === parentKey) {
-      result.push(' '.repeat(depth) + node.title + getSuffix(node.className));
-      if (node.children && node.children.length > 0) {
-        formatDataToArray(node.children, node.primaryKey, depth + 1, result);
-      }
-    } else if (!node.parentNodeID) {
-      result.push(' '.repeat(depth) + node.title + getSuffix(node.className));
-      if (node.children && node.children.length > 0) {
-        formatDataToArray(node.children, node.primaryKey, depth + 1, result);
-      }
-    }
-  });
-  return result;
-}
-function formatDataToMapArray(nodes, parentKey = null, depth = 0, result = []) {
-  nodes.forEach((node) => {
-    if (node.parentNodeID === parentKey) {
-      let mapDetail = { id: node.userAction };
-      let data = ' '.repeat(depth) + node.title + getSuffix(node.className);
-      mapDetail['text'] = data;
-      result.push(mapDetail);
-      if (node.children && node.children.length > 0) {
-        formatDataToMapArray(node.children, node.primaryKey, depth + 1, result);
-      }
-    } else if (!node.parentNodeID) {
-      let mapDetail = { id: node.userAction };
-      let data = ' '.repeat(depth) + node.title + getSuffix(node.className);
-      mapDetail['text'] = data;
-      result.push(mapDetail);
-      if (node.children && node.children.length > 0) {
-        formatDataToMapArray(node.children, node.primaryKey, depth + 1, result);
-      }
-    }
-  });
-  return result;
-}
-async function getAllRequirementSet(req, reqSets) {
-  if (req['PARENT_REQUIREMENT_SET_UUID']) {
-    let reqSetQuery = `Select REQUIREMENT_SET_UUID,REQUIREMENT_SET_ID,REQUIREMENT_SET_NAME, PARENT_REQUIREMENT_SET_UUID From REQUIREMENT_SET where REQUIREMENT_SET_UUID = '${req['PARENT_REQUIREMENT_SET_UUID']}'`;
-    let reqSetData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', reqSetQuery, input);
-    reqSets.push(reqSetData);
-    if (reqSetData['PARENT_REQUIREMENT_SET_UUID']) {
-      await getAllRequirementSet(reqSetData, reqSets);
-    }
-  }
-}
-async function formatRequirements(data, showLinked) {
-  const seenTitles = new Set();
-  const seenSubTitles = new Set();
-  const seenRequirements = new Set();
-  for (let req of data) {
-    let reqSets = [];
-    if (req['PARENT_REQUIREMENT_SET_UUID']) {
-      await getAllRequirementSet(req, reqSets);
-      reqSets.forEach((item, index) => {
-        req[`Requirement Sub-Title`] = item.REQUIREMENT_SET_NAME + ' >> ' + req[`Requirement Sub-Title`];
-      });
-    }
-  }
-  return data.flatMap((req) => {
-    const result = [];
-    let startIndentIndex = 0;
-    if (req['Requirement Title'] && !seenTitles.has(req['REQUIREMENT_TITLE_UUID'])) {
-      result.push(req['Requirement Title']);
-      seenTitles.add(req['REQUIREMENT_TITLE_UUID']);
-      startIndentIndex = 0;
-    } else {
-      startIndentIndex = 1;
-    }
-    if (req['Requirement Sub-Title'] && !seenSubTitles.has(req['REQUIREMENT_SET_UUID'])) {
-      result.push('$$' + req['Requirement Sub-Title']);
-      seenSubTitles.add(req['REQUIREMENT_SET_UUID']);
-    } else if (req['Requirement Sub-Title']) {
-      startIndentIndex = Math.max(startIndentIndex, 2);
-    }
-    if (req.Requirement && !seenRequirements.has(req.Requirement)) {
-      result.push(
-        '$$' + req.Requirement + (req.TestCaseID && showLinked ? ' - (Linked ' + req['TestCaseID'] + ')' : '')
-      );
-      seenRequirements.add(req.Requirement);
-    }
-    if (req['Condition Of Satisfaction/Acceptance Criteria']) {
-      result.push('$$' + req['Condition Of Satisfaction/Acceptance Criteria']);
-    }
-    return result.map((item, index) => {
-      const adjustedIndex = startIndentIndex + index;
-      const spaces = ' '.repeat(adjustedIndex * 6);
-      return item.replace('$$', spaces);
-    });
-  });
 }
 function getStepAttributeData(list, verbiageId) {
   if (list && list.length) {
@@ -473,133 +433,34 @@ function decideAndSetOrder(stepDefAttributeQueryData) {
   }
   return object;
 }
-let queryListMap = [];
-msg.payload.result = {};
-msg.payload.documentData = { documentHeader: '', documentDetails: [] };
-let maxLength = 200;
-let documentName = input.PROCESS_NAME
-  ? input['PROCESS_ID'] + ' - ' + input.PROCESS_NAME.replaceAll(/[^A-Z0-9]+/gi, '_') + '_Online_Screen'
-  : 'OnlineScreen';
-msg.payload.result.documentName = documentName.length > maxLength ? documentName.substring(0, maxLength) : documentName;
-msg.payload.documentData.documentHeader = 'Online Screen :' + input['PROCESS_ID'] + ' – ' + input['PROCESS_NAME'];
-let processDataQuery = `SELECT PROCESS_DESCRIPTION FROM PROCESS where PROCESS_UUID=:PROCESS_UUID`;
-let processDataQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
-  'PRIMARYSPRINGFM',
-  processDataQuery,
-  input
-);
-let headerMap = {};
-headerMap['Header'] = '1. Introduction';
-if (processDataQueryData.length > 0 && processDataQueryData[0].PROCESS_DESCRIPTION) {
-  let desNavigation = processDataQueryData[0].PROCESS_DESCRIPTION;
-  headerMap['ChildrenList'] = [desNavigation];
-}
-let processAttachmentQuery = `SELECT atcinfo.INFO_4 AS 'Attachment', atc.ATCHD_FILE_NM as 'File_Name' FROM ATTACHMENT atc INNER JOIN ATTACHMENTINFO atcinfo ON atc.ATCHMT_ID = atcinfo.INFO_1 WHERE atc.TBL_RW_ID=:PROCESS_UUID AND atc.KEY_NM = 'PROCESS_UUID' AND atc.isDeleted = 0 order by atc.ATCHD_FILE_NM asc;`;
-let processAttachmentQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
-  'PRIMARYSPRINGFM',
-  processAttachmentQuery,
-  input
-);
-if (processAttachmentQueryData && processAttachmentQueryData.length > 0) {
-  let attachmentArray = [];
-  for (let attachment of processAttachmentQueryData) {
-    if (
-      !(
-        attachment['File_Name'].endsWith('.png') ||
-        attachment['File_Name'].endsWith('.jpeg') ||
-        attachment['File_Name'].endsWith('.svg') ||
-        attachment['File_Name'].endsWith('.jpg')
-      )
-    ) {
-      let newAttachment = {};
-      newAttachment[attachment['File_Name']] = attachment['Attachment'];
-      attachmentArray.push(newAttachment);
-    }
-  }
-  headerMap['LinkChildList'] = attachmentArray;
-  headerMap['attachmentParentKeyList'] = [input.PROCESS_UUID];
-}
-msg.payload.documentData.documentDetails.push(headerMap);
-let navigationFlow = `SELECT ONLINE_SCREEN_PAGE_NAVIGATION_TREE FROM ONLINE_SCREEN_PAGE_NAVIGATION_TREE where PROCESS_UUID=:PROCESS_UUID`;
-let navigationFlowData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', navigationFlow, input);
-let headerOneMap = {};
-headerOneMap['Header'] = '2. Page Navigation Flow';
-if (navigationFlowData.length > 0 && navigationFlowData[0].ONLINE_SCREEN_PAGE_NAVIGATION_TREE) {
-  let listNavigation = formatDataToMapArray(JSON.parse(navigationFlowData[0].ONLINE_SCREEN_PAGE_NAVIGATION_TREE), null);
-  headerOneMap['InternalHyperlink'] = listNavigation;
-}
-msg.payload.documentData.documentDetails.push(headerOneMap);
-let headerTwoMap = {};
-headerTwoMap['Header'] = '3. User Action ';
-headerTwoMap['ChildrenMapList'] = [];
-let userActionQuery = `SELECT pag.PAGE_UUID,pag.PAGE_ID,vus.USER_ACTION_UUID,pag.PAGE_NAME,(select concat('On ',EVENT_NAME,' of ',vus.USER_ACTION_NAME , ' ',uitm.UI_ELEMENT_TYPE_NAME) from UI_ELEMENT ue,UI_ELEMENT_TYPE_MASTER uitm WHERE ue.UI_ELEMENT_TYPE =uitm.UI_ELEMENT_TYPE_UUID AND ue.UI_ELEMENT_UUID=vus.UI_ELEMENT_UUID) as USER_ACTION_NAME FROM PAGE pag, PROCESS_PAGE proPag, VIEW_USER_ACTION vus where pag.PAGE_UUID = vus.PAGE_UUID and vus.PROCESS_UUID=proPag.PROCESS_UUID and pag.PAGE_UUID = proPag.PAGE_UUID and proPag.PROCESS_UUID=:PROCESS_UUID order by pag.PAGE_ID`;
-let userActionQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', userActionQuery, input);
-let usaIndex = 1;
-for (let userActionData of userActionQueryData) {
-  let dataObject = {};
-  dataObject['HEADING2'] =
-    '3.' + usaIndex + ' ' + userActionData.PAGE_NAME + ' Page - ' + userActionData.USER_ACTION_NAME;
-  dataObject['HEADING2ID'] = userActionData.USER_ACTION_UUID;
-  dataObject['ChildrenMap'] = [];
-  let objReq = { HEADING3: '3.' + usaIndex + '.1 Requirements', SubChildrenMap: [] };
-  let innerCount = 1;
-  let busiReqUery = `SELECT tcr.TEST_CASE_UUID AS 'Test Case UUID', rs.REQUIREMENT_SET_UUID, rs.PARENT_REQUIREMENT_SET_UUID, rt.REQUIREMENT_TITLE_UUID, r.REQUIREMENT_UUID, ius.USER_ACTION_UUID, ius.PROCESS_UUID, rt.REQUIREMENT_TITLE AS 'Requirement Title', rs.REQUIREMENT_SET_NAME AS 'Requirement Sub-Title', r.REQUIREMENT_TEXT AS 'Requirement', cos.CONDITION_SATISFACTION_NAME AS 'Condition Of Satisfaction/Acceptance Criteria', ius.ASSOCIATION_TYPE FROM IMPACTED_PROCESS ius LEFT JOIN REQUIREMENT_TITLE rt ON rt.REQUIREMENT_TITLE_UUID = ius.REQUIREMENT_TITLE_UUID JOIN REQUIREMENT r ON r.REQUIREMENT_UUID = ius.REQUIREMENT_UUID LEFT JOIN CONDITION_SATISFACTION cos ON cos.CONDITION_SATISFACTION_UUID = ius.CONDITION_SATISFACTION_UUID LEFT JOIN REQUIREMENT_SET rs ON(rs.REQUIREMENT_SET_ASSOCIATION_UUID = rt.REQUIREMENT_TITLE_UUID OR rs.REQUIREMENT_SET_ASSOCIATION_UUID = ius.USER_ACTION_UUID) AND r.REQUIREMENT_SET_UUID = rs.REQUIREMENT_SET_UUID LEFT JOIN TEST_CASE_REQUIREMENT tcr ON tcr.REQUIREMENT_UUID = r.REQUIREMENT_UUID LEFT JOIN TEST_CASE stepUser ON tcr.TEST_CASE_UUID = stepUser.TEST_CASE_UUID WHERE ius.USER_ACTION_UUID = '${userActionData['USER_ACTION_UUID']}' AND ius.PROCESS_UUID ='${input['PROCESS_UUID']}' AND ius.ASSOCIATION_TYPE in ('FEATURE')`;
-  let busiReqUeryDataList = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', busiReqUery, input);
-  if (busiReqUeryDataList.length > 0) {
-    let businessReq = { HEADING4: '3.' + usaIndex + '.1' + '.1 Feature Requirement' };
-    businessReq['SubChildList'] = await formatRequirements(busiReqUeryDataList, true);
-    objReq['SubChildrenMap'].push(businessReq);
-    innerCount++;
-  }
-  let userActionTreeQuery = `SELECT USER_ACTION_REQUIREMENT_TREE FROM USER_ACTION_REQUIREMENT_TREE where USER_ACTION_UUID='${userActionData['USER_ACTION_UUID']}'`;
-  let userActionTreeQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+try {
+  let objectData = {};
+  msg.payload.result = {};
+  let maxLength = 200;
+  let queryListMap = [];
+  let documentName = msg.payload.apiRequestBody.USER_STORY_NAME
+    ? msg.payload.apiRequestBody.USER_STORY_NAME.replaceAll(/[^A-Z0-9-]+/gi, '_')
+    : 'GeneratedUserStory';
+  documentName =
+    msg.payload.apiRequestBody.USER_STORY_ID +
+    ' - ' +
+    (msg.payload.apiRequestBody.USER_STORY_SOURCE_ID
+      ? msg.payload.apiRequestBody.USER_STORY_SOURCE_ID + ' - ' + documentName + '_Test_Cases'
+      : documentName + '_Test_Cases');
+  msg.payload.result.documentName =
+    documentName.length > maxLength ? documentName.substring(0, maxLength) : documentName;
+  msg.payload.result.navigation = {};
+  msg.payload.result.navigation.operationType = 'GenerateCSVDocument';
+  let testCaseImpactedUserStoryQuery = ` SELECT uuid() as uuid, 'Test Case' as 'Object Type', '' as 'Unique ID', concat(tc.TEST_CASE_ID, ' - ', tc.TEST_CASE_NAME) as Name, 'Functional' as Type, '' as Priority, tc.TEST_CASE_EXECUTON_TYPE as Method, '' as 'Last Build', '' as 'Last Run', '' as 'Work Product', '' as Description, '' as Notes, '' as Objective, tcd.TEST_CASE_PRE_CONDITION as 'Pre Conditions', tcd.TEST_CASE_USER_INPUT as 'Validation Input', tcd.TEST_CASE_EXPECTED_RESULT as 'Validation Expected Result', tcd.TEST_CASE_ACTUAL_RESULT as 'Post Conditions', ius.REQUIREMENT_TITLE_UUID, ius.REQUIREMENT_UUID, ius.CONDITION_SATISFACTION_UUID, tcr.TEST_CASE_UUID, tc.FUNCTIONAL_AREA_UUID FROM IMPACTED_USER_STORY ius JOIN TEST_CASE_REQUIREMENT tcr ON ius.REQUIREMENT_UUID = tcr.REQUIREMENT_UUID JOIN TEST_CASE tc ON tc.TEST_CASE_UUID = tcr.TEST_CASE_UUID JOIN TEST_CASE_DESCRIPTION tcd ON tc.TEST_CASE_UUID = tcd.TEST_CASE_UUID WHERE ius.USER_STORY_UUID=:USER_STORY_UUID GROUP BY tc.TEST_CASE_UUID, tc.TEST_CASE_ID, tc.TEST_CASE_NAME, tc.TEST_CASE_EXECUTON_TYPE, tc.FUNCTIONAL_AREA_UUID, tcd.TEST_CASE_PRE_CONDITION, tcd.TEST_CASE_USER_INPUT, tcd.TEST_CASE_EXPECTED_RESULT, tcd.TEST_CASE_ACTUAL_RESULT, ius.REQUIREMENT_TITLE_UUID, ius.REQUIREMENT_UUID, ius.CONDITION_SATISFACTION_UUID, tcr.TEST_CASE_UUID;`;
+  let testCaseImpactedUserStoryQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
     'PRIMARYSPRINGFM',
-    userActionTreeQuery,
+    testCaseImpactedUserStoryQuery,
     input
   );
-  if (userActionTreeQueryData && userActionTreeQueryData.USER_ACTION_REQUIREMENT_TREE) {
-    let pageEventReq = { HEADING4: '3.' + usaIndex + '.1.' + innerCount + ' Page-Event Requirement' };
-    pageEventReq['SubChildList'] = formatDataToArray(
-      JSON.parse(userActionTreeQueryData.USER_ACTION_REQUIREMENT_TREE),
-      null
-    );
-    console.log('sending to formatDataToArray ============= ', userActionTreeQueryData.USER_ACTION_REQUIREMENT_TREE);
-    console.log('pageEventReq ================', pageEventReq);
-    objReq['SubChildrenMap'].push(pageEventReq);
-    innerCount = 1;
-  }
-  dataObject['ChildrenMap'].push(objReq);
-  let objImpe = { HEADING3: '3.' + usaIndex + '.2 Implementation Details', SubChildrenMap: [] };
-  let pseudoCodeQuery = `SELECT * FROM USER_ACTION_LONGTEXT where USER_ACTION_UUID='${userActionData['USER_ACTION_UUID']}'`;
-  let pseudoCodeQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
-    'PRIMARYSPRINGFM',
-    pseudoCodeQuery,
-    input
-  );
-  if (pseudoCodeQueryData && pseudoCodeQueryData.USER_ACTION_PSEUDO_CODE) {
-    let pseudoCode = { HEADING4: '3.' + usaIndex + '.2.' + innerCount + ' Pseudo Code' };
-    pseudoCode['SubChildList'] = [];
-    pseudoCode['SubChildList'].push(pseudoCodeQueryData.USER_ACTION_PSEUDO_CODE);
-    objImpe['SubChildrenMap'].push(pseudoCode);
-    innerCount++;
-  }
-  if (pseudoCodeQueryData && pseudoCodeQueryData.USER_ACTION_TECH_IMPLEMENTATION_DETAIL) {
-    let techCode = { HEADING4: '3.' + usaIndex + '.2.' + innerCount + ' Technical Implementation Details' };
-    techCode['SubChildList'] = [];
-    techCode['SubChildList'].push(pseudoCodeQueryData.USER_ACTION_TECH_IMPLEMENTATION_DETAIL);
-    objImpe['SubChildrenMap'].push(techCode);
-    innerCount++;
-  }
-  dataObject['ChildrenMap'].push(objImpe);
-  let testSetQuery = `SELECT tc.TEST_CASE_UUID FROM TEST_SET tsS, TEST_CASE tc where tc.TEST_SET_UUID = tsS.TEST_SET_UUID and USER_ACTION_UUID='${userActionData['USER_ACTION_UUID']}' AND PROCESS_UUID=:PROCESS_UUID AND tsS.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
-  let testSetQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSetQuery, input);
-  if (testSetQueryData && testSetQueryData.length > 0) {
-    let testCases = { HEADING3: '3.' + usaIndex + '.3' + ' Test Cases', SubChildrenMap: [] };
-    let testCaseIds = [...new Set(testSetQueryData.map((item) => `'${item.TEST_CASE_UUID}'`))].join(',');
-    const paramsPattern = /[^{}]+(?=})/g;
-    let testCaseQuery = `SELECT TEST_SET_ID as 'Test Set ID',TEST_CASE_ID as 'Test Case ID',TEST_CASE_SEQ_ID as 'Test Case Seq ID',TEST_CASE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions,TEST_CASE_UUID as 'Test Case UUID', TEST_CASE_EXECUTON_TYPE as 'Test Case Execution Type' FROM TEST_CASE,TEST_SET WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID and TEST_CASE.TEST_CASE_UUID in (${testCaseIds}) order by TEST_CASE_SEQ_ID asc`;
-    let testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input);
-    let testCaseStepNormalQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', tc.TEST_CASE_UUID as 'Test Case UUID', tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tc.TEST_CASE_UUID in (${testCaseIds}) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP is null ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and vns.FUNCTION_STEP_UUID IS NULL or vns.FUNCTION_STEP_UUID = '' and vns.FUNCTION_UUID IS NULL or vns.FUNCTION_UUID = '' ) ) ) ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
+  for (let testCase of testCaseImpactedUserStoryQueryData) {
+    let testCaseId = `'` + testCase['TEST_CASE_UUID'] + `'`;
+    msg.payload.result.documentData = {};
+    let testCaseStepNormalQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tc.TEST_CASE_UUID = ${testCaseId} AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' or tcs.IS_PURE_NAVIGATION_STEP is null ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and ( vns.FUNCTION_STEP_UUID IS NULL or vns.FUNCTION_STEP_UUID = '' ) and ( vns.FUNCTION_UUID IS NULL or vns.FUNCTION_UUID = '' ) ) ) ) ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
     let testCaseStepNormalQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
       'PRIMARYSPRINGFM',
       testCaseStepNormalQuery,
@@ -612,7 +473,7 @@ for (let userActionData of userActionQueryData) {
           .join(', ')
       )
     );
-    let testCaseNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', tc.TEST_CASE_UUID as 'Test Case UUID', tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' as PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID as PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW v, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.CURRENT_PAGE_CONTEXT = v.PAGE_UUID AND v.VIEW_UUID = vns.VIEW_UUID AND tc.TEST_CASE_UUID in (${testCaseIds}) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and vns.FUNCTION_STEP_UUID IS NULL or vns.FUNCTION_STEP_UUID = '' and vns.FUNCTION_UUID IS NULL or vns.FUNCTION_UUID = '' ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+    let testCaseNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) AS PageID, 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' as PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID as PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcs.TEST_CASE_UUID = ${testCaseId} AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and vns.FUNCTION_STEP_UUID IS NULL or vns.FUNCTION_STEP_UUID = '' and vns.FUNCTION_UUID IS NULL or vns.FUNCTION_UUID = '' ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
     let testCaseNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
       'PRIMARYSPRINGFM',
       testCaseNavigationStepQuery,
@@ -626,7 +487,7 @@ for (let userActionData of userActionQueryData) {
       )
     );
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseNavigationStepQueryData);
-    let testCaseFunctionStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', concat( TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID ) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', TEST_CASE_FUNCTION_STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', TEST_CASE_FUNCTION_STEP_UUID as 'Test Case Step UUID', tc.TEST_CASE_UUID as 'Test Case UUID', tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfs.TEST_CASE_FUNCTION_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID and ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and tc.TEST_CASE_UUID in (${testCaseIds}) and tcs.IS_FUNCTION_STEP = 'Yes' and tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' and tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND ( ( tcfs.IS_PURE_NAVIGATION_STEP = 'No' OR tcfs.IS_PURE_NAVIGATION_STEP is null ) OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and vns.FUNCTION_STEP_UUID IS NOT NULL and vns.FUNCTION_STEP_UUID != '' and vns.FUNCTION_UUID IS NOT NULL and vns.FUNCTION_UUID != '' ) ) ) ORDER BY TEST_CASE_STEP_ID, TEST_CASE_FUNCTION_STEP_ID asc`;
+    let testCaseFunctionStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcfs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, TEST_CASE_FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfs.TEST_CASE_FUNCTION_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE tc, TEST_SET ts, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_CASE_UUID = ${testCaseId} AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND ( ( tcfs.IS_PURE_NAVIGATION_STEP = 'No' or tcfs.IS_PURE_NAVIGATION_STEP is null ) OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and vns.FUNCTION_STEP_UUID IS NOT NULL and vns.FUNCTION_STEP_UUID != '' and vns.FUNCTION_UUID IS NOT NULL and vns.FUNCTION_UUID != '' ) ) ) ORDER BY TEST_CASE_STEP_ID, TEST_CASE_FUNCTION_STEP_ID ASC`;
     let testCaseFunctionStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
       'PRIMARYSPRINGFM',
       testCaseFunctionStepQuery,
@@ -640,7 +501,7 @@ for (let userActionData of userActionQueryData) {
       )
     );
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionStepQueryData);
-    let testCaseFunctionNavigationStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', tc.TEST_CASE_UUID AS 'Test Case UUID', tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' as PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID as PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tc.TEST_CASE_UUID in (${testCaseIds}) AND tcfs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and vns.FUNCTION_STEP_UUID IS NOT NULL and vns.FUNCTION_STEP_UUID != '' and vns.FUNCTION_UUID IS NOT NULL and vns.FUNCTION_UUID != '' ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+    let testCaseFunctionNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ), ' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) AS PageID, 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' as PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID as PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.TEST_CASE_UUID = ${testCaseId} AND tcfs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and vns.FUNCTION_STEP_UUID IS NOT NULL and vns.FUNCTION_STEP_UUID != '' and vns.FUNCTION_UUID IS NOT NULL and vns.FUNCTION_UUID != '' ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
     let testCaseFunctionNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
       'PRIMARYSPRINGFM',
       testCaseFunctionNavigationStepQuery,
@@ -658,7 +519,7 @@ for (let userActionData of userActionQueryData) {
       )
     );
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionNavigationStepQueryData);
-    let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', concat( TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', tc.TEST_CASE_UUID as 'Test Case UUID', tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfuegs.TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID and ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and tcfs.TEST_CASE_FUNCTION_STEP_UUID = tcfuegs.TEST_CASE_FUNCTION_STEP_UUID and tc.TEST_CASE_UUID in (${testCaseIds}) and tcs.IS_FUNCTION_STEP = 'Yes' and tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY TEST_CASE_STEP_ID asc, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID asc`;
+    let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', concat( TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, concat( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfuegs.TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcfs.TEST_CASE_FUNCTION_STEP_UUID = tcfuegs.TEST_CASE_FUNCTION_STEP_UUID AND tcs.TEST_CASE_UUID = ${testCaseId} AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY TEST_CASE_STEP_ID asc, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID asc`;
     let testCaseFunctionUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
       'PRIMARYSPRINGFM',
       testCaseFunctionUIElementGroupStepQuery,
@@ -676,7 +537,7 @@ for (let userActionData of userActionQueryData) {
       )
     );
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionUIElementGroupStepQueryData);
-    let testCaseUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', concat( TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', TEST_CASE_UI_ELEMENT_GROUP_STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', tc.TEST_CASE_UUID as 'Test Case UUID', tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcuegs.TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_STEP tcs, TEST_CASE_UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID and ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcuegs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and tc.TEST_CASE_UUID in (${testCaseIds}) and tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY TEST_CASE_STEP_ID, TEST_CASE_UI_ELEMENT_GROUP_STEP_ID asc`;
+    let testCaseUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', concat( TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', TEST_CASE_UI_ELEMENT_GROUP_STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, concat( ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcuegs.TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID FROM TEST_CASE_STEP tcs, TEST_CASE_UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcuegs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_CASE_UUID = ${testCaseId} AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY TEST_CASE_STEP_ID, TEST_CASE_UI_ELEMENT_GROUP_STEP_ID asc`;
     let testCaseUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
       'PRIMARYSPRINGFM',
       testCaseUIElementGroupStepQuery,
@@ -703,8 +564,12 @@ for (let userActionData of userActionQueryData) {
       let apiQueryDataList = await fetchApiDetails(attributeIds);
       let apiAttributeQueryDataList = await fetchApiAttributeDetails(attributeIds);
       for (let data of testCaseStepNormalQueryData) {
+        let inc = 0;
         if (data && data['TEST_CASE_EXECUTON_TYPE'] != 'Recorded') {
-          let inputStepType = data['Test Case Step Type'];
+          let inputStepType =
+            data['Test Case Step Type'] && data['Test Case Step Type'] == 'Data'
+              ? 'Given'
+              : data['Test Case Step Type'];
           let stepDefAttributeQueryData = getStepAttributeData(
             stepDefAttributeQueryDataList,
             data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID']
@@ -729,6 +594,7 @@ for (let userActionData of userActionQueryData) {
             let isDataElementNameTypePassword = false;
             let isDataElementName1TypePassword = false;
             for (let codeDesc of stepDefAttributeQueryData) {
+              input['FUNCTIONAL_AREA_UUID'] = testCase['FUNCTIONAL_AREA_UUID'];
               switch (codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID']) {
                 case '57b76ab3-8112-4343-af0f-49643c808bf7':
                   {
@@ -1415,10 +1281,12 @@ for (let userActionData of userActionQueryData) {
                   }
                   break;
               }
+              inc++;
             }
           }
           let getKeywordByStepType = inputStepType ? inputStepType + ' ' : '';
           data['Test Case Step Name'] = getKeywordByStepType + stepDefTemplateVerbiageName;
+          delete data['API_UUID'];
           delete data['TEST_CASE_EXECUTON_TYPE'];
           delete data['PLAYWRITE_STEP_CODE'];
           delete data['CHILD_ATTRIBUTE_TABLE_NAME'];
@@ -1427,8 +1295,16 @@ for (let userActionData of userActionQueryData) {
           delete data['PRIMARY_COLUMN_VALUE'];
           delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
         } else if (data && data['TEST_CASE_EXECUTON_TYPE'] == 'Recorded') {
-          data['Test Case Step Name'] = data['Test Case Step Type'] + ' ' + data['Test Case Step Name'];
+          let inputStepType =
+            data['Test Case Step Type'] && data['Test Case Step Type'] == 'Data'
+              ? 'Given'
+              : data['Test Case Step Type'];
+          data['Test Case Step Type'] = inputStepType;
           data['Step Definition Template'] = data['PLAYWRITE_STEP_CODE'];
+          if (data['API_UUID']) {
+            apiList.push(data['API_UUID']);
+          }
+          delete data['API_UUID'];
           delete data['TEST_CASE_EXECUTON_TYPE'];
           delete data['PLAYWRITE_STEP_CODE'];
           delete data['CHILD_ATTRIBUTE_TABLE_NAME'];
@@ -1457,182 +1333,72 @@ for (let userActionData of userActionQueryData) {
         return 0;
       });
     }
-    let requirementQuery = `SELECT tcr.TEST_CASE_UUID AS 'Test Case UUID', rs.REQUIREMENT_SET_UUID, rs.PARENT_REQUIREMENT_SET_UUID, rt.REQUIREMENT_TITLE_UUID, r.REQUIREMENT_UUID, ius.USER_ACTION_UUID, p.PROCESS_UUID, rt.REQUIREMENT_TITLE AS 'Requirement Title', rs.REQUIREMENT_SET_NAME AS 'Requirement Sub-Title', r.REQUIREMENT_TEXT AS 'Requirement', cos.CONDITION_SATISFACTION_NAME AS 'Condition Of Satisfaction/Acceptance Criteria', p.PROCESS_NAME, pg.PAGE_NAME, vua.USER_ACTION_NAME, ius.ASSOCIATION_TYPE FROM IMPACTED_PROCESS ius LEFT JOIN REQUIREMENT_TITLE rt ON rt.REQUIREMENT_TITLE_UUID = ius.REQUIREMENT_TITLE_UUID JOIN REQUIREMENT r ON r.REQUIREMENT_UUID = ius.REQUIREMENT_UUID LEFT JOIN CONDITION_SATISFACTION cos ON cos.CONDITION_SATISFACTION_UUID = ius.CONDITION_SATISFACTION_UUID LEFT JOIN REQUIREMENT_SET rs ON (rs.REQUIREMENT_SET_ASSOCIATION_UUID = rt.REQUIREMENT_TITLE_UUID OR rs.REQUIREMENT_SET_ASSOCIATION_UUID = ius.USER_ACTION_UUID) AND r.REQUIREMENT_SET_UUID = rs.REQUIREMENT_SET_UUID LEFT JOIN PROCESS p ON p.PROCESS_UUID = ius.PROCESS_UUID LEFT JOIN PAGE pg ON pg.PAGE_UUID = ius.PAGE_UUID LEFT JOIN VIEW_USER_ACTION vua ON vua.USER_ACTION_UUID = ius.USER_ACTION_UUID LEFT JOIN TEST_CASE_REQUIREMENT tcr ON tcr.REQUIREMENT_UUID = r.REQUIREMENT_UUID LEFT JOIN TEST_CASE stepUser ON tcr.TEST_CASE_UUID = stepUser.TEST_CASE_UUID WHERE tcr.TEST_CASE_UUID IN (${testCaseIds}) AND tcr.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ( ius.CONDITION_SATISFACTION_UUID IS NOT NULL OR NOT EXISTS ( SELECT 1 FROM IMPACTED_PROCESS sub_ius WHERE sub_ius.REQUIREMENT_UUID = ius.REQUIREMENT_UUID AND sub_ius.CONDITION_SATISFACTION_UUID IS NOT NULL ) );`;
-    let requirementQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
-      'PRIMARYSPRINGFM',
-      requirementQuery,
-      input
-    );
-    let testCaseDescriptionQuery = `SELECT tc.TEST_CASE_UUID AS 'Test Case UUID', tcd.TEST_CASE_DESCRIPTION_DATA, tcd.TEST_CASE_PRE_CONDITION,tcd.TEST_CASE_PRE_EXISTING_DATA,tcd.TEST_CASE_USER_INPUT, tcd.TEST_CASE_EXPECTED_RESULT, tcd.TEST_CASE_ACTUAL_RESULT FROM TEST_CASE tc INNER JOIN TEST_CASE_DESCRIPTION tcd ON tc.TEST_CASE_UUID = tcd.TEST_CASE_UUID WHERE tc.TEST_CASE_UUID in (${testCaseIds});`;
-    let testCaseDescriptionQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
-      'PRIMARYSPRINGFM',
-      testCaseDescriptionQuery,
-      input
-    );
-    let testCaseAttachmentQuery = `SELECT tc.TEST_CASE_UUID AS 'Test Case UUID', atcinfo.INFO_4 AS 'Attachment', atc.ATCHD_FILE_NM as 'File_Name' FROM TEST_CASE tc INNER JOIN ATTACHMENT atc ON tc.TEST_CASE_UUID = atc.TBL_RW_ID INNER JOIN ATTACHMENTINFO atcinfo ON atc.ATCHMT_ID = atcinfo.INFO_1 WHERE tc.TEST_CASE_UUID in (${testCaseIds}) AND atc.KEY_NM = 'TEST_CASE_UUID' AND atc.isDeleted = 0 order by atc.ATCHD_FILE_NM asc;`;
-    let testCaseAttachmentQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
-      'PRIMARYSPRINGFM',
-      testCaseAttachmentQuery,
-      input
-    );
-    for (const [i, testCaseDetail] of testCaseQueryData.entries()) {
-      let parentKeyList = [];
-      parentKeyList.push(testCaseDetail['Test Case UUID']);
-      let dataObject1 = {};
-      let testCaseStepNameArray = [];
-      let testCaseDescriptionArray = [];
-      let preConditionpArray = [];
-      let preExistingArray = [];
-      let userInputpArray = [];
-      let exectedResultpArray = [];
-      let actulResultArray = [];
-      var attachmentArray = [];
-      let reqNameArray = [];
-      dataObject1['HEADING4'] =
-        '3.' +
-        usaIndex +
-        '.3.' +
-        (i + 1) +
-        ' TS' +
-        testCaseDetail['Test Set ID'] +
-        ' - TC' +
-        testCaseDetail['Test Case ID'] +
-        ' : ' +
-        testCaseDetail['Test Case Name'] +
-        ' - ' +
-        testCaseDetail['Test Case Execution Type'];
-      dataObject1['SubChildList'] = [];
-      for (let testCaseStepDetail of testCaseStepNormalQueryData) {
-        if (testCaseDetail['Test Case UUID'] == testCaseStepDetail['Test Case UUID']) {
-          testCaseStepNameArray.push(testCaseStepDetail['Test Case Step Name']);
-        }
-      }
-      for (let attachment of testCaseAttachmentQueryData) {
-        if (
-          testCaseDetail['Test Case UUID'] == attachment['Test Case UUID'] &&
-          !(
-            attachment['File_Name'].endsWith('.png') ||
-            attachment['File_Name'].endsWith('.jpeg') ||
-            attachment['File_Name'].endsWith('.svg') ||
-            attachment['File_Name'].endsWith('.jpg')
-          )
-        ) {
-          let newAttachment = {};
-          newAttachment[attachment['File_Name']] = attachment['Attachment'];
-          attachmentArray.push(newAttachment);
-        }
-      }
-      for (let descriptions of testCaseDescriptionQueryData) {
-        if (testCaseDetail['Test Case UUID'] == descriptions['Test Case UUID']) {
-          if (descriptions['TEST_CASE_DESCRIPTION_DATA']) {
-            testCaseDescriptionArray.push(descriptions['TEST_CASE_DESCRIPTION_DATA']);
-          }
-          if (descriptions['TEST_CASE_PRE_CONDITION']) {
-            preConditionpArray.push(descriptions['TEST_CASE_PRE_CONDITION']);
-          }
-          if (descriptions['TEST_CASE_USER_INPUT']) {
-            userInputpArray.push(descriptions['TEST_CASE_USER_INPUT']);
-          }
-          if (descriptions['TEST_CASE_EXPECTED_RESULT']) {
-            exectedResultpArray.push(descriptions['TEST_CASE_EXPECTED_RESULT']);
-          }
-          if (descriptions['TEST_CASE_ACTUAL_RESULT']) {
-            actulResultArray.push(descriptions['TEST_CASE_ACTUAL_RESULT']);
-          }
-          if (descriptions['TEST_CASE_PRE_EXISTING_DATA']) {
-            preExistingArray.push(descriptions['TEST_CASE_PRE_EXISTING_DATA']);
-          }
-        }
-      }
-      for (let req of requirementQueryData) {
-        if (testCaseDetail['Test Case UUID'] == req['Test Case UUID']) {
-          reqNameArray.push(req);
-        }
-      }
-      let dataIndex = 1;
-      if (reqNameArray && reqNameArray.length > 0) {
-        let subObjectREQ = [];
-        let heading = 'BOLDTAG' + dataIndex + '. Linked Requirement';
-        subObjectREQ = await formatRequirements(reqNameArray, false);
-        subObjectREQ.unshift(heading);
-        dataObject1['SubChildList'] = dataObject1['SubChildList'].concat(subObjectREQ);
-        dataIndex++;
-      }
-      if (testCaseDescriptionArray && testCaseDescriptionArray.length > 0) {
-        let subObjectDesc = [];
-        let heading = 'BOLDTAG' + dataIndex + '. Test Case Description';
-        subObjectDesc = testCaseDescriptionArray;
-        subObjectDesc.unshift(heading);
-        dataObject1['SubChildList'] = dataObject1['SubChildList'].concat(subObjectDesc);
-        dataIndex++;
-      }
-      if (preExistingArray && preExistingArray.length > 0) {
-        let subObjectPreExisting = [];
-        let heading = 'BOLDTAG' + dataIndex + '. Pre-Existing Data';
-        subObjectPreExisting = preExistingArray;
-        subObjectPreExisting.unshift(heading);
-        dataObject1['SubChildList'] = dataObject1['SubChildList'].concat(subObjectPreExisting);
-        dataIndex++;
-      }
-      if (preConditionpArray && preConditionpArray.length > 0) {
-        let subObjectPreConditon = [];
-        let heading = 'BOLDTAG' + dataIndex + '. Pre Condition';
-        subObjectPreConditon = preConditionpArray;
-        subObjectPreConditon.unshift(heading);
-        dataObject1['SubChildList'] = dataObject1['SubChildList'].concat(subObjectPreConditon);
-        dataIndex++;
-      }
-      if (userInputpArray && userInputpArray.length > 0) {
-        let subObjectUserInput = [];
-        let heading = 'BOLDTAG' + dataIndex + '. User Input';
-        subObjectUserInput = userInputpArray;
-        subObjectUserInput.unshift(heading);
-        dataObject1['SubChildList'] = dataObject1['SubChildList'].concat(subObjectUserInput);
-        dataIndex++;
-      }
-      if (exectedResultpArray && exectedResultpArray.length > 0) {
-        let subObjectExpectedResult = [];
-        let heading = 'BOLDTAG' + dataIndex + '. Expected Result';
-        subObjectExpectedResult = exectedResultpArray;
-        subObjectExpectedResult.unshift(heading);
-        dataObject1['SubChildList'] = dataObject1['SubChildList'].concat(subObjectExpectedResult);
-        dataIndex++;
-      }
-      if (actulResultArray && actulResultArray.length > 0) {
-        let subObjectActualResult = [];
-        let heading = 'BOLDTAG' + dataIndex + '. Actual Result';
-        subObjectActualResult = actulResultArray;
-        subObjectActualResult.unshift(heading);
-        dataObject1['SubChildList'] = dataObject1['SubChildList'].concat(subObjectActualResult);
-        dataIndex++;
-      }
-      if (testCaseStepNameArray && testCaseStepNameArray.length > 0) {
-        let subObjectStep = [];
-        let heading = 'BOLDTAG' + dataIndex + '. Automated Test Case Steps';
-        subObjectStep = testCaseStepNameArray;
-        subObjectStep.unshift(heading);
-        dataObject1['SubChildList'] = dataObject1['SubChildList'].concat(subObjectStep);
-        dataIndex++;
-      }
-      if (testCaseAttachmentQueryData && testCaseAttachmentQueryData.length > 0) {
-        let subObjectAttachment = [];
-        let heading = 'BOLDTAG' + dataIndex + '. Attachments';
-        subObjectAttachment = [heading];
-        dataObject1['SubChildList'] = dataObject1['SubChildList'].concat(subObjectAttachment);
-        dataObject1['LinkChildList'] = attachmentArray;
-        dataObject1['attachmentParentKeyList'] = parentKeyList;
-        dataIndex++;
-      }
-      testCases['SubChildrenMap'].push(dataObject1);
+    let testCaseStepStr = '';
+    for (let testCaseStep of testCaseStepNormalQueryData) {
+      testCaseStepStr = testCaseStepStr + '<p>' + testCaseStep['Test Case Step Name'] + '</p>';
     }
-    dataObject['ChildrenMap'].push(testCases);
-    headerTwoMap['ChildrenMapList'].push(dataObject);
-  } else {
-    headerTwoMap['ChildrenMapList'].push(dataObject);
+    testCase['Notes'] = testCaseStepStr;
+    delete testCase['uuid'];
+    delete testCase['REQUIREMENT_TITLE_UUID'];
+    delete testCase['REQUIREMENT_UUID'];
+    delete testCase['CONDITION_SATISFACTION_UUID'];
+    delete testCase['TEST_CASE_UUID'];
+    delete testCase['FUNCTIONAL_AREA_UUID'];
+    let linkedTestCaseRequirementQuery = `SELECT(SELECT CONCAT(REQUIREMENT_TITLE_ID, ' - ', REQUIREMENT_TITLE) FROM REQUIREMENT_TITLE WHERE REQUIREMENT_TITLE_UUID = tcr.REQUIREMENT_TITLE_UUID limit 1) as RequirementTitle, (SELECT CONCAT(REQUIREMENT_SET_ID, ' - ', REQUIREMENT_SET_NAME) FROM REQUIREMENT_SET rs, REQUIREMENT r WHERE rs.REQUIREMENT_SET_UUID = r.REQUIREMENT_SET_UUID AND r.REQUIREMENT_UUID = tcr.REQUIREMENT_UUID limit 1) as RequirementGroup, (SELECT CONCAT(REQUIREMENT_ID, ' - ', REQUIREMENT_TEXT) FROM REQUIREMENT WHERE REQUIREMENT_UUID = tcr.REQUIREMENT_UUID limit 1) as RequirementName, (SELECT CONCAT(CONDITION_SATISFACTION_ID, ' - ', CONDITION_SATISFACTION_NAME) FROM CONDITION_SATISFACTION WHERE CONDITION_SATISFACTION_UUID = tcr.CONDITION_SATISFACTION_UUID limit 1) as ConditionOfSatisfaction, tcr.TEST_CASE_REQUIREMENT_ID, ip.ASSOCIATION_TYPE, ip.PROCESS_UUID, ip.PAGE_UUID, ip.USER_ACTION_UUID, tcr.REQUIREMENT_TITLE_UUID, tcr.REQUIREMENT_UUID, tcr.CONDITION_SATISFACTION_UUID, ip.FUNCTIONAL_AREA_UUID FROM TEST_CASE_REQUIREMENT tcr JOIN IMPACTED_PROCESS ip ON tcr.IMPACTED_PROCESS_UUID = ip.IMPACTED_PROCESS_UUID WHERE tcr.TEST_CASE_UUID in (${testCaseId}) AND ip.ASSOCIATION_TYPE IN('FEATURE') UNION SELECT(SELECT CONCAT(pro.PROCESS_ID, ' - ', pro.PROCESS_NAME, ' , ', pg.PAGE_ID, ' - ', pg.PAGE_NAME, ' , ', ua.USER_ACTION_ID, ' - ', ua.USER_ACTION_NAME) FROM PROCESS pro JOIN PROCESS_PAGE pp ON pro.PROCESS_UUID = pp.PROCESS_UUID JOIN PAGE pg ON pp.PAGE_UUID = pg.PAGE_UUID JOIN VIEW_USER_ACTION ua ON pro.PROCESS_UUID = ua.PROCESS_UUID AND pg.PAGE_UUID = ua.PAGE_UUID WHERE pp.PROCESS_UUID = pro.PROCESS_UUID AND pp.PAGE_UUID = pg.PAGE_UUID AND pro.PROCESS_UUID = ip.PROCESS_UUID AND pg.PAGE_UUID = ip.PAGE_UUID AND ua.USER_ACTION_UUID = ip.USER_ACTION_UUID limit 1) as RequirementTitle, (SELECT CONCAT(REQUIREMENT_SET_ID, ' - ', REQUIREMENT_SET_NAME) FROM REQUIREMENT_SET rs, REQUIREMENT r WHERE rs.REQUIREMENT_SET_UUID = r.REQUIREMENT_SET_UUID AND r.REQUIREMENT_UUID = tcr.REQUIREMENT_UUID limit 1) as RequirementGroup, (SELECT CONCAT(REQUIREMENT_ID, ' - ', REQUIREMENT_TEXT) FROM REQUIREMENT WHERE REQUIREMENT_UUID = tcr.REQUIREMENT_UUID limit 1) as RequirementName, (SELECT CONCAT(CONDITION_SATISFACTION_ID, ' - ', CONDITION_SATISFACTION_NAME) FROM CONDITION_SATISFACTION WHERE CONDITION_SATISFACTION_UUID = tcr.CONDITION_SATISFACTION_UUID limit 1) as ConditionOfSatisfaction, tcr.TEST_CASE_REQUIREMENT_ID, ip.ASSOCIATION_TYPE, ip.PROCESS_UUID, ip.PAGE_UUID, ip.USER_ACTION_UUID, tcr.REQUIREMENT_TITLE_UUID, tcr.REQUIREMENT_UUID, tcr.CONDITION_SATISFACTION_UUID, ip.FUNCTIONAL_AREA_UUID FROM TEST_CASE_REQUIREMENT tcr JOIN IMPACTED_PROCESS ip ON tcr.IMPACTED_PROCESS_UUID = ip.IMPACTED_PROCESS_UUID WHERE tcr.TEST_CASE_UUID in (${testCaseId}) AND ip.ASSOCIATION_TYPE IN('PAGE-EVENT')`;
+    let linkedTestCaseRequirementQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
+      'PRIMARYSPRINGFM',
+      linkedTestCaseRequirementQuery,
+      input
+    );
+    let htmlObjectiveData = groupedByTitleAndRequirement(linkedTestCaseRequirementQueryData);
+    testCase['Objective'] = htmlObjectiveData;
+    const testSetDetailQuery = `SELECT PROCESS_UUID,PAGE_UUID,USER_ACTION_UUID,tc.TEST_SET_UUID FROM TEST_SET ts,TEST_CASE tc where ts.TEST_SET_UUID=tc.TEST_SET_UUID and tc.TEST_CASE_UUID in(${testCaseId})`;
+    let testSetDetailQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
+      `PRIMARYSPRINGFM`,
+      testSetDetailQuery,
+      input
+    );
+    let userActionId = '';
+    if (testSetDetailQueryData && Object.keys(testSetDetailQueryData).length) {
+      input['PROCESS_UUID'] = testSetDetailQueryData['PROCESS_UUID'];
+      input['PAGE_UUID'] = testSetDetailQueryData['PAGE_UUID'];
+      input['USER_ACTION_UUID'] = testSetDetailQueryData['USER_ACTION_UUID'];
+      userActionId = `'` + testSetDetailQueryData['USER_ACTION_UUID'] + `'`;
+    }
+    let allinkedTestCaseRequirementQuery = `SELECT ( SELECT CONCAT( REQUIREMENT_TITLE_ID, ' - ', REQUIREMENT_TITLE ) FROM REQUIREMENT_TITLE WHERE REQUIREMENT_TITLE_UUID = ip.REQUIREMENT_TITLE_UUID limit 1 ) as RequirementTitle, ( SELECT CONCAT( REQUIREMENT_SET_ID, ' - ', REQUIREMENT_SET_NAME ) FROM REQUIREMENT_SET rs, REQUIREMENT r WHERE rs.REQUIREMENT_SET_UUID = r.REQUIREMENT_SET_UUID AND r.REQUIREMENT_UUID = ip.REQUIREMENT_UUID limit 1 ) as RequirementGroup, ( SELECT CONCAT( REQUIREMENT_ID, ' - ', REQUIREMENT_TEXT ) FROM REQUIREMENT WHERE REQUIREMENT_UUID = ip.REQUIREMENT_UUID limit 1 ) as RequirementName, ( SELECT CONCAT( CONDITION_SATISFACTION_ID, ' - ', CONDITION_SATISFACTION_NAME ) FROM CONDITION_SATISFACTION WHERE CONDITION_SATISFACTION_UUID = ip.CONDITION_SATISFACTION_UUID limit 1 ) as ConditionOfSatisfaction, ip.ASSOCIATION_TYPE, ip.PROCESS_UUID, ip.PAGE_UUID, ip.USER_ACTION_UUID, ip.REQUIREMENT_TITLE_UUID, ip.REQUIREMENT_UUID, ip.CONDITION_SATISFACTION_UUID, ip.FUNCTIONAL_AREA_UUID from IMPACTED_PROCESS ip, TEST_CASE tc, REQUIREMENT req, IMPACTED_USER_STORY ius where req.REQUIREMENT_UUID = ip.REQUIREMENT_UUID and tc.TEST_CASE_UUID = ${testCaseId} and ip.USER_ACTION_UUID = ${userActionId} and ius.REQUIREMENT_UUID = ip.REQUIREMENT_UUID and ius.USER_STORY_UUID=:USER_STORY_UUID and ip.ASSOCIATION_TYPE in ( 'FEATURE' ) and ip.IMPACTED_PROCESS_UUID not in ( SELECT ip.IMPACTED_PROCESS_UUID FROM IMPACTED_PROCESS ip, TEST_CASE_REQUIREMENT tcr where ip.IMPACTED_PROCESS_UUID = tcr.IMPACTED_PROCESS_UUID and tcr.TEST_CASE_UUID = ${testCaseId} ) union SELECT ( SELECT CONCAT( pro.PROCESS_ID, ' - ', pro.PROCESS_NAME, ' , ', pg.PAGE_ID, ' - ', pg.PAGE_NAME, ' , ', ua.USER_ACTION_ID, ' - ', ua.USER_ACTION_NAME ) FROM PROCESS pro JOIN PROCESS_PAGE pp ON pro.PROCESS_UUID = pp.PROCESS_UUID JOIN PAGE pg ON pp.PAGE_UUID = pg.PAGE_UUID JOIN VIEW_USER_ACTION ua ON pro.PROCESS_UUID = ua.PROCESS_UUID AND pg.PAGE_UUID = ua.PAGE_UUID WHERE pp.PROCESS_UUID = pro.PROCESS_UUID AND pp.PAGE_UUID = pg.PAGE_UUID AND pro.PROCESS_UUID = ip.PROCESS_UUID AND pg.PAGE_UUID = ip.PAGE_UUID AND ua.USER_ACTION_UUID = ip.USER_ACTION_UUID limit 1 ) as RequirementTitle, ( SELECT CONCAT( REQUIREMENT_SET_ID, ' - ', REQUIREMENT_SET_NAME ) FROM REQUIREMENT_SET rs, REQUIREMENT r WHERE rs.REQUIREMENT_SET_UUID = r.REQUIREMENT_SET_UUID AND r.REQUIREMENT_UUID = ip.REQUIREMENT_UUID limit 1 ) as RequirementGroup, ( SELECT CONCAT( REQUIREMENT_ID, ' - ', REQUIREMENT_TEXT ) FROM REQUIREMENT WHERE REQUIREMENT_UUID = ip.REQUIREMENT_UUID limit 1 ) as RequirementName, ( SELECT CONCAT( CONDITION_SATISFACTION_ID, ' - ', CONDITION_SATISFACTION_NAME ) FROM CONDITION_SATISFACTION WHERE CONDITION_SATISFACTION_UUID = ip.CONDITION_SATISFACTION_UUID limit 1 ) as ConditionOfSatisfaction, ip.ASSOCIATION_TYPE, ip.PROCESS_UUID, ip.PAGE_UUID, ip.USER_ACTION_UUID, ip.REQUIREMENT_TITLE_UUID, ip.REQUIREMENT_UUID, ip.CONDITION_SATISFACTION_UUID, ip.FUNCTIONAL_AREA_UUID from IMPACTED_PROCESS ip, TEST_CASE tc, REQUIREMENT req, IMPACTED_USER_STORY ius where req.REQUIREMENT_UUID = ip.REQUIREMENT_UUID and tc.TEST_CASE_UUID = ${testCaseId} and ip.USER_ACTION_UUID = ${userActionId} and ius.REQUIREMENT_UUID = ip.REQUIREMENT_UUID and ius.USER_STORY_UUID=:USER_STORY_UUID and ip.ASSOCIATION_TYPE in ( 'PAGE-EVENT' ) and ip.IMPACTED_PROCESS_UUID not in ( SELECT ip.IMPACTED_PROCESS_UUID FROM IMPACTED_PROCESS ip, TEST_CASE_REQUIREMENT tcr where ip.IMPACTED_PROCESS_UUID = tcr.IMPACTED_PROCESS_UUID and tcr.TEST_CASE_UUID = ${testCaseId} ) union SELECT ( SELECT CONCAT( REQUIREMENT_TITLE_ID, ' - ', REQUIREMENT_TITLE ) FROM REQUIREMENT_TITLE WHERE REQUIREMENT_TITLE_UUID = tcr.REQUIREMENT_TITLE_UUID limit 1 ) as RequirementTitle, ( SELECT CONCAT( REQUIREMENT_SET_ID, ' - ', REQUIREMENT_SET_NAME ) FROM REQUIREMENT_SET rs, REQUIREMENT r WHERE rs.REQUIREMENT_SET_UUID = r.REQUIREMENT_SET_UUID AND r.REQUIREMENT_UUID = tcr.REQUIREMENT_UUID limit 1 ) as RequirementGroup, ( SELECT CONCAT( REQUIREMENT_ID, ' - ', REQUIREMENT_TEXT ) FROM REQUIREMENT WHERE REQUIREMENT_UUID = tcr.REQUIREMENT_UUID limit 1 ) as RequirementName, ( SELECT CONCAT( CONDITION_SATISFACTION_ID, ' - ', CONDITION_SATISFACTION_NAME ) FROM CONDITION_SATISFACTION WHERE CONDITION_SATISFACTION_UUID = tcr.CONDITION_SATISFACTION_UUID limit 1 ) as ConditionOfSatisfaction, ip.ASSOCIATION_TYPE, ip.PROCESS_UUID, ip.PAGE_UUID, ip.USER_ACTION_UUID, tcr.REQUIREMENT_TITLE_UUID, tcr.REQUIREMENT_UUID, tcr.CONDITION_SATISFACTION_UUID, ip.FUNCTIONAL_AREA_UUID from TEST_CASE_REQUIREMENT tcr, TEST_CASE tc, IMPACTED_PROCESS ip, REQUIREMENT req, IMPACTED_USER_STORY ius where req.REQUIREMENT_UUID = tcr.REQUIREMENT_UUID and tcr.IMPACTED_PROCESS_UUID = ip.IMPACTED_PROCESS_UUID and tc.TEST_CASE_UUID = tcr.TEST_CASE_UUID and tcr.TEST_CASE_UUID = ${testCaseId} and tcr.USER_ACTION_UUID = ${userActionId} and ius.REQUIREMENT_UUID = ip.REQUIREMENT_UUID and ius.REQUIREMENT_UUID = tcr.REQUIREMENT_UUID and ius.USER_STORY_UUID=:USER_STORY_UUID and ip.ASSOCIATION_TYPE in ( 'FEATURE' ) union SELECT ( SELECT CONCAT( pro.PROCESS_ID, ' - ', pro.PROCESS_NAME, ' , ', pg.PAGE_ID, ' - ', pg.PAGE_NAME, ' , ', ua.USER_ACTION_ID, ' - ', ua.USER_ACTION_NAME ) FROM PROCESS pro JOIN PROCESS_PAGE pp ON pro.PROCESS_UUID = pp.PROCESS_UUID JOIN PAGE pg ON pp.PAGE_UUID = pg.PAGE_UUID JOIN VIEW_USER_ACTION ua ON pro.PROCESS_UUID = ua.PROCESS_UUID AND pg.PAGE_UUID = ua.PAGE_UUID WHERE pp.PROCESS_UUID = pro.PROCESS_UUID AND pp.PAGE_UUID = pg.PAGE_UUID AND pro.PROCESS_UUID = ip.PROCESS_UUID AND pg.PAGE_UUID = ip.PAGE_UUID AND ua.USER_ACTION_UUID = ip.USER_ACTION_UUID limit 1 ) as RequirementTitle, ( SELECT CONCAT( REQUIREMENT_SET_ID, ' - ', REQUIREMENT_SET_NAME ) FROM REQUIREMENT_SET rs, REQUIREMENT r WHERE rs.REQUIREMENT_SET_UUID = r.REQUIREMENT_SET_UUID AND r.REQUIREMENT_UUID = tcr.REQUIREMENT_UUID limit 1 ) as RequirementGroup, ( SELECT CONCAT( REQUIREMENT_ID, ' - ', REQUIREMENT_TEXT ) FROM REQUIREMENT WHERE REQUIREMENT_UUID = tcr.REQUIREMENT_UUID limit 1 ) as RequirementName, ( SELECT CONCAT( CONDITION_SATISFACTION_ID, ' - ', CONDITION_SATISFACTION_NAME ) FROM CONDITION_SATISFACTION WHERE CONDITION_SATISFACTION_UUID = tcr.CONDITION_SATISFACTION_UUID limit 1 ) as ConditionOfSatisfaction, ip.ASSOCIATION_TYPE, ip.PROCESS_UUID, ip.PAGE_UUID, ip.USER_ACTION_UUID, tcr.REQUIREMENT_TITLE_UUID, tcr.REQUIREMENT_UUID, tcr.CONDITION_SATISFACTION_UUID, ip.FUNCTIONAL_AREA_UUID from TEST_CASE_REQUIREMENT tcr, TEST_CASE tc, IMPACTED_PROCESS ip, REQUIREMENT req, IMPACTED_USER_STORY ius where req.REQUIREMENT_UUID = tcr.REQUIREMENT_UUID and tcr.IMPACTED_PROCESS_UUID = ip.IMPACTED_PROCESS_UUID and tc.TEST_CASE_UUID = tcr.TEST_CASE_UUID and tcr.TEST_CASE_UUID = ${testCaseId} and tcr.USER_ACTION_UUID = ${userActionId} and ius.REQUIREMENT_UUID = ip.REQUIREMENT_UUID and ius.REQUIREMENT_UUID = tcr.REQUIREMENT_UUID and ius.USER_STORY_UUID=:USER_STORY_UUID and ip.ASSOCIATION_TYPE in ( 'PAGE-EVENT' )`;
+    let allinkedTestCaseRequirementQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
+      'PRIMARYSPRINGFM',
+      allinkedTestCaseRequirementQuery,
+      input
+    );
+    let htmlDescriptionData = groupedByTitleAndRequirement(allinkedTestCaseRequirementQueryData);
+    testCase['Description'] = htmlDescriptionData;
   }
-  usaIndex++;
+  msg.payload.result['mode'] = 'Enable Message';
+  objectData['Test Case'] = generateExcelData(testCaseImpactedUserStoryQueryData, [
+    'Object Type',
+    'Unique ID',
+    'Name',
+    'Type',
+    'Priority',
+    'Method',
+    'Last Build',
+    'Last Run',
+    'Work Product',
+    'Description',
+    'Notes',
+    'Objective',
+    'Pre Conditions',
+    'Validation Input',
+    'Validation Expected Result',
+    'Post Conditions',
+  ]);
+  msg.payload.result.documentData = msg.payload.result.documentData || {};
+  objectData = objectData || {};
+  Object.assign(msg.payload.result.documentData, objectData);
+  msg.payload.result.message = 'Document Downloaded';
+  node.send(msg);
+} catch (t) {
+  console.log('Errorr Occured', t.message);
+  return;
 }
-msg.payload.documentData.documentDetails.push(headerTwoMap);
-msg.payload.result.message = 'Document Downloaded';
-msg.payload.templateFile = '';
-node.send(msg);

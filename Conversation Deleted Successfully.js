@@ -1,10 +1,11 @@
 try {
   let input = msg.payload.apiRequestBody.baseEntity.records;
   console.log('inside refresh grid and show message microflow ::::::::::::: ', input[0]);
-  msg.payload.result['mode'] = 'Insert';
+  msg.payload.result['mode'] = 'Enable Message';
   msg.payload.result['message'] = 'Deleted Successfully';
   msg.payload.result['pk'] =
     input[0]['ENTITY_TYPE'] != 'CONVERSATION_MESSAGE' ? input[0]['CONVERSATION_UUID_FOR_REPLY'] : '';
+  msg.payload.result['modifyOtherCard'] = {};
   let dataGridCard;
   if (input[0]['ENTITY_TYPE'] === 'CONVERSATION_MESSAGE' && false) {
     dataGridCard =
@@ -15,6 +16,17 @@ try {
         parameterKey: 'CONVERSATION_MESSAGE_UUID',
         type: 'PortalDataGrid',
         parameterKeyValue: input[0].CONVERSATION_MESSAGE_UUID,
+        type: 'RefreshGrid',
+      },
+    ];
+  } else if (false) {
+    dataGridCard = '0_df9154cc-dc89-4ec3-a348-3c5376d468b6';
+    msg.payload.result.modifyOtherCard[dataGridCard] = [
+      {
+        parameter: 'data',
+        parameterKey: 'CONVERSATION_UUID',
+        type: 'PortalDataGrid',
+        parameterKeyValue: '',
         type: 'RefreshGrid',
       },
     ];

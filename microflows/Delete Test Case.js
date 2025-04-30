@@ -19,7 +19,10 @@ try {
     dataGridCard += '_e7168933-8b67-4540-9474-758ed9f27dc9_7771b533-2741-4d2a-a4e6-d08446c3ab81';
   } else if (input['PARENT_GRID_NAME'] == 'Personal - Orphan Test Set') {
     dataGridCard += '_4b77f551-e544-4fae-b4df-045ed493345c_7771b533-2741-4d2a-a4e6-d08446c3ab81';
+  } else if (input['PARENT_GRID_NAME'] == 'Page Navigation Test Set') {
+    dataGridCard += '_6acf847b-d130-4040-82d7-0f37a9713848_7771b533-2741-4d2a-a4e6-d08446c3ab81';
   }
+  console.log('input[PARENT_GRID_NAME]', input['PARENT_GRID_NAME']);
   msg.payload.result.modifyOtherCard[dataGridCard] = [
     {
       parameter: 'data',

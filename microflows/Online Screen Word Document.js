@@ -1,3 +1,15 @@
+const jsonTreeParser = (logicalJson, childDetails) => {
+  logicalJson.forEach(function (value) {
+    if (value.children && value.children.length > 0) {
+      jsonTreeParser(value.children, childDetails);
+    }
+    if (childDetails[value.primaryKey]) {
+      value.title = childDetails[value.primaryKey].title;
+      value['expanded'] = false;
+    }
+  });
+  return logicalJson;
+};
 function escapeSingleQuote(inpt) {
   return inpt;
 }
@@ -551,20 +563,34 @@ for (let userActionData of userActionQueryData) {
     objReq['SubChildrenMap'].push(businessReq);
     innerCount++;
   }
-  let userActionTreeQuery = `SELECT USER_ACTION_REQUIREMENT_TREE FROM USER_ACTION_REQUIREMENT_TREE where USER_ACTION_UUID='${userActionData['USER_ACTION_UUID']}'`;
+  let userActionTreeQuery = `SELECT USER_ACTION_UUID, USER_ACTION_REQUIREMENT_TREE FROM USER_ACTION_REQUIREMENT_TREE where USER_ACTION_UUID='${userActionData['USER_ACTION_UUID']}'`;
   let userActionTreeQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
     'PRIMARYSPRINGFM',
     userActionTreeQuery,
     input
   );
   if (userActionTreeQueryData && userActionTreeQueryData.USER_ACTION_REQUIREMENT_TREE) {
-    let pageEventReq = { HEADING4: '3.' + usaIndex + '.1.' + innerCount + ' Page-Event Requirement' };
-    pageEventReq['SubChildList'] = formatDataToArray(
+    const USER_ACTION_UUID = userActionTreeQueryData.USER_ACTION_UUID;
+
+    const reqQuery = `SELECT REQUIREMENT_UUID as primaryKey, REQUIREMENT_TEXT as title, REQUIREMENT_ID as nid, REQUIREMENT_DESCRIPTION as itemDescription FROM REQUIREMENT WHERE REQUIREMENT_ASSOCIATION_UUID = '${USER_ACTION_UUID}'`;
+    const reqData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', reqQuery, input);
+    const reqSetQuery = `SELECT REQUIREMENT_SET_UUID as primaryKey, REQUIREMENT_SET_ID as nid, REQUIREMENT_SET_NAME as title, REQUIREMENT_SET_DESCRIPTION as itemDescription FROM REQUIREMENT_SET WHERE REQUIREMENT_SET_ASSOCIATION_UUID = '${USER_ACTION_UUID}'`;
+    const reqSetData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', reqSetQuery, input);
+    const cosQuery = `SELECT CONDITION_SATISFACTION_UUID as primaryKey, CONDITION_SATISFACTION_ID as nid, CONDITION_SATISFACTION_NAME as title, CONDITION_SATISFACTION_DESCRIPTION as itemDescription FROM CONDITION_SATISFACTION WHERE CONDITION_SATISFACTION_ASSOCIATION_UUID = '${USER_ACTION_UUID}'`;
+    const cosData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', cosQuery, input);
+    const combinedData = [...reqData, ...reqSetData, ...cosData];
+
+    const parsedCombinedData = combinedData.reduce(function (map, obj) {
+      map[obj.primaryKey] = obj;
+      return map;
+    }, {});
+
+    const finalTreeData = jsonTreeParser(
       JSON.parse(userActionTreeQueryData.USER_ACTION_REQUIREMENT_TREE),
-      null
+      parsedCombinedData
     );
-    console.log('sending to formatDataToArray ============= ', userActionTreeQueryData.USER_ACTION_REQUIREMENT_TREE);
-    console.log('pageEventReq ================', pageEventReq);
+    let pageEventReq = { HEADING4: '3.' + usaIndex + '.1.' + innerCount + ' Page-Event Requirement' };
+    pageEventReq['SubChildList'] = formatDataToArray(finalTreeData, null);
     objReq['SubChildrenMap'].push(pageEventReq);
     innerCount = 1;
   }

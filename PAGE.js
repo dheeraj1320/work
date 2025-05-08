@@ -4,6 +4,8 @@ let UI_ELEMENT = [];
 let VIEW_UI_ELEMENT = [];
 let VIEW_NAVIGATION_STEP = [];
 let VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE = [];
+const PAGE_OVERRIDE_BASE_URL = [];
+
 let pageViewList = [];
 let testSetlist = [];
 
@@ -140,6 +142,9 @@ function deleteRecord(primarykey, primarykeyvalue, deleteType, functionalareauui
         deletedTestCaseRequirmentSet.add(primarykeyvalue);
       }
       break;
+    case 'PAGE_OVERRIDE_BASE_URL':
+      PAGE_OVERRIDE_BASE_URL.push(deleteParameter);
+      break;
   }
 
 }
@@ -235,6 +240,15 @@ async function deleteTestCaseDataAndSteps(testCaseUUID) {
   }
 }
 
+const deletePageOverrideBaseUrl = async () => {
+  const pageOverQuery = `SELECT PAGE_OVERRIDE_BASE_URL_UUID FROM PAGE_OVERRIDE_BASE_URL WHERE PAGE_UUID = :PAGE_UUID`;
+  const pageOverData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", pageOverQuery, input);
+
+  for (data of pageOverData) {
+    deleteRecord('PAGE_OVERRIDE_BASE_URL_UUID', data['PAGE_OVERRIDE_BASE_URL_UUID'], 'PAGE_OVERRIDE_BASE_URL', input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+  }
+}
+
 
 
 if (input.compositeEntityAction == "Update") {
@@ -320,6 +334,34 @@ if (input.compositeEntityAction == "Update") {
 
   input["AppEngChildEntity:FUNCTION_STEP"] = functionStepList;
 
+  // Creating PAGE_OVERRIDE_BASE_URL when the is override is changed from No to Yes
+  if(input['OLD_IS_BASE_URL_OVERRIDDEN'] == 'No' && input['IS_BASE_URL_OVERRIDDEN'] == 'Yes'){
+    const appEnvQuery = `SELECT APPLICATION_ENVIRONMENT_UUID FROM APPLICATION_ENVIRONMENT WHERE FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+    const appEnvData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", appEnvQuery, input);
+
+    for(envData of appEnvData){
+      const baseUrlQuery = `SELECT APPLICATION_ENVIRONMENT_BASE_URL_UUID FROM APPLICATION_ENVIRONMENT_BASE_URL WHERE APPLICATION_ENVIRONMENT_UUID = "${envData['APPLICATION_ENVIRONMENT_UUID']}" AND IS_DEFAULT_BASE_URL = "No"`;
+      const baseUrlData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", baseUrlQuery, input);
+
+      const pageOverrideObj = {};
+      pageOverrideObj['PAGE_UUID'] = input['PAGE_UUID'];
+      pageOverrideObj['APPLICATION_ENVIRONMENT_UUID'] = envData['APPLICATION_ENVIRONMENT_UUID'];
+      pageOverrideObj['APPLICATION_ENVIRONMENT_BASE_URL_UUID'] = '';
+
+      if(!baseUrlData) continue;
+
+      if(baseUrlData.length == 1) {
+        pageOverrideObj['APPLICATION_ENVIRONMENT_BASE_URL_UUID'] = baseUrlData[0]['APPLICATION_ENVIRONMENT_BASE_URL_UUID'];
+      }
+
+      PAGE_OVERRIDE_BASE_URL.push(pageOverrideObj);
+    }
+
+  // Deleting PAGE_OVERRIDE_BASE_URL when the is override is changed from Yes to No
+  } else if (input['OLD_IS_BASE_URL_OVERRIDDEN'] == 'Yes' && input['IS_BASE_URL_OVERRIDDEN'] == 'No') {
+    await deletePageOverrideBaseUrl()
+  }
+
 
 } else if (input.compositeEntityAction == 'Delete') {
 
@@ -331,6 +373,9 @@ if (input.compositeEntityAction == "Update") {
   for (data of uiElementsQueryData) {
     deleteRecord('UI_ELEMENT_UUID', data['UI_ELEMENT_UUID'], 'UI_ELEMENT', input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
   }
+
+  // Page Override URLS
+  await deletePageOverrideBaseUrl();
 
   // For Page View
   let pageViewQuery = `SELECT VIEW_UUID FROM PAGE_VIEW WHERE PAGE_UUID=:PAGE_UUID`;
@@ -443,6 +488,10 @@ if (input.compositeEntityAction == "Update") {
 
 
 } else if (input.compositeEntityAction == "Insert" || input.compositeEntityAction == "Save") {
+
+  // setting IS_BASE_URL_OVERRIDDEN to "No" by default
+  input["IS_BASE_URL_OVERRIDDEN"] = "No";
+
   const viewUUID = uuid();
   let data = {};
   let pageID = uuid();
@@ -526,6 +575,7 @@ if (input.compositeEntityAction == "Update") {
 input["AppEngChildEntity:UI_ELEMENT"] = UI_ELEMENT;
 input["AppEngChildEntity:VIEW_UI_ELEMENT_CHILD_OF_VIEW_UI_ELEMENT"] = VIEW_UI_ELEMENT;
 input["AppEngChildEntity:PAGE_VIEW"] = pageViewList;
+input["AppEngChildEntity:PAGE_OVERRIDE_BASE_URL"] = PAGE_OVERRIDE_BASE_URL;
 
 // -------------- 
 

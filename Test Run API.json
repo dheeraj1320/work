@@ -1,0 +1,272 @@
+[
+  {
+    "id": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "type": "tab",
+    "label": "Inbound Service Flow",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "80da4d06.d55a2",
+    "type": "inject",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Input",
+    "topic": "Input",
+    "payload": "{}",
+    "payloadType": "json",
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "x": 110,
+    "y": 120,
+    "wires": [
+      [
+        "1085dd3d.647cc3"
+      ]
+    ]
+  },
+  {
+    "id": "1085dd3d.647cc3",
+    "type": "switch",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "",
+    "property": "payload",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "hask",
+        "v": "entityName",
+        "vt": "str"
+      },
+      {
+        "t": "else"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 2,
+    "x": 220,
+    "y": 240,
+    "wires": [
+      [
+        "235cddsd.0d2423"
+      ],
+      [
+        "28147205.c984be"
+      ]
+    ]
+  },
+
+  {
+    "id": "235cddsd.0d2423",
+    "type": "generateRequestBody",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Create Request Body",
+    "outputs": 1,
+    "x": 480,
+    "y": 420,
+    "wires": [
+      [
+        "28147205.c984be"
+      ]
+    ]
+  },
+  {
+    "id": "28147205.c984be",
+    "type": "toLogicalData",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Transform to Logical Data",
+    "outputs": 1,
+    "x": 270,
+    "y": 60,
+    "wires": [
+      [
+        "dd6550d4.e2bce"
+      ]
+    ]
+  },
+  {
+    "id": "dd6550d4.e2bce",
+    "type": "validateData",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Validate Data",
+    "outputs": 1,
+    "x": 510,
+    "y": 60,
+    "wires": [
+      [
+        "15d3d01.01e563"
+      ]
+    ]
+  },
+  {
+    "id": "15d3d01.01e563",
+    "type": "processLogicalData",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Process Logical Data",
+    "outputs": 1,
+    "x": 320,
+    "y": 140,
+    "wires": [
+      [
+        "15d3d01.workflow"
+      ]
+    ]
+  },
+  {
+    "id": "15d3d01.workflow",
+    "type": "processWorkflowAction",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Process Workflow Action",
+    "outputs": 1,
+    "wires": [
+      [
+        "5d38e157.b4l7e"
+      ]
+    ]
+  },
+  {
+    "id": "5d38e157.b4l7e",
+    "type": "toPhysicalData",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Transform To Physical Data",
+    "outputs": 1,
+    "x": 600,
+    "y": 140,
+    "wires": [
+      [
+        "166e2a96.294bc5"
+      ]
+    ]
+  },
+  {
+    "id": "166e2a96.294bc5",
+    "type": "setMasterEntity",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Set Master Physical Entity",
+    "outputs": 1,
+    "x": 890,
+    "y": 140,
+    "wires": [
+      [
+        "1ad49873.0d4c38"
+      ]
+    ]
+  },
+  {
+    "id": "1ad49873.0d4c38",
+    "type": "processPhysicalData",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Process Physical Data",
+    "outputs": 1,
+    "x": 240,
+    "y": 220,
+    "wires": [
+      [
+        "e45d0331.61ce"
+      ]
+    ]
+  },
+  {
+    "id": "e45d0331.61ce",
+    "type": "processAuditData",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Process Audit",
+    "outputs": 1,
+    "x": 500,
+    "y": 220,
+    "wires": [
+      [
+        "zxcbnh.61ce"
+      ]
+    ]
+  },
+  {
+    "id": "zxcbnh.61ce",
+    "type": "addTransactionDetails",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Process Transaction Detail Queue",
+    "outputs": 1,
+    "x": 500,
+    "y": 220,
+    "wires": [
+      [
+        "07304729123.12345"
+      ]
+    ]
+  },
+  {
+    "id": "07304729123.12345",
+    "type": "function",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Test Run",
+    "func": "debugger; try { let input = Object.assign(msg.payload.apiRequestBody?.baseEntity?.records[0] ? msg.payload.apiRequestBody?.baseEntity?.records[0] : msg.payload.apiRequestBody, msg.payload.referenceData); let sourceType = input.SOURCE_TYPE; let testUUUID = ''; switch (sourceType) { case 'TEST_CASE': testUUUID = input['TEST_CASE_UUID']; break; case 'TEST_SET': testUUUID = input['TEST_SET_UUID']; break; case 'FUNCTION': testUUUID = input['FUNCTION_UUID']; break; case 'TEST_SUITE': testUUUID = input['TEST_SUITE_UUID']; break; case 'MULTIPLE_TEST_SET': testUUUID = input['TEST_SET_UUID']; break; case 'NAVIGATION_STEPS': testUUUID = input['VIEW_UUID']; break; default: throw new Error(`Unsupported SOURCE_TYPE: ${sourceType}`); } let data = { 'Type': input.SOURCE_TYPE, 'APP_LOGGED_IN_FUNTIONAL_AREA_ID': input.APP_LOGGED_IN_FUNTIONAL_AREA_ID, 'APPLICATION_ENVIRONMENT_BASE_URL': input.APPLICATION_ENVIRONMENT_BASE_URL, 'TEST_UUID': testUUUID, 'APP_LOGGED_IN_USER_ID': input.APP_LOGGED_IN_USER_ID, 'ASSERT_TIMEOUT': input.ASSERT_TIMEOUT, 'MAX_TIMEOUT': input.MAX_TIMEOUT, 'API_POLL_INTERVAL': input.API_POLL_INTERVAL, 'TEST_RUN_UUID': input.TEST_RUN_UUID };const url = env.get('AUTOMATION_URL'); msg.payload.connectorType = 'rally'; msg.payload.methodType = 'update'; msg.payload.url = url; msg.payload.data = { 'data': data }; node.send(msg); } catch (t) { console.log('Errorr Occured', t.message); return; };",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 300,
+    "y": 120,
+    "wires": [
+      [
+        "d40edc96b3b3dc61"
+      ]
+    ]
+  },
+  {
+    "id": "d40edc96b3b3dc61",
+    "type": "appeng-api-connector",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "",
+    "x": 340,
+    "y": 60,
+    "wires": [
+      [
+        "07304729456.12345"
+      ]
+    ]
+  },
+  {
+    "id": "07304729456.12345",
+    "type": "function",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "set defect",
+    "func": "try { let input = Object.assign(msg.payload, msg.payload.referenceData); if (input.responseFromThirdPartyAPI?.response?.message) { msg.payload.result = { mode: 'closeModal', message: input.responseFromThirdPartyAPI.response.message }; } else if(input.responseFromThirdPartyAPI?.response?.error){ msg.payload.result = { mode: 'closeModal', message: input.responseFromThirdPartyAPI.response.error }; } node.send(msg); } catch (error) { console.log('Error Occurred:', error.message); return; }",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 300,
+    "y": 120,
+    "wires": [ 
+      [
+        "d07304729.54609"
+      ]
+    ]
+  },
+  {
+    "id": "d07304729.54609",
+    "type": "finish",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Success Response",
+    "property": "payload",
+    "propertyType": "msg",
+    "outputs": 1,
+    "x": 983,
+    "y": 280,
+    "wires": [
+    ]
+  },
+  {
+    "id": "a169b948.7886b8",
+    "type": "catch",
+    "z": "926abe65-34dd-41d2-8967-1979b69c66db",
+    "name": "Catch Exceptions",
+    "scope": null,
+    "uncaught": false,
+    "x": 240,
+    "y": 420,
+    "wires": [
+      [
+        "d07304729.54609"
+      ]
+    ]
+  }
+]

@@ -2,6 +2,7 @@ const express = require('express');
 const getData = require('./page');
 const { updateSequence } = require('./sequence');
 const { updateMssqlSequence } = require('./mssql-sequence');
+const { dataFixForAppEnv } = require('./appEnv');
 const app = express();
 const port = 8080;
 
@@ -23,6 +24,7 @@ const auditKnex = require('knex')({
     password: 'aurora123',
     database: `featuremanagement_app_audit`,
   },
+
 });
 
 
@@ -45,12 +47,16 @@ app.get('/', (req, res) => {
   res.send('Hello World!');
 });
 
-app.get('/script', (req, res) => {
-  return getData(req, res, knex, auditKnex);
-});
+// app.get('/script', (req, res) => {
+//   return getData(req, res, knex, auditKnex);
+// });
 
-app.get('/updateSequence', (req, res) => {
-  return updateMssqlSequence(req, res, mssqlKnex, 'testinfoqaSwissre');
+// app.get('/updateSequence', (req, res) => {
+//   return updateMssqlSequence(req, res, mssqlKnex, 'testinfoqaSwissre');
+// });
+
+app.get('/appenv', (req, res) => {
+  return dataFixForAppEnv(req, res, mssqlKnex, mssqlKnex);
 });
 
 app.listen(port, () => {

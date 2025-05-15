@@ -40,6 +40,7 @@ try {
     MAX_TIMEOUT: input.MAX_TIMEOUT,
     API_POLL_INTERVAL: input.API_POLL_INTERVAL,
     TEST_RUN_UUID: input.TEST_RUN_UUID,
+    APPLICATION_ENVIRONMENT_UUID: input.APPLICATION_ENVIRONMENT_UUID,
   };
   const url = env.get('AUTOMATION_URL');
   msg.payload.connectorType = 'rally';

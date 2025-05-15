@@ -39,12 +39,31 @@ function generateExcelData(inputData) {
   }
   return mainArray;
 }
-function ConcatinateURL(data) {
-  data.forEach((item) => {
-    if (item['Page Direct Access URL']) {
-      item['Page Direct Access URL'] = input.APPLICATION_ENVIRONMENT_BASE_URL + '/' + item['Page Direct Access URL'];
+async function ConcatinateURL(data) {
+  const returnData = [];
+  for (const item of data) {
+    const { IS_BASE_URL_OVERRIDDEN, ...rest } = item;
+    if (item['Page Direct Access URL'] && item['Page Direct Access URL'].trim().length > 0) {
+      if (IS_BASE_URL_OVERRIDDEN == 'Yes') {
+        const pageOverrideQuery = `SELECT url.BASE_URL FROM APPLICATION_ENVIRONMENT_BASE_URL url JOIN PAGE_OVERRIDE_BASE_URL po ON url.APPLICATION_ENVIRONMENT_BASE_URL_UUID = po.APPLICATION_ENVIRONMENT_BASE_URL_UUID WHERE url.APPLICATION_ENVIRONMENT_UUID = '${input.APPLICATION_ENVIRONMENT_UUID}' AND po.PAGE_UUID = '${item['Page UUID']}'`;
+        const pageOverrideData = await serviceOrchestrator.selectRecordsUsingQuery(
+          'PRIMARYSPRINGFM',
+          pageOverrideQuery,
+          input
+        );
+        if (pageOverrideData && pageOverrideData[0] && pageOverrideData[0]['BASE_URL']) {
+          rest['Page Direct Access URL'] = pageOverrideData[0]['BASE_URL'] + '/' + rest['Page Direct Access URL'];
+        } else {
+          rest['Page Direct Access URL'] =
+            input.APPLICATION_ENVIRONMENT_BASE_URL + '/' + rest['Page Direct Access URL'];
+        }
+      } else {
+        rest['Page Direct Access URL'] = input.APPLICATION_ENVIRONMENT_BASE_URL + '/' + rest['Page Direct Access URL'];
+      }
     }
-  });
+    returnData.push(rest);
+  }
+  return returnData;
 }
 function getStepAttributeData(list, verbiageId) {
   if (list && list.length) {
@@ -1405,11 +1424,11 @@ if (input.Type == 'TEST_CASE') {
       .map((id) => `'` + id + `'`)
       .join(',');
   }
-  let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID' FROM PAGE WHERE PAGE_ID in(${
+  let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID', IS_BASE_URL_OVERRIDDEN FROM PAGE WHERE PAGE_ID in(${
     currentPageIds ? currentPageIds : `''`
   }) and FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID order by PAGE_ID asc`;
   let pageNewQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', pageNewQuery, input);
-  ConcatinateURL(pageNewQueryData);
+  pageNewQueryData = await ConcatinateURL(pageNewQueryData);
   let pageList = pageNewQueryData.map((item) => `'` + item['Page UUID'] + `'`).join(',');
   let uiElementQuery = `SELECT PAGE.PAGE_ID AS 'Page ID', UI_ELEMENT.UI_ELEMENT_ID AS 'UI Element ID', UI_ELEMENT.UI_ELEMENT_NAME AS 'UI Element Name', (SELECT UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_MASTER.UI_ELEMENT_TYPE_UUID = UI_ELEMENT.UI_ELEMENT_TYPE) AS 'Element Type', UI_ELEMENT.LOCATOR_TYPE AS 'Locator Type', UI_ELEMENT.LOCATOR_VALUE AS 'Locator Value', CASE WHEN (IFNULL(UI_ELEMENT.IS_PAGE_IDENTIFIER, '') = '') THEN 'No' ELSE UI_ELEMENT.IS_PAGE_IDENTIFIER END AS 'Is Page Identifier', 'Active' AS Status, 'No Action' AS Actions, UI_ELEMENT.EVENT_NAME AS 'Event Name', UI_ELEMENT.UI_ELEMENT_UUID AS 'UI Element UUID' FROM UI_ELEMENT JOIN PAGE ON PAGE.PAGE_UUID = UI_ELEMENT.PAGE_NEW_UUID WHERE UI_ELEMENT.PAGE_NEW_UUID IN (${
     pageList ? pageList : `''`
@@ -2375,11 +2394,11 @@ if (input.Type == 'TEST_CASE') {
       .map((id) => `'` + id + `'`)
       .join(',');
   }
-  let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID' FROM PAGE WHERE PAGE_ID in(${
+  let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID', IS_BASE_URL_OVERRIDDEN FROM PAGE WHERE PAGE_ID in(${
     currentPageIds ? currentPageIds : `''`
   }) and FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID order by PAGE_ID asc`;
   let pageNewQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', pageNewQuery, input);
-  ConcatinateURL(pageNewQueryData);
+  pageNewQueryData = await ConcatinateURL(pageNewQueryData);
   let pageList = pageNewQueryData.map((item) => `'` + item['Page UUID'] + `'`).join(',');
   let uiElementQuery = `SELECT PAGE.PAGE_ID AS 'Page ID', UI_ELEMENT.UI_ELEMENT_ID AS 'UI Element ID', UI_ELEMENT.UI_ELEMENT_NAME AS 'UI Element Name', (SELECT UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_MASTER.UI_ELEMENT_TYPE_UUID = UI_ELEMENT.UI_ELEMENT_TYPE) AS 'Element Type', UI_ELEMENT.LOCATOR_TYPE AS 'Locator Type', UI_ELEMENT.LOCATOR_VALUE AS 'Locator Value', CASE WHEN (IFNULL(UI_ELEMENT.IS_PAGE_IDENTIFIER, '') = '') THEN 'No' ELSE UI_ELEMENT.IS_PAGE_IDENTIFIER END AS 'Is Page Identifier', 'Active' AS Status, 'No Action' AS Actions, UI_ELEMENT.EVENT_NAME AS 'Event Name', UI_ELEMENT.UI_ELEMENT_UUID AS 'UI Element UUID' FROM UI_ELEMENT JOIN PAGE ON PAGE.PAGE_UUID = UI_ELEMENT.PAGE_NEW_UUID WHERE UI_ELEMENT.PAGE_NEW_UUID IN (${
     pageList ? pageList : `''`
@@ -3345,11 +3364,11 @@ if (input.Type == 'TEST_CASE') {
       .map((id) => `'` + id + `'`)
       .join(',');
   }
-  let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID' FROM PAGE WHERE PAGE_ID in(${
+  let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID', IS_BASE_URL_OVERRIDDEN FROM PAGE WHERE PAGE_ID in(${
     currentPageIds ? currentPageIds : `''`
   }) and FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID order by PAGE_ID asc`;
   let pageNewQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', pageNewQuery, input);
-  ConcatinateURL(pageNewQueryData);
+  pageNewQueryData = await ConcatinateURL(pageNewQueryData);
   let pageList = pageNewQueryData.map((item) => `'` + item['Page UUID'] + `'`).join(',');
   let uiElementQuery = `SELECT PAGE.PAGE_ID AS 'Page ID', UI_ELEMENT.UI_ELEMENT_ID AS 'UI Element ID', UI_ELEMENT.UI_ELEMENT_NAME AS 'UI Element Name', (SELECT UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_MASTER.UI_ELEMENT_TYPE_UUID = UI_ELEMENT.UI_ELEMENT_TYPE) AS 'Element Type', UI_ELEMENT.LOCATOR_TYPE AS 'Locator Type', UI_ELEMENT.LOCATOR_VALUE AS 'Locator Value', CASE WHEN (IFNULL(UI_ELEMENT.IS_PAGE_IDENTIFIER, '') = '') THEN 'No' ELSE UI_ELEMENT.IS_PAGE_IDENTIFIER END AS 'Is Page Identifier', 'Active' AS Status, 'No Action' AS Actions, UI_ELEMENT.EVENT_NAME AS 'Event Name', UI_ELEMENT.UI_ELEMENT_UUID AS 'UI Element UUID' FROM UI_ELEMENT JOIN PAGE ON PAGE.PAGE_UUID = UI_ELEMENT.PAGE_NEW_UUID WHERE UI_ELEMENT.PAGE_NEW_UUID IN (${
     pageList ? pageList : `''`
@@ -4332,11 +4351,11 @@ if (input.Type == 'TEST_CASE') {
         .map((id) => `'` + id + `'`)
         .join(',');
     }
-    let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID' FROM PAGE WHERE PAGE_ID in(${
+    let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID', IS_BASE_URL_OVERRIDDEN FROM PAGE WHERE PAGE_ID in(${
       currentPageIds ? currentPageIds : `''`
     }) and FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID order by PAGE_ID asc`;
     let pageNewQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', pageNewQuery, input);
-    ConcatinateURL(pageNewQueryData);
+    pageNewQueryData = await ConcatinateURL(pageNewQueryData);
     let pageList = pageNewQueryData.map((item) => `'` + item['Page UUID'] + `'`).join(',');
     let uiElementQuery = `SELECT PAGE.PAGE_ID AS 'Page ID', UI_ELEMENT.UI_ELEMENT_ID AS 'UI Element ID', UI_ELEMENT.UI_ELEMENT_NAME AS 'UI Element Name', (SELECT UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_MASTER.UI_ELEMENT_TYPE_UUID = UI_ELEMENT.UI_ELEMENT_TYPE) AS 'Element Type', UI_ELEMENT.LOCATOR_TYPE AS 'Locator Type', UI_ELEMENT.LOCATOR_VALUE AS 'Locator Value', CASE WHEN (IFNULL(UI_ELEMENT.IS_PAGE_IDENTIFIER, '') = '') THEN 'No' ELSE UI_ELEMENT.IS_PAGE_IDENTIFIER END AS 'Is Page Identifier', 'Active' AS Status, 'No Action' AS Actions, UI_ELEMENT.EVENT_NAME AS 'Event Name', UI_ELEMENT.UI_ELEMENT_UUID AS 'UI Element UUID' FROM UI_ELEMENT JOIN PAGE ON PAGE.PAGE_UUID = UI_ELEMENT.PAGE_NEW_UUID WHERE UI_ELEMENT.PAGE_NEW_UUID IN (${
       pageList ? pageList : `''`
@@ -5256,11 +5275,11 @@ if (input.Type == 'TEST_CASE') {
       .map((id) => `'` + id + `'`)
       .join(',');
   }
-  let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID' FROM PAGE WHERE PAGE_ID in(${
+  let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID', IS_BASE_URL_OVERRIDDEN FROM PAGE WHERE PAGE_ID in(${
     currentPageIds ? currentPageIds : `''`
   }) and FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID order by PAGE_ID asc`;
   let pageNewQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', pageNewQuery, input);
-  ConcatinateURL(pageNewQueryData);
+  pageNewQueryData = await ConcatinateURL(pageNewQueryData);
   let pageList = pageNewQueryData.map((item) => `'` + item['Page UUID'] + `'`).join(',');
   let uiElementQuery = `SELECT PAGE.PAGE_ID AS 'Page ID', UI_ELEMENT.UI_ELEMENT_ID AS 'UI Element ID', UI_ELEMENT.UI_ELEMENT_NAME AS 'UI Element Name', (SELECT UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_MASTER.UI_ELEMENT_TYPE_UUID = UI_ELEMENT.UI_ELEMENT_TYPE) AS 'Element Type', UI_ELEMENT.LOCATOR_TYPE AS 'Locator Type', UI_ELEMENT.LOCATOR_VALUE AS 'Locator Value', CASE WHEN (IFNULL(UI_ELEMENT.IS_PAGE_IDENTIFIER, '') = '') THEN 'No' ELSE UI_ELEMENT.IS_PAGE_IDENTIFIER END AS 'Is Page Identifier', 'Active' AS Status, 'No Action' AS Actions, UI_ELEMENT.EVENT_NAME AS 'Event Name', UI_ELEMENT.UI_ELEMENT_UUID AS 'UI Element UUID' FROM UI_ELEMENT JOIN PAGE ON PAGE.PAGE_UUID = UI_ELEMENT.PAGE_NEW_UUID WHERE UI_ELEMENT.PAGE_NEW_UUID IN (${
     pageList ? pageList : `''`
@@ -6231,11 +6250,11 @@ if (input.Type == 'TEST_CASE') {
       .map((id) => `'` + id + `'`)
       .join(',');
   }
-  let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID' FROM PAGE WHERE PAGE_ID in(${
+  let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID', IS_BASE_URL_OVERRIDDEN FROM PAGE WHERE PAGE_ID in(${
     currentPageIds ? currentPageIds : `''`
   }) and FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID order by PAGE_ID asc`;
   let pageNewQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', pageNewQuery, input);
-  ConcatinateURL(pageNewQueryData);
+  pageNewQueryData = await ConcatinateURL(pageNewQueryData);
   let pageList = pageNewQueryData.map((item) => `'` + item['Page UUID'] + `'`).join(',');
   let uiElementQuery = `SELECT PAGE.PAGE_ID AS 'Page ID', UI_ELEMENT.UI_ELEMENT_ID AS 'UI Element ID', UI_ELEMENT.UI_ELEMENT_NAME AS 'UI Element Name', (SELECT UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_MASTER.UI_ELEMENT_TYPE_UUID = UI_ELEMENT.UI_ELEMENT_TYPE) AS 'Element Type', UI_ELEMENT.LOCATOR_TYPE AS 'Locator Type', UI_ELEMENT.LOCATOR_VALUE AS 'Locator Value', CASE WHEN (IFNULL(UI_ELEMENT.IS_PAGE_IDENTIFIER, '') = '') THEN 'No' ELSE UI_ELEMENT.IS_PAGE_IDENTIFIER END AS 'Is Page Identifier', 'Active' AS Status, 'No Action' AS Actions, UI_ELEMENT.EVENT_NAME AS 'Event Name', UI_ELEMENT.UI_ELEMENT_UUID AS 'UI Element UUID' FROM UI_ELEMENT JOIN PAGE ON PAGE.PAGE_UUID = UI_ELEMENT.PAGE_NEW_UUID WHERE UI_ELEMENT.PAGE_NEW_UUID IN (${
     pageList ? pageList : `''`
@@ -7122,11 +7141,11 @@ if (input.Type == 'TEST_CASE') {
       .map((id) => `'` + id + `'`)
       .join(',');
   }
-  let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID' FROM PAGE WHERE PAGE_ID in(${
+  let pageNewQuery = `SELECT distinct PAGE_ID as 'Page ID',PAGE_NAME as 'Page Name',PAGE_ACCESS_RELATIVE_URL as 'Page Direct Access URL','Active' as Status,'No Action' as Actions,PAGE.PAGE_UUID as 'Page UUID', IS_BASE_URL_OVERRIDDEN FROM PAGE WHERE PAGE_ID in(${
     currentPageIds ? currentPageIds : `''`
   }) and FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID order by PAGE_ID asc`;
   let pageNewQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', pageNewQuery, input);
-  ConcatinateURL(pageNewQueryData);
+  pageNewQueryData = await ConcatinateURL(pageNewQueryData);
   let pageList = pageNewQueryData.map((item) => `'` + item['Page UUID'] + `'`).join(',');
   let uiElementQuery = `SELECT PAGE.PAGE_ID AS 'Page ID', UI_ELEMENT.UI_ELEMENT_ID AS 'UI Element ID', UI_ELEMENT.UI_ELEMENT_NAME AS 'UI Element Name', (SELECT UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_MASTER.UI_ELEMENT_TYPE_UUID = UI_ELEMENT.UI_ELEMENT_TYPE) AS 'Element Type', UI_ELEMENT.LOCATOR_TYPE AS 'Locator Type', UI_ELEMENT.LOCATOR_VALUE AS 'Locator Value', CASE WHEN (IFNULL(UI_ELEMENT.IS_PAGE_IDENTIFIER, '') = '') THEN 'No' ELSE UI_ELEMENT.IS_PAGE_IDENTIFIER END AS 'Is Page Identifier', 'Active' AS Status, 'No Action' AS Actions, UI_ELEMENT.EVENT_NAME AS 'Event Name', UI_ELEMENT.UI_ELEMENT_UUID AS 'UI Element UUID' FROM UI_ELEMENT JOIN PAGE ON PAGE.PAGE_UUID = UI_ELEMENT.PAGE_NEW_UUID WHERE UI_ELEMENT.PAGE_NEW_UUID IN (${
     pageList ? pageList : `''`

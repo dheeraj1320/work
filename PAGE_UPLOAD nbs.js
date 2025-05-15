@@ -46,6 +46,8 @@ if (input.compositeEntityAction == 'Upload') {
                         "PAGE_UUID": pageUUID,
                         "PAGE_NAME": pageName,
                         "PAGE_ACCESS_RELATIVE_URL": dataGroupedByPage[pageKey] && dataGroupedByPage[pageKey].length ? dataGroupedByPage[pageKey][0]["Relative Page Access URL"] : "",
+                        // setting IS_BASE_URL_OVERRIDDEN to "No" by default
+                        "IS_BASE_URL_OVERRIDDEN" : "No",
                         "SheetName": "Page UI Element Upload",
                         "Row_Index": page_index
                     };
@@ -92,7 +94,7 @@ if (input.compositeEntityAction == 'Upload') {
                     testCaseObj['TEST_CASE_NAME'] = 'Default View';
                     testCaseObj['TEST_CASE_STATUS'] = 'COMMITTED';
                     testCaseObj['TEST_SET_UUID'] = TEST_SET_UUID;
-                    testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Manual';
+                    testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Automated';
                     // testCaseObj['TEST_CASE_TYPE'] =
                     testCaseObj['ASSOCIATED_VIEW_UUID'] = viewUUID;
                     testCaseObj['compositeEntityAction'] = 'Insert';

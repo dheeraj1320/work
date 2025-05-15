@@ -532,7 +532,7 @@ if (input.compositeEntityAction == "Update") {
   testCaseObj['TEST_CASE_NAME'] = 'Default View';
   testCaseObj['TEST_CASE_STATUS'] = 'COMMITTED';
   testCaseObj['TEST_SET_UUID'] = TEST_SET_UUID;
-  testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Manual';
+  testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Automated';
   testCaseObj['ASSOCIATED_VIEW_UUID'] = viewUUID;
   testCaseObj['TEST_CASE_DESCRIPTION_UUID'] = TEST_CASE_DESCRIPTION_UUID;
   testCaseObj['compositeEntityAction'] = 'Insert';

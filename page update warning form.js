@@ -1,3 +1,29 @@
+let input = msg.payload.apiRequestBody.baseEntity.records[0];
+const AppengProcessConfig = global.get('AppengProcessConfig');
+const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
+msg.payload['isErrorCheck'] = false;
+if (input.PAGE_ACCESS_RELATIVE_URL) {
+  const PAGE_ACCESS_RELATIVE_URL = input.PAGE_ACCESS_RELATIVE_URL;
+  const PAGE_UUID = input.PAGE_UUID;
+  const PageURL = `SELECT PAGE_NAME FROM PAGE WHERE PAGE_ACCESS_RELATIVE_URL = '${PAGE_ACCESS_RELATIVE_URL}' AND PAGE_UUID NOT IN ('${PAGE_UUID}')`;
+  let PageURLData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', PageURL, input[0]);
+  if (PageURLData.length > 0) {
+    const pagename = `The Page Access Relative URL already exists in the '${PageURLData[0].PAGE_NAME}' Page.`;
+    msg.payload.result = { mode: 'Enable Message', code: 406, errors: [] };
+    msg.payload.result.errors.push({
+      message: pagename,
+      reason: 'Message below form field',
+      warningMessage: '',
+      location: '5264eded-97f5-4593-b48c-c029356440a4=>0=>PAGE_ACCESS_RELATIVE_URL',
+    });
+    msg.payload['isErrorCheck'] = true;
+  }
+}
+node.send(msg);
+return;
+
+// ----------------------------------------
+
 try {
   console.log('Update Modal Action Flow');
   let input = msg.payload.apiRequestBody.baseEntity.records;
@@ -13,262 +39,7 @@ try {
   let QuerytoFetchNavigationStepRecords = JSON.parse(JSON.stringify(QuerytoFetchNavigationStepData));
   console.log('length', QuerytoFetchNavigationStepRecords.length);
   if (input[0]['PAGE_ACCESS_RELATIVE_URL']) {
-    if ([
-        {
-            "id": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "type": "tab",
-            "label": "Inbound Service Flow",
-            "disabled": false,
-            "info": ""
-        },
-        {
-            "id": "80da4d06.d55a2",
-            "type": "inject",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Input",
-            "topic": "Input",
-            "payload": "{}",
-            "payloadType": "json",
-            "repeat": "",
-            "crontab": "",
-            "once": false,
-            "onceDelay": 0.1,
-            "x": 110,
-            "y": 120,
-            "wires": [
-                [
-                    "1085dd3d.647cc3"
-                ]
-            ]
-        },
-        {
-            "id": "1085dd3d.647cc3",
-            "type": "switch",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "",
-            "property": "payload",
-            "propertyType": "msg",
-            "rules": [
-                {
-                    "t": "hask",
-                    "v": "entityName",
-                    "vt": "str"
-                },
-                {
-                    "t": "else"
-                }
-            ],
-            "checkall": "true",
-            "repair": false,
-            "outputs": 2,
-            "x": 220,
-            "y": 240,
-            "wires": [
-                [
-                    "235cddsd.0d2423"
-                ],
-                [
-                    "28147205.c984be"
-                ]
-            ]
-        },
-    
-        {
-            "id": "235cddsd.0d2423",
-            "type": "generateRequestBody",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Create Request Body",
-            "outputs": 1,
-            "x": 480,
-            "y": 420,
-            "wires": [
-                [
-                    "28147205.c984be"
-                ]
-            ]
-        },
-        {
-            "id": "28147205.c984be",
-            "type": "toLogicalData",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Transform to Logical Data",
-            "outputs": 1,
-            "x": 270,
-            "y": 60,
-            "wires": [
-                [
-                    "dd6550d4.e2bce"
-                ]
-            ]
-        },
-        {
-            "id": "dd6550d4.e2bce",
-            "type": "validateData",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Validate Data",
-            "outputs": 1,
-            "x": 510,
-            "y": 60,
-            "wires": [
-                [
-                    "15d3d01.01e563"
-                ]
-            ]
-        },
-        {
-            "id": "15d3d01.01e563",
-            "type": "processLogicalData",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Process Logical Data",
-            "outputs": 1,
-            "x": 320,
-            "y": 140,
-            "wires": [
-                [
-                    "15d3d01.workflow"
-                ]
-            ]
-        },
-        {
-            "id": "15d3d01.workflow",
-            "type": "processWorkflowAction",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Process Workflow Action",
-            "outputs": 1,
-            "wires": [
-                [
-                    "5d38e157.b4l7e"
-                ]
-            ]
-        },
-        {
-            "id": "5d38e157.b4l7e",
-            "type": "toPhysicalData",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Transform To Physical Data",
-            "outputs": 1,
-            "x": 600,
-            "y": 140,
-            "wires": [
-                [
-                    "166e2a96.294bc5"
-                ]
-            ]
-        },
-        {
-            "id": "166e2a96.294bc5",
-            "type": "setMasterEntity",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Set Master Physical Entity",
-            "outputs": 1,
-            "x": 890,
-            "y": 140,
-            "wires": [
-                [
-                    "1ad49873.0d4c38"
-                ]
-            ]
-        },
-        {
-            "id": "1ad49873.0d4c38",
-            "type": "processPhysicalData",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Process Physical Data",
-            "outputs": 1,
-            "x": 240,
-            "y": 220,
-            "wires": [
-                [
-                    "e45d0331.61ce"
-                ]
-            ]
-        },
-        {
-            "id": "e45d0331.61ce",
-            "type": "processAuditData",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Process Audit",
-            "outputs": 1,
-            "x": 500,
-            "y": 220,
-            "wires": [
-                [
-                    "zxcbnh.61ce"
-                ]
-            ]
-        },
-        {
-            "id": "zxcbnh.61ce",
-            "type": "addTransactionDetails",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Process Transaction Detail Queue",
-            "outputs": 1,
-            "x": 500,
-            "y": 220,
-            "wires": [
-                [
-                    "d07304729.54621"
-                ]
-            ]
-        },
-        {
-            "id": "d07304729.54621",
-            "type": "function",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Set mode to Update",
-            "func": "let input = msg.payload.apiRequestBody.baseEntity.records[0]; msg.payload.result = { mode: 'Insert', message: 'Updated SuccessFully' }; try { let generatedKey = '0_d1ae50fc-b730-4c46-975f-f31bd56667fb'; msg.payload.result['modifyOtherCard'] = {}; msg.payload.result.modifyOtherCard[generatedKey] = [{ parameter: 'data', parameterKey: 'PAGE_UUID', type: 'PortalDataGrid', parameterKeyValue:input['PAGE_UUID'], changedData: { PAGE_NAME:input['PAGE_UUID'], PAGE_ACCESS_RELATIVE_URL:input['PAGE_ACCESS_RELATIVE_URL'] } }]; node.send(msg); } catch (error) { console.log('Errorr Occured ', error.message); } return;",
-            "outputs": 1,
-            "noerr": 0,
-            "x": 540,
-            "y": 120,
-            "wires": [
-                [
-                    "d07304729.54609"
-                ]
-            ]
-        },
-        {
-            "id": "d07304729.54609",
-            "type": "finish",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Success Response",
-            "property": "payload",
-            "propertyType": "msg",
-            "outputs": 1,
-            "x": 983,
-            "y": 280,
-            "wires": [
-            ]
-        },
-        {
-            "id": "a169b948.7886b8",
-            "type": "catch",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Catch Exceptions",
-            "scope": null,
-            "uncaught": false,
-            "x": 240,
-            "y": 420,
-            "wires": [
-                [
-                    "23475cdd.0dcf24"
-                ]
-            ]
-        },
-        {
-            "id": "23475cdd.0dcf24",
-            "type": "finish",
-            "z": "b40849f1-4b54-4614-8dbb-9d78d8e74fce",
-            "name": "Catch Finish",
-            "property": "payload",
-            "propertyType": "msg",
-            "outputs": 1,
-            "x": 460,
-            "y": 420,
-            "wires": [
-            ]
-        }
-    ].length > 0) {
+    if (QuerytoFetchNavigationStepRecords.length > 0) {
       console.log('Action Flow Called');
       msg.payload['isOpenModal'] = true;
     } else {
@@ -284,3 +55,33 @@ try {
   console.log('Errorr Occured ', error.message);
 }
 return;
+
+// -----------------------------------------
+
+let atr = msg.payload.apiRequestBody;
+let routeStateParams = {};
+let input = msg.payload.apiRequestBody.baseEntity.records;
+let warningPortal = '0_6330d9fb-6540-4b47-88d7-c627082204fe';
+let warningPortalCard = '0_cea910ec-eaaf-4962-a0e7-bff8b6b62546';
+routeStateParams.portalId = '0_6330d9fb-6540-4b47-88d7-c627082204fe';
+atr.cleanData = warningPortal;
+atr.routeStateParams = routeStateParams;
+msg.payload.result = {
+  mode: 'Enable Message',
+  message: 'Please Wait..',
+  attributes: atr,
+  navigation: { operationType: 'OpenModal', portalId: '0_6330d9fb-6540-4b47-88d7-c627082204fe' },
+};
+msg.payload.result.modifyOtherCard = {};
+msg.payload.result.modifyOtherCard[warningPortal] = [
+  {
+    parameter: 'referenceData',
+    parentId: '0_6330d9fb-6540-4b47-88d7-c627082204fe',
+    portalId: '0_6330d9fb-6540-4b47-88d7-c627082204fe',
+    parameterKey: 'data',
+    type: 'SubPortal',
+    eventType: 'uploadGridData',
+    data: input[0],
+  },
+];
+return msg;

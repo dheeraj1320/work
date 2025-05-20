@@ -1,0 +1,370 @@
+[
+  {
+    "id": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "type": "tab",
+    "label": "Inbound Service Flow",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "80da4d06.d55a2",
+    "type": "inject",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Input",
+    "topic": "Input",
+    "payload": "{}",
+    "payloadType": "json",
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "x": 110,
+    "y": 120,
+    "wires": [
+      [
+        "1085dd3d.647cc3"
+      ]
+    ]
+  },
+  {
+    "id": "1085dd3d.647cc3",
+    "type": "switch",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "",
+    "property": "payload",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "hask",
+        "v": "entityName",
+        "vt": "str"
+      },
+      {
+        "t": "else"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 2,
+    "x": 220,
+    "y": 240,
+    "wires": [
+      [
+        "235cddsd.0d2423"
+      ],
+      [
+        "28147205.c984be"
+      ]
+    ]
+  },
+  
+  {
+    "id": "235cddsd.0d2423",
+    "type": "generateRequestBody",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Create Request Body",
+    "outputs": 1,
+    "x": 480,
+    "y": 420,
+    "wires": [
+      [
+        "28147205.c984be"
+      ]
+    ]
+  },
+  {
+    "id": "28147205.c984be",
+    "type": "toLogicalData",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Transform to Logical Data",
+    "outputs": 1,
+    "x": 270,
+    "y": 60,
+    "wires": [
+      [
+        "dd6550d4.e2bce"
+      ]
+    ]
+  },
+  {
+    "id": "9f116870.1ef498",
+    "type": "finish",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Error Response",
+    "property": "payload",
+    "propertyType": "msg",
+    "outputs": 1,
+    "x": 970,
+    "y": 60,
+    "wires": [
+    ]
+  },
+  {
+    "id": "dd6550d4.e2bce",
+    "type": "validateData",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Validate Data",
+    "outputs": 1,
+    "x": 510,
+    "y": 60,
+    "wires": [
+      [
+        "15d3d01.01e563"
+      ]
+    ]
+  },
+  {
+    "id": "15d3d01.01e563",
+    "type": "processLogicalData",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Process Logical Data",
+    "outputs": 1,
+    "x": 320,
+    "y": 140,
+    "wires": [
+      [
+        "15d3d01.workflow"
+      ]
+    ]
+  },
+  {
+    "id": "15d3d01.workflow",
+    "type": "processWorkflowAction",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Process Workflow Action",
+    "outputs": 1,
+    "wires": [
+      [
+        "5d38e157.b4d7e"
+      ]
+    ]
+  },{
+    "id": "5d38e157.b4d7e",
+    "type": "function",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Process length check",
+    "func": "const AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; let input = msg.payload.apiRequestBody.baseEntity.records; console.log('hello', input); console.log(input[0].ASSOCIATION_TYPE, 'input[0].ASSOCIATION_TYPE::::'); let dataSetQuery = ''; if (input[0].ASSOCIATION_TYPE === 'FEATURE') { dataSetQuery = `SELECT * FROM IMPACTED_PROCESS WHERE REQUIREMENT_UUID=:REQUIREMENT_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID and REQUIREMENT_TITLE_UUID=:REQUIREMENT_TITLE_UUID and IMPACTED_PROCESS_UUID=:IMPACTED_PROCESS_UUID`; } else if (input[0].ASSOCIATION_TYPE === 'PAGE-EVENT') { dataSetQuery = `SELECT * FROM IMPACTED_PROCESS WHERE REQUIREMENT_UUID=:REQUIREMENT_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID and REQUIREMENT_TITLE_UUID is null and IMPACTED_PROCESS_UUID=:IMPACTED_PROCESS_UUID`; } console.log(dataSetQuery, 'query'); const dataSet = `SELECT * FROM CONDITION_SATISFACTION WHERE REQUIREMENT_UUID=:REQUIREMENT_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`; try { const dataSetQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', dataSetQuery, input[0]); const impacteddata = JSON.parse(JSON.stringify(dataSetQueryData)); console.log('first data', impacteddata); let data = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', dataSet, input[0]); const conditiondata = JSON.parse(JSON.stringify(data)); console.log('first juytdata', conditiondata); if (conditiondata && conditiondata.length > 0 && impacteddata[0] && impacteddata[0].ASSOCIATION_TYPE === 'FEATURE') { msg.payload['isErrorCheck'] = false; console.log('error1', msg.payload['isErrorCheck']); } else if (conditiondata && conditiondata.length > 0 && impacteddata[0] && impacteddata[0].ASSOCIATION_TYPE === 'FEATURE') { msg.payload['isErrorCheck'] = false; console.log('error2', msg.payload['isErrorCheck']); } else if (conditiondata && conditiondata.length > 0 && impacteddata[0] && impacteddata[0].ASSOCIATION_TYPE === 'FEATURE') { msg.payload['isErrorCheck'] = false; console.log('error3', msg.payload['isErrorCheck']); } else { msg.payload['isErrorCheck'] = false; console.log('error4', msg.payload['isErrorCheck'] = false); } node.send(msg); } catch (error) { console.error('Error occurred:', error); }",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 540,
+    "y": 120,
+    "wires": [
+        ["5d38e157.b4r7e"]
+    ]
+  },
+  {
+   "id": "5d38e157.b4r7e",
+   "type": "switch",
+   "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+   "name": "Is ErrorCheck",
+   "property": "payload.isErrorCheck",
+   "propertyType": "msg",
+   "rules": [
+     {
+       "t": true
+     },
+     {
+       "t": false
+     }
+   ],
+   "checkall": true,
+   "repair": false,
+   "outputs": 2,
+   "x": 560,
+   "y": 340,
+   "wires": [ 
+     [
+      "23475cdd.0dcf24"
+     ],
+     [
+        "5d38e157.b4l7e"
+     ]
+   ]
+ },
+  {
+    "id": "5d38e157.b4l7e",
+    "type": "toPhysicalData",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Transform To Physical Data",
+    "outputs": 1,
+    "x": 600,
+    "y": 140,
+    "wires": [
+      [
+        "166e2a96.294bc5"
+      ]
+    ]
+  },
+  {
+    "id": "166e2a96.294bc5",
+    "type": "setMasterEntity",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Set Master Physical Entity",
+    "outputs": 1,
+    "x": 890,
+    "y": 140,
+    "wires": [
+      [
+        "1ad49873.0d4c38"
+      ]
+    ]
+  },
+  {
+    "id": "1ad49873.0d4c38",
+    "type": "processPhysicalData",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Process Physical Data",
+    "outputs": 1,
+    "x": 240,
+    "y": 220,
+    "wires": [
+      [
+        "e45d0331.61ce"
+      ]
+    ]
+  },
+  {
+    "id": "36f8420.a6f1bbe",
+    "type": "switch",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Is Activity Tracking Enabled",
+    "property": "payload.isActivityTrackingEnabled",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": true
+      },
+      {
+        "t": false
+      }
+    ],
+    "checkall": true,
+    "repair": false,
+    "outputs": 2,
+    "x": 560,
+    "y": 340,
+    "wires": [
+      [
+        "7f91accc.d5e744"
+      ],
+      [
+        "82b2328.c756dd"
+      ]
+    ]
+  },
+  {
+    "id": "7f91accc.d5e744",
+    "type": "processActivityTracking",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Process Activity Tracking",
+    "outputs": 1,
+    "x": 790,
+    "y": 220,
+    "wires": [
+      [
+        "82b2328.c756dd"
+      ]
+    ]
+  },
+  {
+    "id": "e45d0331.61ce",
+    "type": "processAuditData",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Process Audit",
+    "outputs": 1,
+    "x": 500,
+    "y": 220,
+    "wires": [
+      [
+        "zxcbnh.61ce"
+      ]
+    ]
+  },
+  {
+    "id": "zxcbnh.61ce",
+    "type": "addTransactionDetails",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Process Transaction Detail Queue",
+    "outputs": 1,
+    "x": 500,
+    "y": 220,
+    "wires": [
+      [
+        "d07304729.54622"
+      ]
+    ]
+  },
+    {
+    "id": "d07304729.54622",
+    "type": "function",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Set mode to Update",
+     "func": "try{let mode = {'mode': 'Enable Message','message': 'Linked Successfully'};msg.payload['result'] = mode;node.send(msg);}catch(error){console.log('Errorr Occured ', error.message);}return;",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 540,
+    "y": 120,
+    "wires": [
+      [
+        "d07304729.54621"
+      ]
+    ]
+  },
+      {
+    "id": "d07304729.54621",            
+    "type": "function",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Set mode to Update",
+   "func": "let inputData = msg.payload.apiRequestBody; console.log('jhgftrddfg', inputData); try { let generatedKey; if (inputData.baseEntity.records[0].tab == 'AllIntegrationTestCases') { generatedKey = inputData.baseEntity.records[0].TEST_CASE_STEP_UUID + '_05dceca9-83ca-43bd-b1db-c4934d709c01_9445c3e4-f44a-4b70-833e-f76c4010cfdf' } else if (inputData.baseEntity.records[0].tab == 'AllUnitFunctionalTestCases') { if (inputData.baseEntity.records[0].TEST_CASE_UUID && inputData.baseEntity.records[0].TEST_CASE_STEP_UUID && inputData.baseEntity.records[0].TEST_CASE_STEP_UUID != 'null') { console.log('if called :::::::::::::::::::::::::::'); generatedKey = inputData.baseEntity.records[0].TEST_CASE_STEP_UUID + '_0af0c61f-14fe-4639-8f97-63a8b360f8fa_f8a5de17-ad54-4e9d-aed1-126c3b15554a' } else { console.log('else called :::::::::::::::::::::::::::'); generatedKey = inputData.baseEntity.records[0].TEST_CASE_UUID + '_3e5b3bf2-96cc-4ec3-84a6-45fab6e0e3e0_f8a5de17-ad54-4e9d-aed1-126c3b15554a' } }; console.log('helllo', inputData.baseEntity.records[0]); msg.payload.result['modifyOtherCard'] = {}; msg.payload.result.modifyOtherCard[generatedKey] = [{ parameter: 'referenceData', parameterKey: 'AE_RELOAD' }]; node.send(msg); } catch (error) { console.log('Errorr Occured ', error.message); } return;",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 540,
+    "y": 120,
+    "wires": [
+      [
+        "d07304729.54609"
+      ]
+    ]
+  },
+  {
+    "id": "d07304729.54609",
+    "type": "finish",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Success Response",
+    "property": "payload",
+    "propertyType": "msg",
+    "outputs": 1,
+    "x": 983,
+    "y": 280,
+    "wires": [
+    ]
+  },
+  {
+    "id": "a169b948.7886b8",
+    "type": "catch",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Catch Exceptions",
+    "scope": null,
+    "uncaught": false,
+    "x": 240,
+    "y": 420,
+    "wires": [
+      [
+        "23475cdd.0dcf24"
+      ]
+    ]
+  },
+  {
+    "id": "23475cdd.0dcf24",
+    "type": "finish",
+    "z": "c1acb6f2-567e-4cc0-8887-9a95c1d2567f",
+    "name": "Catch Finish",
+    "property": "payload",
+    "propertyType": "msg",
+    "outputs": 1,
+    "x": 460,
+    "y": 420,
+    "wires": [
+    ]
+  }
+]

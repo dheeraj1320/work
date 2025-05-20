@@ -30,16 +30,17 @@ try {
   console.log('inputtttttt', input);
   let AppengProcessConfig = global.get('AppengProcessConfig');
   const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
-  let QuerytoFetchNavigationStep = `select VIEW_NAVIGATION_STEP_UUID from VIEW_NAVIGATION_STEP where VIEW_UUID in (select VIEW_UUID from PAGE_VIEW where PAGE_UUID='${input[0]['PAGE_UUID']}' AND IS_DEFAULT_VIEW = 'Yes') AND FUNCTIONAL_AREA_UUID = '${input[0]['APP_LOGGED_IN_FUNTIONAL_AREA_ID']}'`;
-  let QuerytoFetchNavigationStepData = await serviceOrchestrator.selectRecordsUsingQuery(
-    'PRIMARYSPRINGFM',
-    QuerytoFetchNavigationStep,
-    input[0]
-  );
-  let QuerytoFetchNavigationStepRecords = JSON.parse(JSON.stringify(QuerytoFetchNavigationStepData));
-  console.log('length', QuerytoFetchNavigationStepRecords.length);
-  if (input[0]['PAGE_ACCESS_RELATIVE_URL']) {
-    if (QuerytoFetchNavigationStepRecords.length > 0) {
+  const overridenModalCondition = input[0]['OLD_IS_BASE_URL_OVERRIDDEN'] == 'Yes' && input[0]['IS_BASE_URL_OVERRIDDEN'] == 'Yes' && !input[0]['PAGE_ACCESS_RELATIVE_URL'];
+  console.log('overridenModalCondition ==== ', overridenModalCondition, input[0]['OLD_IS_BASE_URL_OVERRIDDEN'], input[0]['IS_BASE_URL_OVERRIDDEN'], input[0]['PAGE_ACCESS_RELATIVE_URL']);
+  if (input[0]['PAGE_ACCESS_RELATIVE_URL'] || overridenModalCondition) {
+      let QuerytoFetchNavigationStep = `select VIEW_NAVIGATION_STEP_UUID from VIEW_NAVIGATION_STEP where VIEW_UUID in (select VIEW_UUID from PAGE_VIEW where PAGE_UUID='${input[0]['PAGE_UUID']}' AND IS_DEFAULT_VIEW = 'Yes') AND FUNCTIONAL_AREA_UUID = '${input[0]['APP_LOGGED_IN_FUNTIONAL_AREA_ID']}'`;
+      let QuerytoFetchNavigationStepData = await serviceOrchestrator.selectRecordsUsingQuery(
+        'PRIMARYSPRINGFM',
+        QuerytoFetchNavigationStep,
+        input[0]
+      );
+      let QuerytoFetchNavigationStepRecords = JSON.parse(JSON.stringify(QuerytoFetchNavigationStepData));
+    if (QuerytoFetchNavigationStepRecords.length > 0 || overridenModalCondition ) {
       console.log('Action Flow Called');
       msg.payload['isOpenModal'] = true;
     } else {

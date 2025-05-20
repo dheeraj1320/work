@@ -2,7 +2,8 @@ if (input.compositeEntityAction == "Update") {
   
     console.log('NodeBusinessRule Started');
     let VIEW_NAVIGATION_STEP = [];
-    let VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE = [];
+    let VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE = []
+    let PAGE_OVERRIDE_BASE_URL = [];
   
     function deleteRecord(
         primarykey,
@@ -19,6 +20,8 @@ if (input.compositeEntityAction == "Update") {
             VIEW_NAVIGATION_STEP.push(deleteTableData);
         } else if (tablename == "VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE") {
             VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE.push(deleteTableData);
+        } else if (tablename == "PAGE_OVERRIDE_BASE_URL") {
+            PAGE_OVERRIDE_BASE_URL.push(deleteTableData);
         }
     }
   
@@ -231,8 +234,22 @@ if (input.compositeEntityAction == "Update") {
       obj['TEST_SET_NAME'] = input['PAGE_NAME'];
       testSetlist.push(obj);
     }
+
+    if(input['OLD_IS_BASE_URL_OVERRIDDEN'] == 'Yes' && input['IS_BASE_URL_OVERRIDDEN'] == 'Yes' && !input['PAGE_ACCESS_RELATIVE_URL']) {
+        input['IS_BASE_URL_OVERRIDDEN'] = 'No';
+
+        const pageOverrideQuery = `SELECT PAGE_OVERRIDE_BASE_URL_UUID FROM PAGE_OVERRIDE_BASE_URL WHERE PAGE_UUID = :PAGE_UUID`;
+        const pageOverrideData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", pageOverrideQuery, input);
+
+        if(pageOverrideData && pageOverrideData.length > 0){
+          for (let data of pageOverrideData) {
+            deleteRecord("PAGE_OVERRIDE_BASE_URL_UUID",data.PAGE_OVERRIDE_BASE_URL_UUID,"PAGE_OVERRIDE_BASE_URL",input["APP_LOGGED_IN_FUNTIONAL_AREA_ID"]);
+          }
+        }
+    }
   
     input["AppEngChildEntity:TEST_SET_NEW"] = testSetlist;
     input["AppEngChildEntity:VIEW_NAVIGATION_STEP"] = VIEW_NAVIGATION_STEP;
     input["AppEngChildEntity:VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE"] = VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE;
+    input["AppEngChildEntity:PAGE_OVERRIDE_BASE_URL"] = PAGE_OVERRIDE_BASE_URL;
   }

@@ -311,6 +311,7 @@ if (input.compositeEntityAction == "Update") {
     (!input['PAGE_ACCESS_RELATIVE_URL'] || input['PAGE_ACCESS_RELATIVE_URL'].length == 0)
   ) {
     await updateIsPureNavigationStep('Yes');
+    input["IS_BASE_URL_OVERRIDDEN"] = "No";
   }
 
   let testSetListQuery = `SELECT ts.TEST_SET_UUID,p.PROCESS_NAME, ua.USER_ACTION_NAME FROM TEST_SET ts JOIN PROCESS p ON ts.PROCESS_UUID = p.PROCESS_UUID JOIN VIEW_USER_ACTION ua ON ts.USER_ACTION_UUID = ua.USER_ACTION_UUID WHERE ts.PAGE_UUID=:PAGE_UUID`;

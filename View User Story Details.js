@@ -15,6 +15,7 @@ let testCaseRequirementArray = [];
 let requirementDataSetDataElementArray = [];
 let userStoryVersionArray = [];
 let cosArray = [];
+const TEST_SET_NEW = []; 
 
 function getFirstAndLastForFirstVersion(requirements) {
     let finalArray = [];
@@ -390,6 +391,14 @@ else if (input.compositeEntityAction == 'Accept User Story') {
             }
         }
     }
+} 
+else if (input.compositeEntityAction == 'Save'){
+    const testSetObj = {};
+    testSetObj['TEST_SET_NAME'] = input['USER_STORY_NAME'];
+    testSetObj['TEST_SET_TYPE'] = 'User Story';
+    testSetObj['FUNCTIONAL_AREA_UUID'] = input['APP_LOGGED_IN_FUNTIONAL_AREA_ID'];
+    testSetObj['USER_STORY_UUID'] = input['USER_STORY_UUID'];
+    TEST_SET_NEW.push(testSetObj);
 }
 
 
@@ -714,3 +723,4 @@ input["AppEngChildEntity:IMPACTED_USER_STORY"] = impactedUserStoryArray;
 input["AppEngChildEntity:IMPACTED_PROCESS"] = impactedProcessArray;
 input["AppEngChildEntity:INTEGRATION TEST CASE REQUIREMENT"] = testCaseRequirementArray;
 input["AppEngChildEntity:REQUIREMENT_DATA_SET_DATA_ELEMENT"] = requirementDataSetDataElementArray;
+input["AppEngChildEntity:TEST_SET_NEW"] = TEST_SET_NEW;

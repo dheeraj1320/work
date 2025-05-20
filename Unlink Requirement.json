@@ -1,0 +1,100 @@
+[
+  {
+    "id": "7aa72bdd-ccae-46f8-884f-9a91b1486ad7",
+    "type": "tab",
+    "label": "Inbound Service Flow",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "80da4d06.d55a2",
+    "type": "inject",
+    "z": "7aa72bdd-ccae-46f8-884f-9a91b1486ad7",
+    "name": "Input",
+    "topic": "Input",
+    "payload": "{}",
+    "payloadType": "json",
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "x": 110,
+    "y": 120,
+    "wires": [
+      [
+        "d07304729.54609"
+      ]
+    ]
+  },
+  {
+    "id": "d07304729.54609",
+    "type": "function",
+    "z": "7aa72bdd-ccae-46f8-884f-9a91b1486ad7",
+    "name": "Set mode to Update",
+     "func": "AppengProcessConfig = global.get('AppengProcessConfig');const serviceOrchestrator =AppengProcessConfig.serviceOrchestrator;let input = msg.payload.apiRequestBody.baseEntity.records[0];let deleteObj= {};deleteObj['TEST_CASE_REQUIREMENT_UUID']=input['TEST_CASE_REQUIREMENT_UUID'];let Deleted= await serviceOrchestrator.delete('TEST_CASE_REQUIREMENT',deleteObj,'PRIMARYSPRINGFM','TEST_CASE_REQUIREMENT_UUID','KNEX_DYNAMIC');let mode = {'mode': 'Enable Message','message': 'Unlinked Successfully'};msg.payload['result'] = mode;node.send(msg)",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 540,
+    "y": 120,
+    "wires": [
+      [
+        "d07304729.54621"
+      ]
+    ]
+  },
+   {
+    "id": "d07304729.54621",
+    "type": "function",
+    "z": "7aa72bdd-ccae-46f8-884f-9a91b1486ad7",
+    "name": "Set mode to Update",
+   "func": "let inputData = msg.payload.apiRequestBody; try { let generatedKey; if (inputData.baseEntity.records[0].tab == 'LinkedIntegrationTestCases') {console.log('LinkedIntegrationTestCases :::::::::::::::::::::::::::::::::::::'); generatedKey = inputData.baseEntity.records[0].TEST_CASE_STEP_UUID + '_05dceca9-83ca-43bd-b1db-c4934d709c01_68cae3ce-c4b0-4c09-9c47-3b50401b8b3c' } else if (inputData.baseEntity.records[0].tab == 'AllIntegrationTestCases') { generatedKey = inputData.baseEntity.records[0].TEST_CASE_STEP_UUID + '_05dceca9-83ca-43bd-b1db-c4934d709c01_9445c3e4-f44a-4b70-833e-f76c4010cfdf' } else if (inputData.baseEntity.records[0].tab == 'LinkedUnitFunctionalTestCases') {console.log('LinkedUnitFunctionalTestCases :::::::::::::::::::::::::::::::::::::');  if (inputData.baseEntity.records[0].TEST_CASE_STEP_UUID && inputData.baseEntity.records[0].TEST_CASE_UUID && inputData.baseEntity.records[0].TEST_CASE_STEP_UUID != 'null') {console.log('LinkedUnitFunctionalTestCases if:::::::::::::::::::::::::::::::::::::');  generatedKey = inputData.baseEntity.records[0].TEST_CASE_STEP_UUID + '_0af0c61f-14fe-4639-8f97-63a8b360f8fa_90532048-63c1-4d1f-ba53-f47ee0d440c0' } else { console.log('LinkedUnitFunctionalTestCases Else:::::::::::::::::::::::::::::::::::::'); generatedKey = inputData.baseEntity.records[0].TEST_CASE_UUID + '_3e5b3bf2-96cc-4ec3-84a6-45fab6e0e3e0_90532048-63c1-4d1f-ba53-f47ee0d440c0'; } } else if (inputData.baseEntity.records[0].tab == 'AllUnitFunctionalTestCases') { console.log('AllUnitFunctionalTestCases :::::::::::::::::::::::::::::::::::::'); if (inputData.baseEntity.records[0].TEST_CASE_STEP_UUID && inputData.baseEntity.records[0].TEST_CASE_UUID && inputData.baseEntity.records[0].TEST_CASE_STEP_UUID != 'null') { console.log('AllUnitFunctionalTestCases if called :::::::::::::::::::::::::::::::::::::'); generatedKey = inputData.baseEntity.records[0].TEST_CASE_STEP_UUID + '_0af0c61f-14fe-4639-8f97-63a8b360f8fa_f8a5de17-ad54-4e9d-aed1-126c3b15554a' } else { console.log(' AllUnitFunctionalTestCases else called :::::::::::::::::::::::::::::::::::::'); generatedKey = inputData.baseEntity.records[0].TEST_CASE_UUID + '_3e5b3bf2-96cc-4ec3-84a6-45fab6e0e3e0_f8a5de17-ad54-4e9d-aed1-126c3b15554a'; } }; msg.payload.result['modifyOtherCard'] = {}; msg.payload.result.modifyOtherCard[generatedKey] = [{ parameter: 'referenceData', parameterKey: 'AE_RELOAD' }]; node.send(msg); } catch (error) { console.log('Errorr Occured ', error.message); } return;",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 540,
+    "y": 120,
+    "wires": [  
+      [
+        "82b2328.c756dd"
+      ]
+    ]
+  },
+  {
+    "id": "82b2328.c756dd",
+    "type": "finish",
+    "z": "7aa72bdd-ccae-46f8-884f-9a91b1486ad7",
+    "name": "Success Response",
+    "property": "payload",
+    "propertyType": "msg",
+    "outputs": 1,
+    "x": 983,
+    "y": 280,
+    "wires": []
+  },
+  {
+    "id": "a169b948.7886b8",
+    "type": "catch",
+    "z": "7aa72bdd-ccae-46f8-884f-9a91b1486ad7",
+    "name": "Catch Exceptions",
+    "scope": null,
+    "uncaught": false,
+    "x": 240,
+    "y": 420,
+    "wires": [
+      [
+        "23475cdd.0dcf24"
+      ]
+    ]
+  },
+  {
+    "id": "23475cdd.0dcf24",
+    "type": "finish",
+    "z": "7aa72bdd-ccae-46f8-884f-9a91b1486ad7",
+    "name": "Catch Finish",
+    "property": "payload",
+    "propertyType": "msg",
+    "outputs": 1,
+    "x": 460,
+    "y": 420,
+    "wires": []
+  }
+]

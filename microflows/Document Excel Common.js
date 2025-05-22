@@ -1,6 +1,6 @@
 let formData = msg.payload.apiRequestBody.baseEntity && msg.payload.apiRequestBody.baseEntity.records[0] ? msg.payload.apiRequestBody.baseEntity.records[0] : msg.payload.apiRequestBody;
 let input = Object.assign(formData, msg.payload.referenceData);
-let actionName = msg.payload?.apiRequestBody?.action;
+let actionName = msg.payload?.apiRequestBody?.actionName ? msg.payload?.apiRequestBody?.actionName : msg.payload?.apiRequestBody?.action;
 const getPlaceholderPosition = (template, targetPlaceholder) => {
   const regex = /<[^>]+?>/g;
   const matches = [...template.matchAll(regex)];

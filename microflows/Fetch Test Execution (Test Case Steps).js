@@ -33,9 +33,7 @@ try {
     return { name: '', type: '' };
   };
   const getPath = (path, level) => {
-    console.log('getting path for path ', path, 'and level ', level);
     if (path?.includes('-')) {
-      console.log('getting path for path includessssssssssssssssssssssssssssss =================== ');
       return path.split('-')[level]?.trim();
     }
     return path;
@@ -45,113 +43,99 @@ try {
     time += Number(duration);
     timeMap.set(path, time);
   };
-  if (input['PARENT_GRID_NAME'] == 'TEST_CASE') {
+  if (input['PARENT_GRID_NAME'] === 'TEST_CASE') {
     selectQuery = `SELECT 'TEST_CASE_STEP' as GRID_NAME, TEST_CASE_STEP_UUID, TEST_EXECUTION_DETAIL_UUID, TEST_CASE_STEP_SEQ_ID, TEST_RUN_UUID, TEST_CASE_STEP_NAME, TEST_CASE_STEP_EXECUTION_DATE, TEST_SUITE_UUID, TEST_CASE_STEP_EXECUTION_STATUS, CONCAT(ROUND(TEST_CASE_STEP_DURATION / 1000.0, 3), ' sec.') as TEST_CASE_STEP_DURATION, ROUND(TEST_CASE_STEP_DURATION / 1000.0, 3) as TEST_CASE_STEP_DURATION_RAW, TEST_SET_UUID, TEST_CASE_UUID, TEST_CASE_STEP_GROUP_NAME, TEST_CASE_STEP_PATH FROM TEST_EXECUTION_DETAIL WHERE TEST_RUN_UUID = :TEST_RUN_UUID AND TEST_SUITE_UUID = :TEST_SUITE_UUID AND TEST_SET_UUID = :TEST_SET_UUID AND TEST_CASE_UUID = :TEST_CASE_UUID group by TEST_CASE_STEP_UUID, TEST_EXECUTION_DETAIL_UUID, TEST_CASE_STEP_SEQ_ID, TEST_RUN_UUID, TEST_CASE_STEP_NAME, TEST_CASE_STEP_EXECUTION_DATE, TEST_SUITE_UUID, TEST_CASE_STEP_EXECUTION_STATUS, TEST_CASE_STEP_DURATION, TEST_SET_UUID, TEST_CASE_UUID, TEST_CASE_STEP_GROUP_NAME, TEST_CASE_STEP_PATH order by TEST_CASE_STEP_EXECUTION_DATE ASC, TEST_CASE_STEP_SEQ_ID ASC;`;
     queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
     const pathSet = new Set();
     const timeMap = new Map();
-    try {
-      const filteredData = queryData
-        .filter((data) => {
-          let path = data.TEST_CASE_STEP_PATH;
-          if (!path || !path.trim() || !path.includes('-')) return true;
-          const parentPath = getPath(path, 0) + '-';
-          updateDuration(timeMap, parentPath, data.TEST_CASE_STEP_DURATION_RAW);
-          if (!pathSet.has(parentPath)) {
-            pathSet.add(parentPath);
-            return true;
-          }
-          return false;
-        })
-        .map((data) => {
-          const parentPath = getPath(data.TEST_CASE_STEP_PATH, 0) + '-';
-          data.TEST_CASE_STEP_PATH_ID = getPath(data.TEST_CASE_STEP_PATH, 0);
-          const duration = Number(timeMap.get(parentPath)).toFixed(3) + ' sec.';
-          if (data.TEST_CASE_STEP_PATH && data.TEST_CASE_STEP_PATH.includes('-')) {
-            const groupDetails = getFirstCoverStepDetails(data.TEST_CASE_STEP_GROUP_NAME);
-            return {
-              ...data,
-              TEST_CASE_STEP_DURATION: duration,
-              TEST_CASE_STEP_PATH: parentPath,
-              TEST_CASE_STEP_NAME: groupDetails.name,
-              CHILD_STEP_TYPE: groupDetails.type,
-            };
-          }
+    const statusMap = {};
+    const filteredData = queryData
+      .filter((data) => {
+        const path = data.TEST_CASE_STEP_PATH;
+        if (!path || !path.trim() || !path.includes('-')) return true;
+        const parentPath = getPath(path, 0) + '-';
+        updateDuration(timeMap, parentPath, data.TEST_CASE_STEP_DURATION_RAW);
+        if (!statusMap[parentPath]) statusMap[parentPath] = [];
+        statusMap[parentPath].push(data.TEST_CASE_STEP_EXECUTION_STATUS);
+        if (!pathSet.has(parentPath)) {
+          pathSet.add(parentPath);
+          return true;
+        }
+        return false;
+      })
+      .map((data) => {
+        const parentPath = getPath(data.TEST_CASE_STEP_PATH, 0) + '-';
+        data.TEST_CASE_STEP_PATH_ID = getPath(data.TEST_CASE_STEP_PATH, 0);
+        const duration = Number(timeMap.get(parentPath)).toFixed(3) + ' sec.';
+        if (data.TEST_CASE_STEP_PATH && data.TEST_CASE_STEP_PATH.includes('-')) {
+          const groupDetails = getFirstCoverStepDetails(data.TEST_CASE_STEP_GROUP_NAME);
+          const stepStatuses = statusMap[parentPath] || [];
+          const groupStatus = stepStatuses.some((status) => status !== 'Passed') ? 'Failed' : 'Passed';
           return {
             ...data,
-            TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3) + ' sec.',
-            CHILD_STEP_TYPE: null,
+            TEST_CASE_STEP_DURATION: duration,
+            TEST_CASE_STEP_PATH: parentPath,
+            TEST_CASE_STEP_NAME: groupDetails.name,
+            CHILD_STEP_TYPE: groupDetails.type,
+            TEST_CASE_STEP_EXECUTION_STATUS: groupStatus
           };
-        });
-      queryData = filteredData;
-    } catch (e) {
-      console.log('Error occured in parsing fetched data', e);
-    }
-  } else if (input['PARENT_GRID_NAME'] == 'TEST_CASE_STEP') {
+        }
+        return { ...data, TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3) + ' sec.', CHILD_STEP_TYPE: null };
+      });
+    queryData = filteredData;
+  } else if (input['PARENT_GRID_NAME'] === 'TEST_CASE_STEP') {
     selectQuery = `SELECT 'TEST_CASE_STEP_CHILD' as GRID_NAME, TEST_CASE_STEP_UUID, TEST_EXECUTION_DETAIL_UUID, TEST_CASE_STEP_SEQ_ID, TEST_RUN_UUID, TEST_CASE_STEP_NAME, TEST_CASE_STEP_EXECUTION_DATE, TEST_SUITE_UUID, TEST_CASE_STEP_EXECUTION_STATUS, CONCAT(ROUND(TEST_CASE_STEP_DURATION / 1000.0, 3), ' sec.') as TEST_CASE_STEP_DURATION, ROUND(TEST_CASE_STEP_DURATION / 1000.0, 3) as TEST_CASE_STEP_DURATION_RAW, TEST_SET_UUID, TEST_CASE_UUID, TEST_CASE_STEP_GROUP_NAME, TEST_CASE_STEP_PATH FROM TEST_EXECUTION_DETAIL WHERE TEST_RUN_UUID = :TEST_RUN_UUID AND TEST_SUITE_UUID = :TEST_SUITE_UUID AND TEST_SET_UUID = :TEST_SET_UUID AND TEST_CASE_UUID = :TEST_CASE_UUID AND TEST_CASE_STEP_PATH like '${input['PARENT_TEST_CASE_STEP_PATH']}%' group by TEST_CASE_STEP_UUID, TEST_EXECUTION_DETAIL_UUID, TEST_CASE_STEP_SEQ_ID, TEST_RUN_UUID, TEST_CASE_STEP_NAME, TEST_CASE_STEP_EXECUTION_DATE, TEST_SUITE_UUID, TEST_CASE_STEP_EXECUTION_STATUS, TEST_CASE_STEP_DURATION, TEST_SET_UUID, TEST_CASE_UUID, TEST_CASE_STEP_GROUP_NAME, TEST_CASE_STEP_PATH order by TEST_CASE_STEP_EXECUTION_DATE ASC, TEST_CASE_STEP_SEQ_ID ASC;`;
     queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
-    try {
-      const pathSet = new Set();
-      const timeMap = new Map();
-      const filteredData = queryData
-        .filter((data) => {
-          const path = data.TEST_CASE_STEP_PATH;
-          if (path && path.split('-').length <= 2) return true;
+    const pathSet = new Set();
+    const timeMap = new Map();
+    const statusMap = {};
+    const filteredData = queryData
+      .filter((data) => {
+        const path = data.TEST_CASE_STEP_PATH;
+        if (path && path.split('-').length <= 2) return true;
+        const parentPathArr = data.TEST_CASE_STEP_PATH.trim().split('-');
+        const parentPath = parentPathArr[0] + '-' + parentPathArr[1] + '-';
+        updateDuration(timeMap, parentPath, data.TEST_CASE_STEP_DURATION_RAW);
+        if (!statusMap[parentPath]) statusMap[parentPath] = [];
+        statusMap[parentPath].push(data.TEST_CASE_STEP_EXECUTION_STATUS);
+        if (!pathSet.has(parentPath)) {
+          pathSet.add(parentPath);
+          return true;
+        }
+        return false;
+      })
+      .map((data) => {
+        data.TEST_CASE_STEP_PATH_ID = getPath(data.TEST_CASE_STEP_PATH, 1);
+        if (data.TEST_CASE_STEP_PATH && data.TEST_CASE_STEP_PATH.split('-').length > 2) {
           const parentPathArr = data.TEST_CASE_STEP_PATH.trim().split('-');
           const parentPath = parentPathArr[0] + '-' + parentPathArr[1] + '-';
-          updateDuration(timeMap, parentPath, data.TEST_CASE_STEP_DURATION_RAW);
-          if (!pathSet.has(parentPath)) {
-            pathSet.add(parentPath);
-            return true;
-          }
-          return false;
-        })
-        .map((data) => {
-          data.TEST_CASE_STEP_PATH_ID = getPath(data.TEST_CASE_STEP_PATH, 1);
-          if (data.TEST_CASE_STEP_PATH && data.TEST_CASE_STEP_PATH.split('-').length > 2) {
-            const parentPathArr = data.TEST_CASE_STEP_PATH.trim().split('-');
-            const parentPath = parentPathArr[0] + '-' + parentPathArr[1] + '-';
-            const duration = Number(timeMap.get(parentPath)).toFixed(3) + ' sec.';
-            const groupDetails = getSecondCoverStepDetails(data.TEST_CASE_STEP_GROUP_NAME);
-            return {
-              ...data,
-              TEST_CASE_STEP_DURATION: duration,
-              TEST_CASE_STEP_PATH: parentPath,
-              TEST_CASE_STEP_NAME: groupDetails.name,
-              CHILD_STEP_TYPE: groupDetails.type,
-            };
-          }
+          const duration = Number(timeMap.get(parentPath)).toFixed(3) + ' sec.';
+          const groupDetails = getSecondCoverStepDetails(data.TEST_CASE_STEP_GROUP_NAME);
+          const stepStatuses = statusMap[parentPath] || [];
+          const groupStatus = stepStatuses.some((status) => status !== 'Passed') ? 'Failed' : 'Passed';
           return {
             ...data,
-            TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3) + ' sec.',
-            CHILD_STEP_TYPE: null,
+            TEST_CASE_STEP_DURATION: duration,
+            TEST_CASE_STEP_PATH: parentPath,
+            TEST_CASE_STEP_NAME: groupDetails.name,
+            CHILD_STEP_TYPE: groupDetails.type,
+            TEST_CASE_STEP_EXECUTION_STATUS: groupStatus
           };
-        });
-      queryData = filteredData;
-    } catch (e) {
-      console.log('Error occured in parsing fetched data', e);
-    }
-  } else if (input['PARENT_GRID_NAME'] == 'TEST_CASE_STEP_CHILD') {
+        }
+        return { ...data, TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3) + ' sec.', CHILD_STEP_TYPE: null };
+      });
+    queryData = filteredData;
+  } else if (input['PARENT_GRID_NAME'] === 'TEST_CASE_STEP_CHILD') {
     selectQuery = `SELECT 'TEST_CASE_STEP_LAST_CHILD' as GRID_NAME, TEST_CASE_STEP_UUID, TEST_EXECUTION_DETAIL_UUID, TEST_CASE_STEP_SEQ_ID, TEST_RUN_UUID, TEST_CASE_STEP_NAME, TEST_CASE_STEP_EXECUTION_DATE, TEST_SUITE_UUID, TEST_CASE_STEP_EXECUTION_STATUS, CONCAT(ROUND(TEST_CASE_STEP_DURATION / 1000.0, 3), ' sec.') as TEST_CASE_STEP_DURATION, ROUND(TEST_CASE_STEP_DURATION / 1000.0, 3) as TEST_CASE_STEP_DURATION_RAW, TEST_SET_UUID, TEST_CASE_UUID, '' as TEST_CASE_STEP_GROUP_NAME, TEST_CASE_STEP_PATH FROM TEST_EXECUTION_DETAIL WHERE TEST_RUN_UUID = :TEST_RUN_UUID AND TEST_SUITE_UUID = :TEST_SUITE_UUID AND TEST_SET_UUID = :TEST_SET_UUID AND TEST_CASE_UUID = :TEST_CASE_UUID AND TEST_CASE_STEP_PATH like '${input['PARENT_TEST_CASE_STEP_PATH']}%' group by TEST_CASE_STEP_UUID, TEST_EXECUTION_DETAIL_UUID, TEST_CASE_STEP_SEQ_ID, TEST_RUN_UUID, TEST_CASE_STEP_NAME, TEST_CASE_STEP_EXECUTION_DATE, TEST_SUITE_UUID, TEST_CASE_STEP_EXECUTION_STATUS, TEST_CASE_STEP_DURATION, TEST_SET_UUID, TEST_CASE_UUID, TEST_CASE_STEP_PATH order by TEST_CASE_STEP_EXECUTION_DATE ASC, TEST_CASE_STEP_SEQ_ID ASC;`;
     queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
-    try {
-      const filteredData = queryData.map((data) => {
-        return {
-          ...data,
-          TEST_CASE_STEP_PATH_ID: getPath(data.TEST_CASE_STEP_PATH, 2),
-          TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3) + ' sec.',
-          CHILD_STEP_TYPE: null,
-        };
-      });
-      queryData = filteredData;
-    } catch (e) {
-      console.log('Error occured in parsing fetched data', e);
-    }
+    const filteredData = queryData.map((data) => {
+      return { ...data, TEST_CASE_STEP_PATH_ID: getPath(data.TEST_CASE_STEP_PATH, 2), TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3) + ' sec.', CHILD_STEP_TYPE: null };
+    });
+    queryData = filteredData;
   }
-  console.log('input data ============ ', input);
   msg.payload.result = { gridData: queryData };
   node.send(msg);
 } catch (error) {
-  console.log('Errorr Occured Process and Send Data to ui', error.message);
+  console.log('Error Occurred: Process and Send Data to UI', error.message);
 }
 return;

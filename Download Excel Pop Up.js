@@ -4,10 +4,17 @@ input[0]['isErrorOccured'] = false;
 const sourceType = input[0]['SOURCE_TYPE'];
 let runQuery = '';
 
+let testCaseQueryData;
+if (['Orphan Test Set', 'Unit Functional Test Set', 'Test Set', 'Page Navigation Test Set', 'User Story Test Set'].includes(input[0]['GRID_NAME'])) {
+    let testCaseQuery; 
+    if(input[0]['GRID_NAME'] == 'User Story Test Set') {
+        testCaseQuery = `SELECT TEST_CASE_UUID, TEST_CASE_EXECUTON_TYPE FROM TEST_CASE WHERE USER_STORY_UUID LIKE '%${input[0]['TEST_SET_USER_STORY_UUID']}%'`;
+    }
+    else {
+        testCaseQuery = `SELECT TEST_CASE_EXECUTON_TYPE FROM TEST_CASE WHERE TEST_SET_UUID = :TEST_SET_UUID AND TEST_CASE_EXECUTON_TYPE IN ('Automated', 'Recorded') AND FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY TEST_CASE_SEQ_ID ASC`;
+    }
 
-if (['Orphan Test Set', 'Unit Functional Test Set', 'Test Set'].includes(input[0]['GRID_NAME'])) {
-    let testCaseQuery = `SELECT TEST_CASE_EXECUTON_TYPE FROM TEST_CASE,TEST_SET WHERE TEST_CASE.TEST_SET_UUID=TEST_SET.TEST_SET_UUID AND TEST_CASE.TEST_SET_UUID=:TEST_SET_UUID AND TEST_CASE.TEST_CASE_EXECUTON_TYPE in('Automated','Recorded') AND TEST_CASE.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY TEST_CASE_SEQ_ID asc`;
-    let testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input[0]);
+    testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input[0]);
     const filteredAutomationData = testCaseQueryData.filter(item => item.TEST_CASE_EXECUTON_TYPE === "Automated");
     const filteredRecordedData = testCaseQueryData.filter(item => item.TEST_CASE_EXECUTON_TYPE === "Recorded");
     if (filteredAutomationData && filteredAutomationData.length && filteredRecordedData && filteredRecordedData.length) {
@@ -22,7 +29,7 @@ if (['Orphan Test Set', 'Unit Functional Test Set', 'Test Set'].includes(input[0
 } 
 else if(['Feature Test Set'].includes(input[0]['GRID_NAME'])){
    let testCaseQuery = `SELECT TEST_CASE_EXECUTON_TYPE FROM TEST_CASE,TEST_SET,TEST_CASE_REQUIREMENT tcr WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID and TEST_CASE.TEST_CASE_UUID=tcr.TEST_CASE_UUID and tcr.REQUIREMENT_TITLE_UUID=:FEATURE_UUID and TEST_CASE.TEST_CASE_EXECUTON_TYPE in('Automated','Recorded') AND TEST_CASE.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY TEST_CASE_SEQ_ID asc`;
-    let testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input[0]);
+    testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input[0]);
     const filteredAutomationData = testCaseQueryData.filter(item => item.TEST_CASE_EXECUTON_TYPE === "Automated");
     const filteredRecordedData = testCaseQueryData.filter(item => item.TEST_CASE_EXECUTON_TYPE === "Recorded");
     if (filteredAutomationData && filteredAutomationData.length && filteredRecordedData && filteredRecordedData.length) {
@@ -47,7 +54,7 @@ else if (['Test Suite'].includes(input[0]['GRID_NAME'])) {
     }
 
     let testCaseQuery = `SELECT TEST_CASE_EXECUTON_TYPE FROM TEST_CASE WHERE TEST_CASE_EXECUTON_TYPE in('Automated','Recorded') AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND TEST_SET_UUID in(${currentTagsIds ? currentTagsIds : `''`})`;
-    let testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input[0]);
+    testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input[0]);
 
     const filteredAutomationData = testCaseQueryData.filter(item => item.TEST_CASE_EXECUTON_TYPE === "Automated");
     const filteredRecordedData = testCaseQueryData.filter(item => item.TEST_CASE_EXECUTON_TYPE === "Recorded");
@@ -85,6 +92,11 @@ switch (sourceType) {
     case 'FEATURE_TEST_SET':
         input[0]['RUN_AUTOMATION_SOURCE_UUID'] = input[0]['TEST_SET_UUID'];
         runQuery = `select * from TEST_CASE_STEP tscp, TEST_CASE tc, TEST_CASE_REQUIREMENT tcr where tscp.TEST_CASE_UUID=tc.TEST_CASE_UUID and tc.TEST_CASE_UUID=tcr.TEST_CASE_UUID and REQUIREMENT_TITLE_UUID=:FEATURE_UUID; `;
+        break;
+    case 'USER_STORY_TEST_SET' :
+        input[0]['RUN_AUTOMATION_SOURCE_UUID'] = input[0]['TEST_SET_UUID'];
+        const usTestCaseUUIDs = "'" + testCaseQueryData.map(data => data.TEST_CASE_UUID).join("','") + "'";
+        runQuery = `SELECT * FROM TEST_CASE_STEP WHERE TEST_CASE_UUID IN (${usTestCaseUUIDs}); `;
         break;
     case 'PERSONAL_TEST_SET':
         input[0]['RUN_AUTOMATION_SOURCE_UUID'] = input[0]['TEST_SET_UUID'];
@@ -132,6 +144,7 @@ if (runQuery) {
                 input[0]['showMessage'] = 'Cannot Perfom Action! No Test Case Step Found ';
                 break;
             case 'FEATURE_TEST_SET':
+            case 'USER_STORY_TEST_SET':
                 input[0]['showMessage'] = 'Cannot Perfom Action! No Test Case Step Found ';
                 break;
             case 'FUNCTION':

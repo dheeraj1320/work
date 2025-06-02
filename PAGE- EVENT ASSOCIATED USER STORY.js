@@ -51,34 +51,39 @@ if (input['compositeEntityAction'] == 'Save' || input['compositeEntityAction'] =
     }
   }
 } else if (input['compositeEntityAction'] == 'Update' && input['OLD_USER_STORY_UUID'] != input['USER_STORY_UUID']) {
-  const requirementData = await getTestCaseForRequirement();
+  const userStoryQuery = `SELECT USER_STORY_STATUS FROM USER_STORY WHERE USER_STORY_UUID = :USER_STORY_UUID`;
+  const userStoryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', userStoryQuery, input);
 
-  for (const data of requirementData) {
-    const existingUUIDs = new Set(
-      (data['USER_STORY_UUID'] || '')
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean)
-    );
-    let changed = false;
+  if (userStoryData && userStoryData.length > 0 && ['Draft', 'In-Progress'].includes(userStoryData[0].USER_STORY_STATUS)) {
+    const requirementData = await getTestCaseForRequirement();
 
-    if (existingUUIDs.has(input['OLD_USER_STORY_UUID'])) {
-      existingUUIDs.delete(input['OLD_USER_STORY_UUID']);
-      changed = true;
-    }
+    for (const data of requirementData) {
+      const existingUUIDs = new Set(
+        (data['USER_STORY_UUID'] || '')
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean)
+      );
+      let changed = false;
 
-    if (!existingUUIDs.has(input['USER_STORY_UUID'])) {
-      existingUUIDs.add(input['USER_STORY_UUID']);
-      changed = true;
-    }
+      if (existingUUIDs.has(input['OLD_USER_STORY_UUID'])) {
+        existingUUIDs.delete(input['OLD_USER_STORY_UUID']);
+        changed = true;
+      }
 
-    if (changed) {
-      const testCaseObj = {
-        compositeEntityAction: 'Update',
-        TEST_CASE_UUID: data['TEST_CASE_UUID'],
-        USER_STORY_UUID: Array.from(existingUUIDs).join(',')
-      };
-      INTEGRATION_TEST_CASE.push(testCaseObj);
+      if (!existingUUIDs.has(input['USER_STORY_UUID'])) {
+        existingUUIDs.add(input['USER_STORY_UUID']);
+        changed = true;
+      }
+
+      if (changed) {
+        const testCaseObj = {
+          compositeEntityAction: 'Update',
+          TEST_CASE_UUID: data['TEST_CASE_UUID'],
+          USER_STORY_UUID: Array.from(existingUUIDs).join(',')
+        };
+        INTEGRATION_TEST_CASE.push(testCaseObj);
+      }
     }
   }
 } else if (input['compositeEntityAction'] == 'Delete') {

@@ -1,7 +1,4 @@
-console.log('is solo req :::::::::::::', input);
-
 const REQUIREMENT = [];
-const IMPACTED_PROCESS = [];
 const IMPACTED_USER_STORY = [];
 const TEST_CASE_REQUIREMENT = [];
 const REQUIREMENT_DATA_SET_DATA_ELEMENT = [];
@@ -42,31 +39,15 @@ if (input['className'] == 'CONDITION_SATISFACTION' && input['isNewCOS'] == 'New'
     const requirementQuery = `SELECT * FROM REQUIREMENT WHERE REQUIREMENT_UUID = '${input['parentNodeID']}' AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
     let requirementQueryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, requirementQuery, input);
 
-    const impactedProcessObj = {};
-    impactedProcessObj.REQUIREMENT_UUID = input.parentNodeID;
-    impactedProcessObj.CONDITION_SATISFACTION_UUID = input.PRIMARY_KEY;
-    impactedProcessObj.ASSOCIATION_TYPE = 'USER_ACTION_CONDITION_SATISFACTION';
-    impactedProcessObj.PROCESS_UUID = input.processUuid;
-    impactedProcessObj.PAGE_UUID = input.pageUuid;
-    impactedProcessObj.VIEW_UUID = input.viewUuid;
-    impactedProcessObj.USER_ACTION_UUID = input.USER_ACTION_UUID;
-
     if(requirementQueryData[0]['IS_SOLO_REQUIREMENT'] === 'Yes'){
 
         // Requirement
         let requirementObject = {
             'REQUIREMENT_UUID': input['parentNodeID'],
-            'IS_SOLO_REQUIREMENT': 'No'
+            'IS_SOLO_REQUIREMENT': 'No',
+            'REQUIREMENT_ASSOCIATION_TYPE': 'PAGE-EVENT'
         };
         REQUIREMENT.push(requirementObject);
-
-        // Impacted Process
-        const impactedProcessQuery = `SELECT IMPACTED_PROCESS_UUID FROM IMPACTED_PROCESS WHERE REQUIREMENT_UUID = '${input['parentNodeID']}' AND ASSOCIATION_TYPE = 'USER_ACTION_REQUIREMENT'`;
-        const impactedProcessData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, impactedProcessQuery, input);
-
-        if(impactedProcessData && impactedProcessData.length > 0){
-            impactedProcessObj.IMPACTED_PROCESS_UUID = impactedProcessData[0].IMPACTED_PROCESS_UUID;
-        }
 
         // Impacted User Story
         const impactedUserStoryQuery = `SELECT IMPACTED_USER_STORY_UUID, CONDITION_SATISFACTION_UUID, ASSOCIATION_TYPE FROM IMPACTED_USER_STORY WHERE REQUIREMENT_UUID = '${input['parentNodeID']}' AND ASSOCIATION_TYPE = 'USER_ACTION_REQUIREMENT'`
@@ -93,21 +74,20 @@ if (input['className'] == 'CONDITION_SATISFACTION' && input['isNewCOS'] == 'New'
 
     }
 
-    IMPACTED_PROCESS.push(impactedProcessObj);
-
 } else if (input['className'] == 'CONDITION_SATISFACTION' && input['actionName'] == 'Remove') {
     if (!input['isRequirementChildExists']) {
         let requirementObject = {
             'REQUIREMENT_UUID': input['parentNodeID'],
-            'IS_SOLO_REQUIREMENT': 'Yes'
+            'IS_SOLO_REQUIREMENT': 'Yes',
+            'REQUIREMENT_ASSOCIATION_TYPE': 'PAGE-EVENT'
         };
         REQUIREMENT.push(requirementObject);
-
-        
     }
 
     // Impacted User Story
-    const impactedUserStoryQuery = `SELECT IMPACTED_USER_STORY_UUID, CONDITION_SATISFACTION_UUID, ASSOCIATION_TYPE FROM IMPACTED_USER_STORY WHERE REQUIREMENT_UUID = '${input['parentNodeID']}' AND CONDITION_SATISFACTION_UUID = '${input['PRIMARY_KEY']}' AND ASSOCIATION_TYPE = 'USER_ACTION_CONDITION_SATISFACTION'`
+    
+
+    const impactedUserStoryQuery = `SELECT IMPACTED_USER_STORY_UUID, CONDITION_SATISFACTION_UUID, ASSOCIATION_TYPE FROM IMPACTED_USER_STORY WHERE REQUIREMENT_UUID = '${input['parentNodeID']}' AND CONDITION_SATISFACTION_UUID = '${input['PRIMARY_KEY']}' AND ASSOCIATION_TYPE = 'PAGE-EVENT'`
     const impactedUserStoryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, impactedUserStoryQuery, input);
 
     for(story of impactedUserStoryData){
@@ -140,7 +120,8 @@ if (input['className'] == 'CONDITION_SATISFACTION' && input['isNewCOS'] == 'New'
             let isSoloRequirement = 'Yes';
             let requirementObject = {
                 'REQUIREMENT_UUID': input['oldParentRequirementID'],
-                'IS_SOLO_REQUIREMENT': isSoloRequirement
+                'IS_SOLO_REQUIREMENT': isSoloRequirement,
+                'REQUIREMENT_ASSOCIATION_TYPE': 'PAGE-EVENT'
             };
 
             let result = filterList(requirementQueryData, input['oldParentRequirementID']);
@@ -154,10 +135,10 @@ if (input['className'] == 'CONDITION_SATISFACTION' && input['isNewCOS'] == 'New'
             let isSoloRequirement = 'No';
             let requirementObject = {
                 'REQUIREMENT_UUID': input['newParentRequirementID'],
-                'IS_SOLO_REQUIREMENT': isSoloRequirement
+                'IS_SOLO_REQUIREMENT': isSoloRequirement,
+                'REQUIREMENT_ASSOCIATION_TYPE': 'PAGE-EVENT'
             };
             let result = filterList(requirementQueryData, input['newParentRequirementID']);
-            console.log('::::::::: result new :::::::::::', result);
             if (result && Object.keys(result).length && result['IS_SOLO_REQUIREMENT'] != isSoloRequirement) {
                 REQUIREMENT.push(requirementObject);
             }
@@ -187,7 +168,7 @@ if (input['className'] == 'CONDITION_SATISFACTION' && input['isNewCOS'] == 'New'
     }
 }  else if (input['className'] == 'REQUIREMENT' && input['isDeleted']) {
 
-    console.log("Delete requirement running for user action tree ========== >>>>>>>>>> ");
+
 
     // Impacted User Story
     const impactedUserStoryQuery = `SELECT IMPACTED_USER_STORY_UUID FROM IMPACTED_USER_STORY WHERE REQUIREMENT_UUID = '${input['primaryKey']}'`
@@ -214,15 +195,8 @@ if (input['className'] == 'CONDITION_SATISFACTION' && input['isNewCOS'] == 'New'
     }
 }
 
-
-console.log("Requirement data :::::::+================ >>>>>>>>>> ", REQUIREMENT);
-console.log("IMPACTED_USER_STORY data :::::::+================ >>>>>>>>>> ", IMPACTED_USER_STORY);
-console.log("TEST_CASE_REQUIREMENT data :::::::+================ >>>>>>>>>> ", TEST_CASE_REQUIREMENT);
-console.log("REQUIREMENT_DATA_SET_DATA_ELEMENT data :::::::+================ >>>>>>>>>> ", REQUIREMENT_DATA_SET_DATA_ELEMENT);
-
 input['CONDITION_SATISFACTION_ASSOCIATION_UUID'] = input['USER_ACTION_UUID'];
-input['AppEngChildEntity:USER_ACTION_REQUIREMENT'] = REQUIREMENT;
-input['AppEngChildEntity:IMPACTED_PROCESS'] = IMPACTED_PROCESS;
-input['AppEngChildEntity:IMPACTED_USER_STORY'] = IMPACTED_USER_STORY;
-input['AppEngChildEntity:INTEGRATION TEST CASE REQUIREMENT'] = TEST_CASE_REQUIREMENT;
-input['AppEngChildEntity:REQUIREMENT_DATA_SET_DATA_ELEMENT'] = REQUIREMENT_DATA_SET_DATA_ELEMENT;
+input["AppEngChildEntity:USER_ACTION_REQUIREMENT"] = REQUIREMENT;
+input["AppEngChildEntity:IMPACTED_USER_STORY"] = IMPACTED_USER_STORY;
+input["AppEngChildEntity:INTEGRATION TEST CASE REQUIREMENT"] = TEST_CASE_REQUIREMENT;
+input["AppEngChildEntity:REQUIREMENT_DATA_SET_DATA_ELEMENT"] = REQUIREMENT_DATA_SET_DATA_ELEMENT;

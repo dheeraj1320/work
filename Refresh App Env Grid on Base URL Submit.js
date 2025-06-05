@@ -7,12 +7,7 @@ try {
     msg.payload['result'] = mode;
     msg.payload.result['modifyOtherCard'] = {};
     msg.payload.result.modifyOtherCard[generatedKey] = [
-      {
-        parameter: 'data',
-        parameterKey: 'APPLICATION_ENVIRONMENT_UUID',
-        type: 'RefreshGrid',
-        parameterKeyValue: input[0].APPLICATION_ENVIRONMENT_UUID,
-      },
+      { parameter: 'data', parameterKey: 'APPLICATION_ENVIRONMENT_UUID', type: 'RefreshGrid', parameterKeyValue: input[0].APPLICATION_ENVIRONMENT_UUID }
     ];
   }
   node.send(msg);

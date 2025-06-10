@@ -45,6 +45,18 @@ if (input.compositeEntityAction == 'Save' || input.compositeEntityAction == 'Upd
     baseUrlObj['APPLICATION_ENVIRONMENT_UUID'] = input['APPLICATION_ENVIRONMENT_UUID'];
     baseUrlObj['BASE_URL'] = input['APPLICATION_ENVIRONMENT_BASE_URL'];
     APPLICATION_ENVIRONMENT_BASE_URL.push(baseUrlObj);
+
+    // Creating Page Override records for existing pages
+    const pageQuery = `SELECT PAGE_UUID FROM PAGE WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND IS_BASE_URL_OVERRIDDEN = 'Yes'`;
+    const pageData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', pageQuery, input);
+
+    for(const page of pageData) {
+      const pageOverrideObj = {};
+      pageOverrideObj['PAGE_UUID'] = page.PAGE_UUID;
+      pageOverrideObj['APPLICATION_ENVIRONMENT_UUID'] = input['APPLICATION_ENVIRONMENT_UUID'];
+      pageOverrideObj['APPLICATION_ENVIRONMENT_BASE_URL_UUID'] = '';
+      PAGE_OVERRIDE_BASE_URL.push(pageOverrideObj);
+    }
   }
 } else if (input.compositeEntityAction == 'Delete') {
   // Deleting base urls

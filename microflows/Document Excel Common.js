@@ -717,7 +717,7 @@ let stepDefTemplateVerbiageQueryDataList = await serviceOrchestrator.selectRecor
 const uiElementTypeQuery = `SELECT * FROM UI_ELEMENT_TYPE_MASTER`;
 let uiElementTypeQueryDataList = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, uiElementTypeQuery, input);
 if (actionName == 'Test Data Download Template') {
-  input['APPLICATION_ENVIRONMENT_BASE_URL'] = 'test_set_data_template';
+  input['APPLICATION_ENVIRONMENT_BASE_URL'] = 'test_data_template';
 }
 if (
   input.APPLICATION_ENVIRONMENT_BASE_URL &&
@@ -735,7 +735,10 @@ if (
   let versionMaster = versionIdqueryData && versionIdqueryData.length ? versionIdqueryData[0]['MASTER_CODE_VERSION_ID'] : null;
   input['MASTER_CODE_VERSION_ID'] = versionMaster;
   input['SOURCE_TYPE'] = 'TEST_SET';
-  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID','' as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID', :MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:TEST_SET_UUID as 'Run Automation Source UUID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let testSuiteQuery = `SELECT * FROM TEST_SUITE WHERE TEST_SUITE_CREATION_TYPE='System' AND TEST_SUITE_NAME='Manually Uploaded Test Set or Test Case Run Result' AND TEST_SUITE_TYPE='Test Run' AND FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID;`;
+  let testSuiteQueryQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSuiteQuery, input);
+  input['TEST_SUITE_UUID'] = testSuiteQueryQueryData[0]['TEST_SUITE_UUID'];
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID',:TEST_SUITE_UUID as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID', :MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:TEST_SET_UUID as 'Run Automation Source UUID', :APP_LOGGED_IN_USER_NAME AS USER_NAME FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionalAreaQuery, input);
   msg.payload.documentData = {};
   let objectData = {};
@@ -1565,7 +1568,7 @@ if (
     let templateData = {};
     templateData['Test Case Step'] = preparedObjectList.map((item) => [item['3'], item['5'], item['6'], item['25'], item['26'], item['16'], extractActualUIElementvalue(item)]);
     Object.assign(msg.payload.documentData, templateData);
-    msg.payload.templateFile = 'Test_Set_Data_Template.xlsx';
+    msg.payload.templateFile = 'Test_Data_Template.xlsx';
     msg.payload.startCell = 'A2';
   } else {
     let testDataQueryDataList = prepareTestData(preparedObjectList, testDataQueryData);
@@ -1599,7 +1602,10 @@ if (
   let versionMaster = versionIdqueryData && versionIdqueryData.length ? versionIdqueryData[0]['MASTER_CODE_VERSION_ID'] : null;
   input['MASTER_CODE_VERSION_ID'] = versionMaster;
   input['SOURCE_TYPE'] = 'TEST_SET';
-  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID','' as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID', :MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:TEST_SET_UUID as 'Run Automation Source UUID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let testSuiteQuery = `SELECT * FROM TEST_SUITE WHERE TEST_SUITE_CREATION_TYPE='System' AND TEST_SUITE_NAME='Manually Uploaded Test Set or Test Case Run Result' AND TEST_SUITE_TYPE='Test Run' AND FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID;`;
+  let testSuiteQueryQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSuiteQuery, input);
+  input['TEST_SUITE_UUID'] = testSuiteQueryQueryData[0]['TEST_SUITE_UUID'];
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID',:TEST_SUITE_UUID as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID', :MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:TEST_SET_UUID as 'Run Automation Source UUID', :APP_LOGGED_IN_USER_NAME AS USER_NAME FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionalAreaQuery, input);
   msg.payload.documentData = {};
   let objectData = {};
@@ -2429,7 +2435,7 @@ if (
     let templateData = {};
     templateData['Test Case Step'] = preparedObjectList.map((item) => [item['3'], item['5'], item['6'], item['25'], item['26'], item['16'], extractActualUIElementvalue(item)]);
     Object.assign(msg.payload.documentData, templateData);
-    msg.payload.templateFile = 'Test_Set_Data_Template.xlsx';
+    msg.payload.templateFile = 'Test_Data_Template.xlsx';
     msg.payload.startCell = 'A2';
   } else {
     let testDataQueryDataList = prepareTestData(preparedObjectList, testDataQueryData);
@@ -2455,7 +2461,10 @@ if (
   let versionMaster = versionIdqueryData && versionIdqueryData.length ? versionIdqueryData[0]['MASTER_CODE_VERSION_ID'] : null;
   input['MASTER_CODE_VERSION_ID'] = versionMaster;
   input['SOURCE_TYPE'] = 'TEST_CASE';
-  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID','' as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:TEST_CASE_UUID as 'Run Automation Source UUID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let testSuiteQuery = `SELECT * FROM TEST_SUITE WHERE TEST_SUITE_CREATION_TYPE='System' AND TEST_SUITE_NAME='Manually Uploaded Test Set or Test Case Run Result' AND TEST_SUITE_TYPE='Test Run' AND FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID;`;
+  let testSuiteQueryQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSuiteQuery, input);
+  input['TEST_SUITE_UUID'] = testSuiteQueryQueryData[0]['TEST_SUITE_UUID'];
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID',:TEST_SUITE_UUID as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:TEST_CASE_UUID as 'Run Automation Source UUID', :APP_LOGGED_IN_USER_NAME AS USER_NAME FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionalAreaQuery, input);
   msg.payload.documentData = {};
   let objectData = {};
@@ -3285,9 +3294,40 @@ if (
   msg.payload.result.message = 'Document Downloaded';
   if (actionName == 'Test Data Download Template') {
     let templateData = {};
-    templateData['Test Case Step'] = preparedObjectList.map((item) => [item['3'], item['5'], item['6'], item['25'], item['26'], item['16'], extractActualUIElementvalue(item)]);
+    if (testDataQueryData && testDataQueryData.length) {
+      let dataList = preparedObjectList.map((item) => [item['3'], item['5'], item['6'], item['25'], item['26'], item['16']]);
+      const grouped = testDataQueryData.reduce((acc, item) => {
+        const rowId = item.TEST_DATA_ROW_ID;
+        if (!acc[rowId]) acc[rowId] = [];
+        acc[rowId].push(item);
+        return acc;
+      }, {});
+      const uuidToOrderedValues = {};
+      let maxColumnCount = 0;
+      Object.entries(grouped).forEach(([rowId, items]) => {
+        items.sort((a, b) => a.TEST_DATA_COLUMN_ID.localeCompare(b.TEST_DATA_COLUMN_ID));
+        const stepUUID = items[0].TEST_CASE_STEP_UUID;
+        const orderedValues = items.map((i) => i.TEST_DATA_VALUE);
+        uuidToOrderedValues[stepUUID] = orderedValues;
+        if (orderedValues.length > maxColumnCount) {
+          maxColumnCount = orderedValues.length;
+        }
+      });
+      dataList.forEach((row) => {
+        const uuid = row[5];
+        const values = uuidToOrderedValues[uuid];
+        if (values) {
+          row.push(...values);
+        } else {
+          row.push(...Array(maxColumnCount).fill(''));
+        }
+      });
+      templateData['Test Case Step'] = dataList;
+    } else {
+      templateData['Test Case Step'] = preparedObjectList.map((item) => [item['3'], item['5'], item['6'], item['25'], item['26'], item['16'], extractActualUIElementvalue(item)]);
+    }
     Object.assign(msg.payload.documentData, templateData);
-    msg.payload.templateFile = 'Test_Set_Data_Template.xlsx';
+    msg.payload.templateFile = 'Test_Data_Template.xlsx';
     msg.payload.startCell = 'A2';
   } else {
     let testDataQueryDataList = prepareTestData(preparedObjectList, testDataQueryData);
@@ -3312,7 +3352,10 @@ if (
   let versionMaster = versionIdqueryData && versionIdqueryData.length ? versionIdqueryData[0]['MASTER_CODE_VERSION_ID'] : null;
   input['MASTER_CODE_VERSION_ID'] = versionMaster;
   input['SOURCE_TYPE'] = 'FUNCTION';
-  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID','' as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:FUNCTION_UUID as 'Run Automation Source UUID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let testSuiteQuery = `SELECT * FROM TEST_SUITE WHERE TEST_SUITE_CREATION_TYPE='System' AND TEST_SUITE_NAME='Manually Uploaded Test Set or Test Case Run Result' AND TEST_SUITE_TYPE='Test Run' AND FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID;`;
+  let testSuiteQueryQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSuiteQuery, input);
+  input['TEST_SUITE_UUID'] = testSuiteQueryQueryData[0]['TEST_SUITE_UUID'];
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID',:TEST_SUITE_UUID as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:FUNCTION_UUID as 'Run Automation Source UUID', :APP_LOGGED_IN_USER_NAME AS USER_NAME FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionalAreaQuery, input);
   msg.payload.documentData = {};
   let objectData = {};
@@ -3783,7 +3826,6 @@ if (
                 break;
               case '7c7a43c8-e484-11ef-904e-02c8cad0208d':
                 {
-                  debugger;
                   let testSetScope = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (
@@ -3810,7 +3852,6 @@ if (
                 break;
               case '842981e7-e484-11ef-904e-02c8cad0208d':
                 {
-                  debugger;
                   let testCaseScope = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (
@@ -4115,7 +4156,7 @@ if (
   let versionMaster = versionIdqueryData && versionIdqueryData.length ? versionIdqueryData[0]['MASTER_CODE_VERSION_ID'] : null;
   input['MASTER_CODE_VERSION_ID'] = versionMaster;
   input['SOURCE_TYPE'] = 'TEST_SUITE';
-  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID',:TEST_SUITE_UUID as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:TEST_SUITE_UUID as 'Run Automation Source UUID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID',:TEST_SUITE_UUID as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:TEST_SUITE_UUID as 'Run Automation Source UUID', :APP_LOGGED_IN_USER_NAME AS USER_NAME FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionalAreaQuery, input);
   msg.payload.documentData = {};
   let objectData = {};
@@ -5024,7 +5065,7 @@ if (
     let templateData = {};
     templateData['Test Case Step'] = preparedObjectList.map((item) => [item['3'], item['5'], item['6'], item['25'], item['26'], item['16'], extractActualUIElementvalue(item)]);
     Object.assign(msg.payload.documentData, templateData);
-    msg.payload.templateFile = 'Test_Set_Data_Template.xlsx';
+    msg.payload.templateFile = 'Test_Data_Template.xlsx';
     msg.payload.startCell = 'A2';
   } else {
     let testDataQueryDataList = prepareTestData(preparedObjectList, testDataQueryData);
@@ -5046,7 +5087,10 @@ if (
   let versionMaster = versionIdqueryData && versionIdqueryData.length ? versionIdqueryData[0]['MASTER_CODE_VERSION_ID'] : null;
   input['MASTER_CODE_VERSION_ID'] = versionMaster;
   input['SOURCE_TYPE'] = 'NAVIGATION_STEPS';
-  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID','' as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:PAGE_UUID as 'Run Automation Source UUID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let testSuiteQuery = `SELECT * FROM TEST_SUITE WHERE TEST_SUITE_CREATION_TYPE='System' AND TEST_SUITE_NAME='Manually Uploaded Test Set or Test Case Run Result' AND TEST_SUITE_TYPE='Test Run' AND FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID;`;
+  let testSuiteQueryQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSuiteQuery, input);
+  input['TEST_SUITE_UUID'] = testSuiteQueryQueryData[0]['TEST_SUITE_UUID'];
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID',:TEST_SUITE_UUID as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:PAGE_UUID as 'Run Automation Source UUID', :APP_LOGGED_IN_USER_NAME AS USER_NAME FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionalAreaQuery, input);
   msg.payload.documentData = {};
   let objectData = {};
@@ -5750,7 +5794,10 @@ if (
   let versionMaster = versionIdqueryData && versionIdqueryData.length ? versionIdqueryData[0]['MASTER_CODE_VERSION_ID'] : null;
   input['MASTER_CODE_VERSION_ID'] = versionMaster;
   input['SOURCE_TYPE'] = 'MULTIPLE_TEST_SET';
-  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID',:TEST_SUITE_UUID as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:TEST_SET_UUID as 'Run Automation Source UUID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let testSuiteQuery = `SELECT * FROM TEST_SUITE WHERE TEST_SUITE_CREATION_TYPE='System' AND TEST_SUITE_NAME='Manually Uploaded Test Set or Test Case Run Result' AND TEST_SUITE_TYPE='Test Run' AND FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID;`;
+  let testSuiteQueryQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSuiteQuery, input);
+  input['TEST_SUITE_UUID'] = testSuiteQueryQueryData[0]['TEST_SUITE_UUID'];
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID',:TEST_SUITE_UUID as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID',:MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:TEST_SET_UUID as 'Run Automation Source UUID', :APP_LOGGED_IN_USER_NAME AS USER_NAME FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionalAreaQuery, input);
   msg.payload.documentData = {};
   let objectData = {};
@@ -6627,7 +6674,7 @@ if (
     let templateData = {};
     templateData['Test Case Step'] = preparedObjectList.map((item) => [item['3'], item['5'], item['6'], item['25'], item['26'], item['16'], extractActualUIElementvalue(item)]);
     Object.assign(msg.payload.documentData, templateData);
-    msg.payload.templateFile = 'Test_Set_Data_Template.xlsx';
+    msg.payload.templateFile = 'Test_Data_Template.xlsx';
     msg.payload.startCell = 'A2';
   } else {
     let testDataQueryDataList = prepareTestData(preparedObjectList, testDataQueryData);
@@ -6653,6 +6700,7 @@ if (
 ) {
   msg.payload.result = {};
   let maxLength = 200;
+  debugger;
   let documentName;
   if (input.PARENT_GRID === 'Feature Test Set' || input.PARENT_GRID === 'User Story Test Set') {
     if (input.TEST_SET_NAME) {
@@ -6673,7 +6721,10 @@ if (
   let versionMaster = versionIdqueryData && versionIdqueryData.length ? versionIdqueryData[0]['MASTER_CODE_VERSION_ID'] : null;
   input['MASTER_CODE_VERSION_ID'] = versionMaster;
   input['SOURCE_TYPE'] = (input.GRID_NAME === 'User Story Test Set' && input.TEST_SET_NAME) || input.PARENT_GRID === 'User Story Test Set' ? 'USER_STORY_TEST_SET' : 'FEATURE_TEST_SET';
-  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID','' as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID', :MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:TEST_SET_UUID as 'Run Automation Source UUID' FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  let testSuiteQuery = `SELECT * FROM TEST_SUITE WHERE TEST_SUITE_CREATION_TYPE='System' AND TEST_SUITE_NAME='Manually Uploaded Test Set or Test Case Run Result' AND TEST_SUITE_TYPE='Test Run' AND FUNCTIONAL_AREA_UUID=:FUNCTIONAL_AREA_UUID;`;
+  let testSuiteQueryQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSuiteQuery, input);
+  input['TEST_SUITE_UUID'] = testSuiteQueryQueryData[0]['TEST_SUITE_UUID'];
+  let functionalAreaQuery = `SELECT FUNCTIONAL_AREA_ID as 'App ID',FUNCTIONAL_AREA_NAME as 'App Name','Active' as Status, 'No Action' as Actions,FUNCTIONAL_AREA_UUID as 'App UUID',:TENANT_UUID as 'Tenant UUID',:TEST_SUITE_UUID as 'Suite UUID', :APP_LOGGED_IN_USER_ID as 'User UUID', :MASTER_CODE_VERSION_ID as 'Version Number',:SOURCE_TYPE as 'Run Automation Source Type',:TEST_SET_UUID as 'Run Automation Source UUID', :APP_LOGGED_IN_USER_NAME AS USER_NAME FROM FUNCTIONAL_AREA WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let functionalAreaQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionalAreaQuery, input);
   msg.payload.documentData = {};
   let objectData = {};
@@ -6692,7 +6743,7 @@ if (
   let testCaseQuery =
     (input.GRID_NAME === 'User Story Test Set' && input.TEST_SET_NAME) || input.PARENT_GRID === 'User Story Test Set'
       ? `SELECT ${testSetID} as 'Test Set ID', tc.TEST_CASE_ID as 'Test Case ID', tc.TEST_CASE_SEQ_ID as 'Test Case Seq ID', tc.TEST_CASE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions, tc.TEST_CASE_UUID as 'Test Case UUID', tc.TEST_CASE_UUID FROM TEST_SET ts, TEST_CASE tc WHERE tc.TEST_SET_UUID = ts.TEST_SET_UUID AND tc.USER_STORY_UUID LIKE '%${input['TEST_SET_USER_STORY_UUID']}%' AND tc.TEST_CASE_EXECUTON_TYPE = 'Automated' order by TEST_CASE_SEQ_ID asc;`
-      : `SELECT DISTINCT ${testSetID} as 'Test Set ID',TEST_CASE_ID as 'Test Case ID',TEST_CASE_SEQ_ID as 'Test Case Seq ID',TEST_CASE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions,TEST_CASE.TEST_CASE_UUID as 'Test Case UUID',TEST_CASE.TEST_CASE_UUID FROM TEST_CASE,TEST_SET,TEST_CASE_REQUIREMENT tcr WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID and TEST_CASE.TEST_CASE_UUID=tcr.TEST_CASE_UUID and tcr.REQUIREMENT_TITLE_UUID=:FEATURE_UUID AND tc.TEST_CASE_EXECUTON_TYPE = 'Automated' order by TEST_CASE_SEQ_ID asc`;
+      : `SELECT DISTINCT ${testSetID} as 'Test Set ID',TEST_CASE_ID as 'Test Case ID',TEST_CASE_SEQ_ID as 'Test Case Seq ID',TEST_CASE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions,TEST_CASE.TEST_CASE_UUID as 'Test Case UUID',TEST_CASE.TEST_CASE_UUID FROM TEST_CASE,TEST_SET,TEST_CASE_REQUIREMENT tcr WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID and TEST_CASE.TEST_CASE_UUID=tcr.TEST_CASE_UUID and tcr.REQUIREMENT_TITLE_UUID=:FEATURE_UUID AND TEST_CASE.TEST_CASE_EXECUTON_TYPE = 'Automated' order by TEST_CASE_SEQ_ID asc`;
   let testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input);
   objectData['Test Case'] = generateExcelData(testCaseQueryData);
   let testCaseID = testCaseQueryData && testCaseQueryData.length ? [...new Set(testCaseQueryData.map((item) => item.TEST_CASE_UUID).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ') : '';
@@ -7511,7 +7562,7 @@ if (
     let templateData = {};
     templateData['Test Case Step'] = preparedObjectList.map((item) => [item['3'], item['5'], item['6'], item['25'], item['26'], item['16'], extractActualUIElementvalue(item)]);
     Object.assign(msg.payload.documentData, templateData);
-    msg.payload.templateFile = 'Test_Set_Data_Template.xlsx';
+    msg.payload.templateFile = 'Test_Data_Template.xlsx';
     msg.payload.startCell = 'A2';
   } else {
     let testDataQueryDataList = prepareTestData(preparedObjectList, testDataQueryData);

@@ -156,7 +156,7 @@ if (input.compositeEntityAction == "Insert") {
   console.log("input :::::;:::::::::::::", input);
 
   // Fetching TEST_SET_UUID
-  const testSetQuery = `SELECT TEST_SET_UUID FROM TEST_SET WHERE PAGE_UUID = :PAGE_UUID AND FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+  const testSetQuery = `SELECT TEST_SET_UUID FROM TEST_SET WHERE PAGE_UUID = :PAGE_UUID AND FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID AND TEST_SET_TYPE='Page Navigation'`;
   const testSetQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM",testSetQuery, input );
 
   if(testSetQueryData && testSetQueryData[0]['TEST_SET_UUID']){
@@ -168,10 +168,11 @@ if (input.compositeEntityAction == "Insert") {
     testCaseObj['TEST_CASE_NAME'] = input['VIEW_NAME'];
     testCaseObj['TEST_CASE_STATUS'] = 'COMMITTED';
     testCaseObj['TEST_SET_UUID'] = testSetQueryData[0]['TEST_SET_UUID'];
-    testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Manual';
+    testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Automated';
     testCaseObj['ASSOCIATED_VIEW_UUID'] = input['VIEW_UUID'];
     testCaseObj['TEST_CASE_DESCRIPTION_UUID'] = TEST_CASE_DESCRIPTION_UUID;
     testCaseObj['compositeEntityAction'] = 'Insert';
+    testCaseObj['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] = 'Yes';
     INTEGRATION_TEST_CASE.push(testCaseObj);
 
     // Adding Test Case Description

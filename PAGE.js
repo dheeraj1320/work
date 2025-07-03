@@ -333,11 +333,22 @@ if (input.compositeEntityAction == "Update") {
     testSetlist.push(obj);
   }
 
+  const viewQuery = `SELECT pv.VIEW_UUID, pv.VIEW_NAME, tc.TEST_CASE_UUID, tc.TEST_CASE_NAME FROM PAGE_VIEW pv JOIN TEST_CASE tc ON pv.VIEW_UUID = tc.ASSOCIATED_VIEW_UUID WHERE pv.PAGE_UUID = :PAGE_UUID `;
+  let viewData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", viewQuery, input);
+
+  for(const view of viewData) {
+    const testCaseObj = {};
+    testCaseObj['TEST_CASE_UUID'] = view.TEST_CASE_UUID;
+    testCaseObj['TEST_CASE_NAME'] = input['PAGE_NAME'] + ' - ' + view.VIEW_NAME;
+    testCaseObj['compositeEntityAction'] = 'Update';
+    TEST_CASE_FOR_PAGE_VIEW.push(testCaseObj);
+  }
+
   input["AppEngChildEntity:FUNCTION_STEP"] = functionStepList;
 
   // Creating PAGE_OVERRIDE_BASE_URL when the is override is changed from No to Yes
   if(input['OLD_IS_BASE_URL_OVERRIDDEN'] == 'No' && input['IS_BASE_URL_OVERRIDDEN'] == 'Yes'){
-    const appEnvQuery = `SELECT APPLICATION_ENVIRONMENT_UUID FROM APPLICATION_ENVIRONMENT WHERE FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+    const appEnvQuery = `SELECT APPLICATION_ENVIRONMENT_UUID FROM APPLICATION_ENVIRONMENT WHERE FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID order by APPLICATION_ENVIRONMENT_ID DESC`;
     const appEnvData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", appEnvQuery, input);
 
     for(envData of appEnvData){
@@ -530,7 +541,7 @@ if (input.compositeEntityAction == "Update") {
   const TEST_CASE_DESCRIPTION_UUID = uuid();
   const testCaseObj = {};
   testCaseObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
-  testCaseObj['TEST_CASE_NAME'] = 'Default View';
+  testCaseObj['TEST_CASE_NAME'] = input['PAGE_NAME'] + ' - ' + 'Default View';
   testCaseObj['TEST_CASE_STATUS'] = 'COMMITTED';
   testCaseObj['TEST_SET_UUID'] = TEST_SET_UUID;
   testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Automated';

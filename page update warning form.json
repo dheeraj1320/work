@@ -1,4 +1,3 @@
-
 [
     {
         "id": "9812247b-09d8-4761-8d80-2751840d9b8e",
@@ -105,7 +104,7 @@
     "type": "function",
     "z": "9812247b-09d8-4761-8d80-2751840d9b8e",
     "name": "Process length check",
-    "func": "let input = msg.payload.apiRequestBody.baseEntity.records[0];  const AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; msg.payload['isErrorCheck'] = false ; if(input.PAGE_ACCESS_RELATIVE_URL){ const PAGE_ACCESS_RELATIVE_URL = input.PAGE_ACCESS_RELATIVE_URL;const PAGE_UUID = input.PAGE_UUID;const PageURL =`SELECT PAGE_NAME FROM PAGE WHERE PAGE_ACCESS_RELATIVE_URL = '${PAGE_ACCESS_RELATIVE_URL}' AND PAGE_UUID NOT IN ('${PAGE_UUID}')`; let PageURLData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', PageURL, input[0]); if (PageURLData.length > 0) {    const pagename = `The Page Access Relative URL already exists in the '${PageURLData[0].PAGE_NAME}' Page.`;msg.payload.result = { mode: 'Enable Message', code: 406, errors: [] }; msg.payload.result.errors.push({ message: pagename, reason: 'Message below form field', warningMessage: '', location: '5264eded-97f5-4593-b48c-c029356440a4=>0=>PAGE_ACCESS_RELATIVE_URL' }); msg.payload['isErrorCheck'] = true }} ; node.send(msg); return;",
+    "func": "let input = msg.payload.apiRequestBody.baseEntity.records[0]; const AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; msg.payload['isErrorCheck'] = false; if (input.PAGE_ACCESS_RELATIVE_URL) { const PAGE_ACCESS_RELATIVE_URL = input.PAGE_ACCESS_RELATIVE_URL; const IS_BASE_URL_OVERRIDDEN = input.IS_BASE_URL_OVERRIDDEN; const PAGE_UUID = input.PAGE_UUID; const PageURL = `SELECT PAGE_NAME FROM PAGE WHERE PAGE_ACCESS_RELATIVE_URL = '${PAGE_ACCESS_RELATIVE_URL}' AND IS_BASE_URL_OVERRIDDEN = '${IS_BASE_URL_OVERRIDDEN}' AND PAGE_UUID NOT IN ('${PAGE_UUID}')`; let PageURLData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', PageURL, input[0]); if (PageURLData.length > 0) { const pagename = `The Page Access Relative URL already exists in the '${PageURLData[0].PAGE_NAME}' Page.`; msg.payload.result = { mode: 'Enable Message', code: 406, errors: [] }; msg.payload.result.errors.push({ message: pagename, reason: 'Message below form field', warningMessage: '', location: '5264eded-97f5-4593-b48c-c029356440a4=>0=>PAGE_ACCESS_RELATIVE_URL' }); msg.payload['isErrorCheck'] = true } } node.send(msg); return;",
     "outputs": 1,
     "noerr": 0,
     "x": 540,

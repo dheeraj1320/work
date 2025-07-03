@@ -34,8 +34,7 @@ if (
   msg.payload.entityGroupData.attachmentDetails &&
   msg.payload.entityGroupData.attachmentDetails.length == 1
 ) {
-  msg.payload.entityGroupData.logicalData.appData.data[0]['excelToJsonFormattedData'] =
-    msg.payload.excelToJsonFormattedData;
+  msg.payload.entityGroupData.logicalData.appData.data[0]['excelToJsonFormattedData'] = msg.payload.excelToJsonFormattedData;
   console.log('::::::::::::::: if :::::::::::::::::::::;');
   msg.payload['isErrorCheck'] = false;
   msg.payload['infoMessage'] = 'Data Uploaded Successfully';
@@ -44,10 +43,7 @@ if (
   if (!msg.payload.entityGroupData.attachmentDetails) {
     msg.payload['infoMessage'] = 'Please upload at least one attachment.';
     console.log(' :::::: if 22::::::::::::::: error');
-  } else if (
-    msg.payload.entityGroupData.attachmentDetails &&
-    msg.payload.entityGroupData.attachmentDetails.length > 1
-  ) {
+  } else if (msg.payload.entityGroupData.attachmentDetails && msg.payload.entityGroupData.attachmentDetails.length > 1) {
     msg.payload['infoMessage'] = 'Only one attachment is allowed. Please remove any additional files and try again.';
     console.log(' :::::: else if 33::::::::::::::: error');
   } else if (
@@ -56,9 +52,7 @@ if (
     msg.payload.entityGroupData.attachmentDetails[0].attachment &&
     msg.payload.entityGroupData.attachmentDetails[0].attachment.length &&
     msg.payload.entityGroupData.attachmentDetails[0].attachment[0].fileName &&
-    !['xlsx', 'xlsm'].includes(
-      msg.payload.entityGroupData.attachmentDetails[0].attachment[0].fileName.split('.').pop().toLowerCase()
-    )
+    !['xlsx', 'xlsm'].includes(msg.payload.entityGroupData.attachmentDetails[0].attachment[0].fileName.split('.').pop().toLowerCase())
   ) {
     msg.payload['infoMessage'] = 'Only xlsx/xlsm file types are allowed. Please upload a valid Excel file.';
   } else if (
@@ -109,8 +103,7 @@ for (const dataEntry of msg.payload.entityGroupData.logicalData.childLogicalData
 for (const logicalData of msg.payload.entityGroupData.logicalData.childLogicalData) {
   const dataIndexPass = msg.payload.entityGroupData.logicalData.childLogicalData.indexOf(logicalData);
   for (const lcData of logicalData.appData.data) {
-    const dataInnerPass =
-      msg.payload.entityGroupData.logicalData.childLogicalData[dataIndexPass].appData.data.indexOf(lcData);
+    const dataInnerPass = msg.payload.entityGroupData.logicalData.childLogicalData[dataIndexPass].appData.data.indexOf(lcData);
     let errorMap = {};
     errorMap['errorMessage'] = '';
     if (lcData.Parent_Index && parentErrorDataList.includes(lcData.Parent_Index)) {
@@ -120,9 +113,7 @@ for (const logicalData of msg.payload.entityGroupData.logicalData.childLogicalDa
       errorMap['errorMessage'] = errorMap['errorMessage'] + lcData.errorMessage;
     }
     if (!lcData.errorMessage && errorMap['errorMessage']) {
-      msg.payload.entityGroupData.logicalData.childLogicalData[dataIndexPass].appData.data[dataInnerPass][
-        'errorMessage'
-      ] = errorMap['errorMessage'];
+      msg.payload.entityGroupData.logicalData.childLogicalData[dataIndexPass].appData.data[dataInnerPass]['errorMessage'] = errorMap['errorMessage'];
     }
     errorMap['rowIndex'] = lcData.Row_Index;
     errordataList.push(errorMap);
@@ -132,11 +123,7 @@ errordataList.forEach((error) => {
   if (error.rowIndex) {
     const index = error.rowIndex - 1;
     if (msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]) {
-      if (
-        msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Comments'] &&
-        msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Status'] &&
-        error.errorMessage
-      ) {
+      if (msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Comments'] && msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Status'] && error.errorMessage) {
         msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Status'] = 'Skipped';
         msg.payload.excelToJsonFormattedData['Page UI Element Upload'][index]['Comments'] += `; ${error.errorMessage}`;
       } else if (error.errorMessage) {
@@ -154,9 +141,7 @@ errordataList.forEach((error) => {
 });
 msg.payload.documentData = {};
 let objectData = {};
-objectData['Page UI Element Upload'] = generateExcelData(
-  msg.payload.excelToJsonFormattedData['Page UI Element Upload']
-);
+objectData['Page UI Element Upload'] = generateExcelData(msg.payload.excelToJsonFormattedData['Page UI Element Upload']);
 Object.assign(msg.payload.documentData, objectData);
 msg.payload.result = {};
 if (msg.payload.message == 'Validation Failed') {

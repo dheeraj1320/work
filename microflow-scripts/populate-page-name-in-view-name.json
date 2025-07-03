@@ -1,0 +1,58 @@
+[
+  {
+    "id": "cc4a7ada-a99a-4315-af34-920b721842f6",
+    "type": "tab",
+    "label": "Preprocessor Execution",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "80da4d06.d55a2",
+    "type": "inject",
+    "z": "cc4a7ada-a99a-4315-af34-920b721842f6",
+    "name": "Input",
+    "topic": "Input",
+    "payload": "{}",
+    "payloadType": "json",
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "x": 90,
+    "y": 120,
+    "wires": [["07304729.12345"]]
+  },
+  {
+    "id": "07304729.12345",
+    "type": "function",
+    "z": "cc4a7ada-a99a-4315-af34-920b721842f6",
+    "name": "Prepare Data For Attachment",
+    "func": "try { msg.payload.result = {}; let documentName = 'PageRecordedDownloadTemplate'; msg.payload.result.documentName = documentName; msg.payload.result.message = 'Document Downloaded'; msg.payload.templateFile = 'Page_UI_Element_Download_Recorded_Template.xlsm'; node.send(msg); } catch (t) { console.log('Errorr Occured', t.message); return; }",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 300,
+    "y": 120,
+    "wires": [["d0bc38b2.f067c"]]
+  },
+  {
+    "id": "a169b948.7886b",
+    "type": "catch",
+    "z": "cc4a7ada-a99a-4315-af34-920b721842f6",
+    "name": "Catch Exceptions",
+    "scope": null,
+    "uncaught": false,
+    "x": 520,
+    "y": 220,
+    "wires": [["d0bc38b2.f067c"]]
+  },
+  {
+    "id": "d0bc38b2.f067c",
+    "type": "finish",
+    "z": "cc4a7ada-a99a-4315-af34-920b721842f6",
+    "name": "finish",
+    "targetType": "msg",
+    "x": 760,
+    "y": 120,
+    "wires": []
+  }
+]

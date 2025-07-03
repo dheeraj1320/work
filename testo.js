@@ -69,13 +69,6 @@ switch (sourceType) {
         }
         testSetIds = testSetID_Feature;
         break;
-    case 'USER_STORY_TEST_SET' :
-        input[0]['RUN_AUTOMATION_SOURCE_UUID'] = input[0]['TEST_SET_UUID'];
-        const testCaseQuery = `SELECT TEST_CASE_UUID FROM TEST_CASE WHERE TEST_CASE_EXECUTON_TYPE='Automated' AND USER_STORY_UUID LIKE '%${input[0].TEST_SET_USER_STORY_UUID}%'`;
-        let tcQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input[0]);
-        const usTestCaseUUIDs = "'" + tcQueryData.map(data => data.TEST_CASE_UUID).join("','") + "'";
-        runQuery = `SELECT * FROM TEST_CASE_STEP WHERE TEST_CASE_UUID IN (${usTestCaseUUIDs}); `;
-        break;
     default:
         throw new Error(`Unsupported SOURCE_TYPE: ${sourceType}`);
 }

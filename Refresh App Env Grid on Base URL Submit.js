@@ -5,8 +5,7 @@ try {
   const action = msg.payload.apiRequestBody.action;
   const OLD_DEFAULT_APPENV_BASE_URL_UUID = msg.payload.entityGroupData?.logicalData?.appData?.data?.[0]?.OLD_DEFAULT_APPENV_BASE_URL_UUID;
   if (message) {
-    let mode = { mode: action == 'Save' || 'Update' ? 'Insert' : action, message: message };
-    msg.payload['result'] = mode;
+    msg.payload.result.message = message;
   }
   if (input.IS_DEFAULT_BASE_URL == 'Yes') {
     let dataGridCard = '0_9b5804b0-1850-41b5-8046-4a9e313fd5f3';

@@ -17,6 +17,11 @@ input[0]['IS_CHANGED_TO_FIRST_STEP'] = "";
 let predDefValue1;
 let predDefValue;
 
+// Making add form editable for everyone
+if(!input[0].TEST_CASE_STEP_UUID){
+    input[0].TEST_CASE_STATUS = 'COMMITTED';
+}
+
 function getDataFromAttributeValue(attributeValueQueryData, stepDefArrributeId) {
     let result = attributeValueQueryData.filter((item) => item['STEP_DEFINITION_ATTRIBUTE_UUID'] == stepDefArrributeId);
     if (result && result.length) {

@@ -12,6 +12,7 @@ let actionFlowAssociationList = [];
 let actionFlowAPIList = [];
 let onlineScreenPageNavigationList = [];
 let testSuiteTestCaseList = [];
+const INTEGRATION_TEST_CASE = [];
 
 function removeNodeByPrimaryKey(data, primaryKey) {
     if (data && data.length) {
@@ -89,6 +90,20 @@ if (input.compositeEntityAction == 'Delete') {
                 }
                 object['TAGS_UUID'] = testSet['TAGS_UUID']
                 object['IS_ORPHAN_TEST_SET'] = "Yes";
+
+                const testCaseQuery = `SELECT TEST_CASE_UUID, USER_STORY_UUID FROM TEST_CASE WHERE TEST_SET_UUID= '${testSet['TEST_SET_UUID']}' AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                const testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input);
+
+                for (let testCase of testCaseQueryData) {
+                    if(testCase['USER_STORY_UUID'] && testCase['USER_STORY_UUID'].trim() !== '') {
+                        let testCaseObject = {};
+                        testCaseObject['TEST_CASE_UUID'] = testCase['TEST_CASE_UUID'];
+                        testCaseObject['USER_STORY_UUID'] = '';
+                        testCaseObject["compositeEntityAction"] = "Update";
+                        INTEGRATION_TEST_CASE.push(testCaseObject);
+                    }
+                }
+
             }
             await unlinkTestSetFromTestSuite();
             testSetList.push(object);
@@ -258,3 +273,6 @@ if (input.compositeEntityAction == 'Delete') {
         }
     }
 }
+
+
+input['AppEngChildEntity:INTEGRATION_TEST_CASE'] = INTEGRATION_TEST_CASE;

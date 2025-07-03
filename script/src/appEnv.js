@@ -27,10 +27,19 @@ const getOrInitializeSequence = async (mainKnex, tableName) => {
   }
 };
 
-export const dataFixForAppEnv = async (req, res, knex, auditknexobj) => {
+export const dataFixForAppEnv = async (req, res, knex, auditknexobj, schemaName) => {
   try {
-    const mainKnex = getMssqlKnex(knex, 'infoqa');
-    const auditKnex = getMssqlKnex(auditknexobj, 'infoqa');
+    if (!knex || !auditknexobj ) {
+      console.log(' some inputs are missing');
+      return res.status(400).json({ message: 'some inputs are missing' });
+    }
+    // UNCOMMENT THIS FOR MSSQL
+    // const mainKnex = getMssqlKnex(knex, schemaName);
+    // const auditKnex = getMssqlKnex(auditknexobj, schemaName);
+
+    // UNCOMMENT THIS FOR MYSQL
+    const mainKnex = knex;
+    const auditKnex = auditknexobj;
 
     const appEnvs = await mainKnex('APPLICATION_ENVIRONMENT').select('*').orderBy('APPLICATION_ENVIRONMENT_ID', 'desc');
 
@@ -118,7 +127,7 @@ export const dataFixForAppEnv = async (req, res, knex, auditknexobj) => {
     }
 
     console.log('Script ran successfully! ✅✅✅');
-    res.status(200).json({ message: 'Sequence table updated successfully' });
+    res.status(200).json({ message: 'Script ran successfully! ✅✅✅' });
   } catch (e) {
     console.error('Error updating sequence table:', e);
     res.status(500).json({

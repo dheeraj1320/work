@@ -303,3 +303,32 @@ FROM
   STEP_DEFINITION_TEMPLATE_VERBIAGE 
 where 
   STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID =:STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID
+
+
+
+else if (
+  input.APPLICATION_ENVIRONMENT_BASE_URL &&
+  input.TEST_SET_UUID &&
+  input.FUNCTIONAL_AREA_UUID &&
+  ((input.GRID_NAME === 'Feature Test Set' && input.TEST_SET_NAME) ||
+    input.PARENT_GRID === 'Feature Test Set' ||
+    (input.GRID_NAME === 'User Story Test Set' && input.TEST_SET_NAME) ||
+    input.PARENT_GRID === 'User Story Test Set')
+) {
+  msg.payload.result = {};
+  let maxLength = 200;
+  let documentName;
+
+  if (input.PARENT_GRID === 'Feature Test Set' || input.PARENT_GRID === 'User Story Test Set') {
+    if (input.TEST_SET_NAME) {
+      documentName = `${input.TEST_SET_NAME} ${input.TEST_CASE_NAME}`;
+    } else {
+      documentName = input.TEST_CASE_NAME;
+    }
+  } else {
+    if (input.TEST_SET_NAME) {
+      documentName = input.TEST_SET_NAME.replace(/[^A-Z0-9-]+/gi, '_');
+    } else {
+      documentName = 'GeneratedTestCase';
+    }
+  }

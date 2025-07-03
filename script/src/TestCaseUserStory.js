@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 const MY_ID = '622e9c89-cb3a-4012-9e95-67095f3bb694';
 import chalk from 'chalk';
 
-function createAuditObject(newObject, operationType = 'Insert', oldObject = null) {
+function createAuditObject(newObject, operationType = 'Insert', oldObject = null, operationPerformedBy = MY_ID) {
   const auditObj = { ...newObject };
 
   let auditDetails = {};
@@ -37,7 +37,7 @@ function createAuditObject(newObject, operationType = 'Insert', oldObject = null
   auditObj.AE_AUDIT_UUID = uuidv4();
   auditObj.AE_OPERATION_TYPE = operationType;
   auditObj.AE_TIMESTAMP = new Date();
-  auditObj.OPERATION_PERFORMED_BY = MY_ID;
+  auditObj.OPERATION_PERFORMED_BY = operationPerformedBy;
 
   return auditObj;
 }
@@ -45,6 +45,8 @@ function createAuditObject(newObject, operationType = 'Insert', oldObject = null
 const getMssqlKnex = (knex, schemaName) => {
   return tableName => knex(tableName).withSchema(schemaName);
 };
+
+const setToCSV = set => Array.from(set).join(',');
 
 const updateSequence = async (mainKnex, tableName, newId) => {
   await mainKnex('SEQUENCE').where({ TABLE_NAME: tableName }).update({ MAX_TABLE_SEQ_ID: newId });
@@ -71,7 +73,7 @@ const getOrInitializeSequence = async (mainKnex, tableName) => {
 export const dataFixForTestCaseAndUserStory = async (req, res, knex, auditknexobj, schemaName) => {
   try {
     // schemaName is also required for mssql
-    if (!knex || !auditknexobj) {
+    if (!knex || !auditknexobj, !schemaName) {
       console.log(' some inputs are missing');
       return res.status(400).json({ message: 'some inputs are missing' });
     }
@@ -84,8 +86,10 @@ export const dataFixForTestCaseAndUserStory = async (req, res, knex, auditknexob
     const auditKnex = auditknexobj;
 
     // ^ Creating Test Set for each User Story
-    const testSetSeq = await getOrInitializeSequence(mainKnex, 'TEST_SET');
+    let testSetSeq = await getOrInitializeSequence(mainKnex, 'TEST_SET');
     const userStories = await mainKnex('USER_STORY').select('*').orderBy('USER_STORY_ID', 'asc');
+
+    console.log(chalk.bgCyan(`Creating Test Set for ${userStories.length} User Stories...`));
 
     for (const userStory of userStories) {
       const existingTestSet = await mainKnex('TEST_SET').where({ USER_STORY_UUID: userStory['USER_STORY_UUID'] });
@@ -94,6 +98,7 @@ export const dataFixForTestCaseAndUserStory = async (req, res, knex, auditknexob
         console.log(chalk.yellowBright('SKIPPING - Test Set already exists for User Story: ', userStory['USER_STORY_NAME']));
         continue;
       }
+      console.log('Creating Test Set for User Story: ', userStory['USER_STORY_NAME']);
 
       const testSet = {
         TEST_SET_UUID: uuidv4(),
@@ -101,7 +106,7 @@ export const dataFixForTestCaseAndUserStory = async (req, res, knex, auditknexob
         TEST_SET_NAME: userStory['USER_STORY_NAME'],
         TEST_SET_TYPE: 'User Story',
         USER_STORY_UUID: userStory['USER_STORY_UUID'],
-        AE_INSERT_ID: MY_ID,
+        AE_INSERT_ID: userStory['AE_INSERT_ID'],
         AE_INSERT_TS: new Date(),
         AE_TRANSACTION_ID: uuidv4(),
         FUNCTIONAL_AREA_UUID: userStory['FUNCTIONAL_AREA_UUID']
@@ -109,23 +114,26 @@ export const dataFixForTestCaseAndUserStory = async (req, res, knex, auditknexob
 
       await mainKnex('TEST_SET').insert(testSet);
 
-      const testSetAudit = createAuditObject(testSet, 'Insert', null);
+      const testSetAudit = createAuditObject(testSet, 'Insert', null, userStory['AE_INSERT_ID']);
       await auditKnex('TEST_SET_AUDIT').insert(testSetAudit);
     }
 
     await updateSequence(mainKnex, 'TEST_SET', testSetSeq);
-    console.log(chalk.greenBright('Test Set created for each User Story: ✅'));
+    console.log(chalk.bgGreenBright('Test Set created for each User Story: ✅'));
 
     // ^ Updating Test Cases with USER_STORY_UUID
-    const testCases = await mainKnex('TEST_CASE').select('*').orderBy('TEST_CASE_ID', 'desc');
+    const testCases = await mainKnex('TEST_CASE').select('*').orderBy('TEST_CASE_ID', 'asc');
+
+    console.log(chalk.bgCyan(`Updating ${testCases.length} Test Cases with USER_STORY_UUID...`));
 
     for (const tcase of testCases) {
       const testCaseRequirements = await mainKnex('TEST_CASE_REQUIREMENT').select('*').where({ TEST_CASE_UUID: tcase['TEST_CASE_UUID'] });
 
       if (testCaseRequirements.length === 0) {
+        console.log(chalk.yellowBright('SKIPPING - No requirements found for Test Case Number: ', tcase['TEST_CASE_ID']));
         continue;
       }
-      console.log(chalk.yellowBright('UPDATING TEST CASE... ', tcase['TEST_CASE_NAME']));
+      console.log(chalk.yellowBright('VIEWING TEST CASE NUMBER... ', tcase['TEST_CASE_ID']));
 
       let hasSetChanged = false;
       const existingUSUUIDs = new Set(
@@ -135,54 +143,44 @@ export const dataFixForTestCaseAndUserStory = async (req, res, knex, auditknexob
           .filter(Boolean)
       );
 
-      console.log(chalk.cyanBright('Existing US UUIDs: ', existingUSUUIDs));
 
       for (const tcReq of testCaseRequirements) {
-        const userStory = await mainKnex('USER_STORY').select('*').where({ USER_STORY_UUID: tcReq['USER_STORY_UUID'] });
-        if (userStory.length > 0) {
-          if (['Draft', 'In-Progress'].includes(userStory[0]['USER_STORY_STATUS']) && !existingUSUUIDs.has(userStory[0]['USER_STORY_UUID'])) {
-            existingUSUUIDs.add(userStory[0]['USER_STORY_UUID']);
+        const userStories = await mainKnex('IMPACTED_USER_STORY as ius')
+          .join('USER_STORY as us', 'ius.USER_STORY_UUID', 'us.USER_STORY_UUID')
+          .select(
+            'ius.*', // all columns from IMPACTED_USER_STORY
+            'us.USER_STORY_STATUS' // additional field from USER_STORY
+          )
+          .where({ 'ius.REQUIREMENT_UUID': tcReq['REQUIREMENT_UUID'] });
+
+        for (const userStory of userStories) {
+          if (['Draft', 'In-Progress'].includes(userStory['USER_STORY_STATUS']) && !existingUSUUIDs.has(userStory['USER_STORY_UUID'])) {
+            existingUSUUIDs.add(userStory['USER_STORY_UUID']);
             hasSetChanged = true;
           }
         }
       }
 
-      console.log(chalk.cyanBright('Final US UUIDs: ', existingUSUUIDs));
+      console.log(chalk.cyanBright('Final US UUIDs: ', setToCSV(existingUSUUIDs)));
 
       if (hasSetChanged) {
-        const testCaseObj = {
-          TEST_CASE_UUID: tcase['TEST_CASE_UUID'],
-          TEST_CASE_ID: tcase['TEST_CASE_ID'],
-          TEST_CASE_NAME: tcase['TEST_CASE_NAME'],
-          AE_INSERT_ID: tcase['AE_INSERT_ID'],
-          AE_UPDATE_ID: MY_ID,
-          AE_INSERT_TS: tcase['AE_INSERT_TS'],
-          AE_UPDATE_TS: new Date(),
-          AE_TRANSACTION_ID: tcase['AE_TRANSACTION_ID'],
-          FUNCTIONAL_AREA_UUID: tcase['FUNCTIONAL_AREA_UUID'],
-          PRE_EXISTING_DATA_JSON: tcase['PRE_EXISTING_DATA_JSON'],
-          USER_INPUT_JSON: tcase['USER_INPUT_JSON'],
-          EXPECTED_RESULT_JSON: tcase['EXPECTED_RESULT_JSON'],
-          TEST_SET_UUID: tcase['TEST_SET_UUID'],
-          TEST_CASE_SEQ_ID: tcase['TEST_CASE_SEQ_ID'],
-          TEST_CASE_STATUS: tcase['TEST_CASE_STATUS'],
-          TEST_CASE_EXECUTON_TYPE: tcase['TEST_CASE_EXECUTON_TYPE'],
-          TEST_CASE_DESCRIPTION_UUID: tcase['TEST_CASE_DESCRIPTION_UUID'],
-          USER_STORY_VERSION_UUID: tcase['USER_STORY_VERSION_UUID'],
-          DEVELOPMENT_ACCEPTED_TS: tcase['DEVELOPMENT_ACCEPTED_TS'],
-          TEST_CASE_OWNER: tcase['TEST_CASE_OWNER'],
-          ASSOCIATED_VIEW_UUID: tcase['ASSOCIATED_VIEW_UUID'],
-          USER_STORY_UUID: Array.from(existingUSUUIDs).join(','),
-          SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE: tcase['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE']
+        const updatedFields = {
+          USER_STORY_UUID: setToCSV(existingUSUUIDs),
+          AE_UPDATE_TS: new Date()
         };
 
-        await mainKnex('TEST_CASE').where({ TEST_CASE_UUID: tcase['TEST_CASE_UUID'] }).update({USER_STORY_UUID: Array.from(existingUSUUIDs).join(',')});
+        await mainKnex('TEST_CASE').where({ TEST_CASE_UUID: tcase['TEST_CASE_UUID'] }).update(updatedFields);
         console.log(chalk.greenBright('Test Case updated: ', tcase['TEST_CASE_NAME']));
 
-        const testCaseAudit = createAuditObject(testCaseObj, 'Update', tcase);
+        const { PRE_EXISTING_DATA_JSON, USER_INPUT_JSON, EXPECTED_RESULT_JSON, ...tcaseSanitized } = tcase;
+
+        const testCaseAudit = createAuditObject({ ...tcaseSanitized, ...updatedFields }, 'Update', tcaseSanitized, tcase['AE_INSERT_ID']);
         await auditKnex('TEST_CASE_AUDIT').insert(testCaseAudit);
       }
     }
+
+    console.log(chalk.bgMagentaBright('Script ran successfully! ✅✅✅'));
+    res.status(200).json({ message: 'Script ran successfully! ✅✅✅' });
   } catch (e) {
     console.log(chalk.redBright('Error in dataFixForTestCaseAndUserStory: ', e));
     return res.status(500).json({ message: 'ERROR OCCURED IN SCRIPT ' + e });

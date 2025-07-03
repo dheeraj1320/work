@@ -91,7 +91,7 @@ if (input.compositeEntityAction == 'Upload') {
                     const TEST_CASE_UUID = uuid();
                     const testCaseObj = {};
                     testCaseObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
-                    testCaseObj['TEST_CASE_NAME'] = 'Default View';
+                    testCaseObj['TEST_CASE_NAME'] = pageName + ' - Default View';
                     testCaseObj['TEST_CASE_STATUS'] = 'COMMITTED';
                     testCaseObj['TEST_SET_UUID'] = TEST_SET_UUID;
                     testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Automated';

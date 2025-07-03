@@ -155,8 +155,8 @@ if (input.compositeEntityAction == "Insert") {
   input["IS_DEFAULT_VIEW"] = 'No';
   console.log("input :::::;:::::::::::::", input);
 
-  // Fetching TEST_SET_UUID
-  const testSetQuery = `SELECT TEST_SET_UUID FROM TEST_SET WHERE PAGE_UUID = :PAGE_UUID AND FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID AND TEST_SET_TYPE='Page Navigation'`;
+  // Fetching TEST_SET_UUID & TEST_SET_NAME
+  const testSetQuery = `SELECT TEST_SET_UUID, TEST_SET_NAME FROM TEST_SET WHERE PAGE_UUID = :PAGE_UUID AND FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID AND TEST_SET_TYPE='Page Navigation'`;
   const testSetQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM",testSetQuery, input );
 
   if(testSetQueryData && testSetQueryData[0]['TEST_SET_UUID']){
@@ -165,7 +165,7 @@ if (input.compositeEntityAction == "Insert") {
     const TEST_CASE_DESCRIPTION_UUID = uuid();
     const testCaseObj = {};
     testCaseObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
-    testCaseObj['TEST_CASE_NAME'] = input['VIEW_NAME'];
+    testCaseObj['TEST_CASE_NAME'] = testSetQueryData[0]['TEST_SET_NAME'] + ' - ' + input['VIEW_NAME'];
     testCaseObj['TEST_CASE_STATUS'] = 'COMMITTED';
     testCaseObj['TEST_SET_UUID'] = testSetQueryData[0]['TEST_SET_UUID'];
     testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Automated';
@@ -218,10 +218,13 @@ else if (input.compositeEntityAction == "Update") {
     const testCaseQuery = `SELECT * FROM TEST_CASE where ASSOCIATED_VIEW_UUID=:VIEW_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
     const testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", testCaseQuery, input);
 
+    const pageQuery = `SELECT PAGE_NAME FROM PAGE where PAGE_UUID=:PAGE_UUID`;
+    const pageQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM", pageQuery, input);
+
     if(testCaseQueryData && testCaseQueryData.length){
         const testCaseObj = {};
         testCaseObj['TEST_CASE_UUID'] = testCaseQueryData[0]['TEST_CASE_UUID'];
-        testCaseObj['TEST_CASE_NAME'] = input['VIEW_NAME'];
+        testCaseObj['TEST_CASE_NAME'] = pageQueryData[0].PAGE_NAME + ' - ' + input['VIEW_NAME'];
         testCaseObj['compositeEntityAction'] = 'Update';
         INTEGRATION_TEST_CASE.push(testCaseObj);
     }

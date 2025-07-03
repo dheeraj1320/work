@@ -23,6 +23,8 @@ if (input.compositeEntityAction == 'Save' || input.compositeEntityAction == 'Upd
       appEnvBaseUrlObj['APPLICATION_ENVIRONMENT_BASE_URL_UUID'] = envData.APPLICATION_ENVIRONMENT_BASE_URL_UUID;
       appEnvBaseUrlObj['IS_DEFAULT_BASE_URL'] = 'No';
       APPLICATION_ENVIRONMENT_BASE_URL_CHILD.push(appEnvBaseUrlObj);
+
+      input['OLD_DEFAULT_APPENV_BASE_URL_UUID'] = envData.APPLICATION_ENVIRONMENT_BASE_URL_UUID;
     }
 
     const appEnvObj = {};
@@ -35,6 +37,7 @@ if (input.compositeEntityAction == 'Save' || input.compositeEntityAction == 'Upd
   const baseUrlData = await getBaseUrlRecordsForEnv();
 
   if (baseUrlData.length == 1 && input.compositeEntityAction == 'Save') {
+    input['message'] = 'The Overriden URL has been added to the pages with Overridden Base URL';
     const overrideRecordData = await getOverrideRecordsForEnv();
 
     const urlToSet = input.IS_DEFAULT_BASE_URL == 'Yes' ? baseUrlData[0].APPLICATION_ENVIRONMENT_BASE_URL_UUID : input.APPLICATION_ENVIRONMENT_BASE_URL_UUID;
@@ -47,6 +50,7 @@ if (input.compositeEntityAction == 'Save' || input.compositeEntityAction == 'Upd
       PAGE_OVERRIDE_BASE_URL.push(pageOverrideObj);
     }
   } else if (baseUrlData.length == 2 && input.compositeEntityAction == 'Update' && input.OLD_IS_DEFAULT_BASE_URL != input.IS_DEFAULT_BASE_URL) {
+    input['message'] = 'The pages using this URL have been updated with the non default Overridden URL';
     const overrideRecordData = await getOverrideRecordsForEnv();
 
     let urlToSet = input.APPLICATION_ENVIRONMENT_BASE_URL_UUID;
@@ -63,6 +67,7 @@ if (input.compositeEntityAction == 'Save' || input.compositeEntityAction == 'Upd
       PAGE_OVERRIDE_BASE_URL.push(pageOverrideObj);
     }
   } else if (baseUrlData.length > 2 && input.compositeEntityAction == 'Update' && input.IS_DEFAULT_BASE_URL == 'Yes') {
+    input['message'] = 'This URL has been removed as overriden URL, Please select overriden URL manually for pages with overriden page URL';
     const overrideRecordForUrl = `SELECT PAGE_OVERRIDE_BASE_URL_UUID FROM PAGE_OVERRIDE_BASE_URL WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID and APPLICATION_ENVIRONMENT_BASE_URL_UUID = :APPLICATION_ENVIRONMENT_BASE_URL_UUID`;
     const overrideRecordForUrlData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', overrideRecordForUrl, input);
 
@@ -77,7 +82,7 @@ if (input.compositeEntityAction == 'Save' || input.compositeEntityAction == 'Upd
 } else if (input.compositeEntityAction == 'Delete') {
   // Removing or updating PAGE_OVERRIDE_BASE_URL references based on available URLs after deletion
 
-  const pageOverrideQuery = `SELECT PAGE_OVERRIDE_BASE_URL_UUID FROM PAGE_OVERRIDE_BASE_URL WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID and APPLICATION_ENVIRONMENT_BASE_URL_UUID = :APPLICATION_ENVIRONMENT_BASE_URL_UUID`;
+  const pageOverrideQuery = `SELECT PAGE_OVERRIDE_BASE_URL_UUID FROM PAGE_OVERRIDE_BASE_URL WHERE FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID and APPLICATION_ENVIRONMENT_UUID = :APPLICATION_ENVIRONMENT_UUID`;
   const pageOverrideQueryResult = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', pageOverrideQuery, input);
 
   const baseUrlData = await getBaseUrlRecordsForEnv();
@@ -85,7 +90,11 @@ if (input.compositeEntityAction == 'Save' || input.compositeEntityAction == 'Upd
   const otherUrlWithNo = baseUrlData.find(
     (urlData) => urlData.IS_DEFAULT_BASE_URL != 'Yes' && urlData.APPLICATION_ENVIRONMENT_BASE_URL_UUID != input.APPLICATION_ENVIRONMENT_BASE_URL_UUID
   )?.APPLICATION_ENVIRONMENT_BASE_URL_UUID;
-  const urlToSet = baseUrlData.length == 3 ? otherUrlWithNo || '' : '';
+  let urlToSet = '';
+  if (baseUrlData.length == 3) {
+    urlToSet = otherUrlWithNo || '';
+    input['message'] = 'The pages with Overridden Base URL have been updated with the non default Overridden URL';
+  }
 
   for (const data of pageOverrideQueryResult) {
     const pageOverrideObj = {};

@@ -103,19 +103,6 @@
     },
     {
         "id": "d07304729123.12345",
-        "type": "insertAutomationZipData",
-        "z": "146192c5-acfb-4562-8138-9803ecfbfd70",
-        "name": "",
-        "x": 340,
-        "y": 60,
-        "wires": [
-            [
-                "5d38e157.b4r7e"
-            ]
-        ]
-    },
-    {
-        "id": "5d38e157.b4r7e",
         "type": "switch",
         "z": "146192c5-acfb-4562-8138-9803ecfbfd70",
         "name": "Is ErrorCheck",
@@ -139,10 +126,24 @@
                 "07304729123.12345"
             ],
             [
+                "d07304729123.78954"
+            ]
+        ]
+    },
+    {
+        "id": "d07304729123.78954",
+        "type": "insertAutomationZipData",
+        "z": "146192c5-acfb-4562-8138-9803ecfbfd70",
+        "name": "",
+        "x": 340,
+        "y": 60,
+        "wires": [
+            [
                 "dd6550d4.e2bce"
             ]
         ]
     },
+   
     {
         "id": "dd6550d4.e2bce",
         "type": "validateData",

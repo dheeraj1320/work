@@ -4,9 +4,40 @@ const INTEGRATION_TEST_CASE = [];
 const INTEGRATION_TEST_CASE_REQUIREMENT_CHILD = [];
 
 const getUserStoryForRequirement = async () => {
-  const userStoryQuery = `SELECT ius.USER_STORY_UUID, us.USER_STORY_NAME, us.USER_STORY_STATUS  FROM IMPACTED_USER_STORY ius JOIN USER_STORY us ON ius.USER_STORY_UUID = us.USER_STORY_UUID where ius.REQUIREMENT_UUID = :REQUIREMENT_UUID;`;
+  const userStoryQuery = `SELECT ius.IMPACTED_USER_STORY_UUID, ius.USER_STORY_UUID, us.USER_STORY_NAME, us.USER_STORY_STATUS  FROM IMPACTED_USER_STORY ius JOIN USER_STORY us ON ius.USER_STORY_UUID = us.USER_STORY_UUID where ius.REQUIREMENT_UUID = :REQUIREMENT_UUID;`;
   return await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', userStoryQuery, input);
 };
+
+const checkIfOtherLinkingExists = async (testCaseUUID, userStoryUUID, testCaseRequirementUUID) => {
+
+  const otherRequirementsForThisTestCase = `SELECT TEST_CASE_UUID, REQUIREMENT_UUID FROM TEST_CASE_REQUIREMENT WHERE TEST_CASE_UUID = '${testCaseUUID}' and TEST_CASE_REQUIREMENT_UUID != '${testCaseRequirementUUID}'`;
+  const otherRequirementsForThisTestCaseData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', otherRequirementsForThisTestCase, input);
+
+  for(const otherReq of otherRequirementsForThisTestCaseData) {
+    const iusQuery = `SELECT USER_STORY_UUID FROM IMPACTED_USER_STORY WHERE REQUIREMENT_UUID = '${otherReq['REQUIREMENT_UUID']}' AND USER_STORY_UUID = '${userStoryUUID}'`;
+    const iusData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', iusQuery, input);
+    if (iusData && iusData.length > 0) {
+      return true; // Found another linking
+    }
+  }
+  return false; // No other linking found
+};
+
+// const checkIfOtherLinkingExists = async (testCaseUUID, userStoryUUID, impactedUserStoryUUID) => {
+//   // Checking if this user story is related to the test case via any other requirement
+//   const iusQuery = `SELECT REQUIREMENT_UUID, USER_STORY_UUID FROM IMPACTED_USER_STORY where USER_STORY_UUID = '${userStoryUUID}' AND IMPACTED_USER_STORY_UUID != '${impactedUserStoryUUID}'`;
+//   const iusData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', iusQuery, input);
+
+//   for (const ius of iusData) {
+//     const testCaseReqForThisReq = `SELECT TEST_CASE_UUID, REQUIREMENT_UUID FROM TEST_CASE_REQUIREMENT WHERE REQUIREMENT_UUID = '${ius['REQUIREMENT_UUID']}' and TEST_CASE_UUID = '${testCaseUUID}'`;
+//     const testCaseReqData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseReqForThisReq, input);
+//     if (testCaseReqData && testCaseReqData.length > 0) {
+//       return true; // Found another linking
+//     }
+//   }
+
+//   return false; // No other linking found
+// };
 
 if (input['compositeEntityAction'] === 'Link') {
   const userStoryData = await getUserStoryForRequirement();
@@ -59,9 +90,12 @@ if (input['compositeEntityAction'] === 'Link') {
 
   for (const data of userStoryData) {
     if (existingUUIDs.has(data.USER_STORY_UUID)) {
-      console.log('Removing user story from test case :', data.USER_STORY_NAME);
-      existingUUIDs.delete(data.USER_STORY_UUID);
-      changed = true;
+      const foundOtherLinking = await checkIfOtherLinkingExists(input['TEST_CASE_UUID'], data.USER_STORY_UUID, input['TEST_CASE_REQUIREMENT_UUID']);
+
+      if (!foundOtherLinking) {
+        existingUUIDs.delete(data.USER_STORY_UUID);
+        changed = true;
+      }
     }
   }
 

@@ -8,6 +8,10 @@ const getPlaceholderPosition = (template, targetPlaceholder) => {
   }
   return 0;
 };
+function decideScopePrefix(uiElementValueData) {
+  let str = uiElementValueData['SCOPE_VARIABLE_TYPE'] == 'Test Case' ? '@TCV:' : uiElementValueData['SCOPE_VARIABLE_TYPE'] == 'Test Set' ? '@TSV:' : '';
+  return str;
+}
 const getTemplateData = (exceldata, rawData) => {
   const ignoredKeys = ['Step Definition Template', 'Test Case Step ID', 'Test Case Step Name', 'Test Case ID'];
   const groupedData = {};
@@ -378,7 +382,7 @@ async function fetchChildAttributeFromAttributeTable(queryListMap) {
   return object;
 }
 async function fetchTestData(primaryKeyIds) {
-  let testDataQuery = `SELECT * FROM TEST_DATA WHERE TEST_CASE_UUID in(${primaryKeyIds}) AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID order by TEST_DATA_ID asc`;
+  let testDataQuery = `SELECT * FROM TEST_DATA WHERE TEST_CASE_UUID in(${primaryKeyIds ? primaryKeyIds : `''`}) AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID order by TEST_DATA_ID asc`;
   let testDataQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testDataQuery, input);
   return testDataQueryData && testDataQueryData.length ? testDataQueryData : [];
 }
@@ -428,6 +432,14 @@ function testCaseUIElementGroupStepQueryObject(primaryIds) {
   object['PRIMARY_COLUMN_NAME'] = 'TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID';
   object['CHILD_ATTRIBUTE_TABLE_NAME'] = 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE';
   object['CHILD_ATTRIBUTE_DATA'] = 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA';
+  return object;
+}
+function uIElementGroupStepQueryObject(primaryIds) {
+  let object = {};
+  object['primaryKeys'] = primaryIds;
+  object['PRIMARY_COLUMN_NAME'] = 'UI_ELEMENT_GROUP_STEP_UUID';
+  object['CHILD_ATTRIBUTE_TABLE_NAME'] = 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE';
+  object['CHILD_ATTRIBUTE_DATA'] = 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA';
   return object;
 }
 function functionStepNormalQueryObject(primaryIds) {
@@ -679,30 +691,198 @@ function extractInitialUIElementValuePosition(data) {
 function extractActualUIElementvalue(data) {
   let positionindex = extractInitialUIElementValuePosition(data);
   if (positionindex == 0) {
-    console.log(positionindex, '----------------------', 0);
     return '';
   } else {
-    console.log(positionindex, '----------------------', data[positionindex]);
     return data[positionindex];
   }
 }
 async function getAttributeValueDetails(attributeId, type) {
-  let query = `SELECT '' AS ID, '' AS NAME,'Test Case' as SOURCE_TYPE,'' AS STEP_DEFINITION_ATTRIBUTE_UUID`;
-  if (
-    [
-      'TEST_CASE_STEP_ATTRIBUTE_DATA',
-      'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA',
-      'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-      'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-      'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'
-    ].includes(type)
-  ) {
-    query = `SELECT TEST_CASE_STEP_ATTRIBUTE_VALUE_UUID AS ID, TEST_CASE_STEP_ATTRIBUTE_DATA AS NAME,'Test Case' as SOURCE_TYPE,STEP_DEFINITION_ATTRIBUTE_UUID FROM TEST_CASE_STEP_ATTRIBUTE_VALUE WHERE TEST_CASE_STEP_ATTRIBUTE_VALUE_UUID='${attributeId}' UNION SELECT TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE_UUID AS ID, TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA AS NAME,'Function' as SOURCE_TYPE,STEP_DEFINITION_ATTRIBUTE_UUID FROM TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE WHERE TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE_UUID='${attributeId}'`;
-  } else if (['FUNCTION_STEP_ATTRIBUTE_DATA', 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA', 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'].includes(type)) {
-    query = `SELECT FUNCTION_STEP_ATTRIBUTE_VALUE_UUID AS ID, FUNCTION_STEP_ATTRIBUTE_DATA AS NAME, 'Test Case' as SOURCE_TYPE, STEP_DEFINITION_ATTRIBUTE_UUID FROM FUNCTION_STEP_ATTRIBUTE_VALUE WHERE FUNCTION_STEP_ATTRIBUTE_VALUE_UUID = '${attributeId}'`;
-  }
+  let query = `SELECT 'No' as 'IS_FUNCTION_ATTRIBUTE',TEST_CASE_STEP_ATTRIBUTE_VALUE_UUID AS ID, TEST_CASE_STEP_ATTRIBUTE_DATA AS NAME,'Test Case' as SOURCE_TYPE,STEP_DEFINITION_ATTRIBUTE_UUID FROM TEST_CASE_STEP_ATTRIBUTE_VALUE WHERE TEST_CASE_STEP_ATTRIBUTE_VALUE_UUID='${attributeId}' UNION SELECT 'Yes' as 'IS_FUNCTION_ATTRIBUTE', FUNCTION_STEP_ATTRIBUTE_VALUE_UUID AS ID, FUNCTION_STEP_ATTRIBUTE_DATA AS NAME, 'Test Case' as SOURCE_TYPE, STEP_DEFINITION_ATTRIBUTE_UUID FROM FUNCTION_STEP_ATTRIBUTE_VALUE WHERE FUNCTION_STEP_ATTRIBUTE_VALUE_UUID = '${attributeId}'`;
   let res = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', query, input);
   return res && res.length ? res[0] : '';
+}
+const getTcCondition = (testCaseAlias) => {
+  const finalTestCaseAlias = testCaseAlias ? testCaseAlias + '.' : '';
+  const INCLUDED_TEST_CASES = input.INCLUDED_TEST_CASES;
+  switch (INCLUDED_TEST_CASES) {
+    case 'COMMITTED&DRAFT':
+      return `(${finalTestCaseAlias}TEST_CASE_STATUS = 'COMMITTED' OR ${finalTestCaseAlias}TEST_CASE_STATUS = 'DRAFT')`;
+    case 'COMMITTED&MY_DRAFT':
+      return `(${finalTestCaseAlias}TEST_CASE_STATUS = 'COMMITTED' OR (${finalTestCaseAlias}TEST_CASE_STATUS = 'DRAFT' AND ${finalTestCaseAlias}TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID))`;
+    case 'COMMITTED':
+    default:
+      return `${finalTestCaseAlias}TEST_CASE_STATUS = 'COMMITTED'`;
+  }
+};
+async function getStepData(dataObject, testCaseStepId) {
+  let result = [];
+  if (dataObject['isTestCaseFunctionExist'] == 'Yes') {
+    const testCasefunctionStepAttributeValueQuery = `SELECT 'Test_Case_Function_Step' as 'QueryDataType', tcfs.TEST_CASE_FUNCTION_STEP_UUID, TEST_CASE_FUNCTION_STEP_ID, TEST_CASE_FUNCTION_STEP_NAME, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, CURRENT_PAGE_CONTEXT, NEXT_PAGE_CONTEXT, TEST_CASE_FUNCTION_STEP_TYPE, TEST_CASE_FUNCTION_STEP_SEQ_ID,tcfs.TEST_CASE_STEP_UUID as 'ParentKey', IS_UI_ELEMENT_GROUP_STEP, tcfs.FUNCTIONAL_AREA_UUID, tcfs.FUNCTION_UUID, FUNCTION_STEP_UUID, IS_PURE_NAVIGATION_STEP, VIEW_UUID, API_UUID, TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE_UUID, TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE_ID, STEP_DEFINITION_ATTRIBUTE_UUID, TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA AS 'FUNCTION_STEP_ATTRIBUTE_DATA', PRE_DEFINED_VALUES_UUID, SCOPE_VARIABLE_TYPE, SCOPE_VARIABLE_UUID FROM TEST_CASE_FUNCTION_STEP tcfs LEFT JOIN TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE tcfsav ON tcfs.TEST_CASE_FUNCTION_STEP_UUID = tcfsav.TEST_CASE_FUNCTION_STEP_UUID WHERE tcfs.TEST_CASE_STEP_UUID in(${
+      testCaseStepId ? testCaseStepId : `''`
+    }) AND tcfs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+    result.push(...(await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCasefunctionStepAttributeValueQuery, input)));
+  }
+  if (dataObject['isTestCaseViewNavigationExist'] == 'Yes') {
+    const testCasefunctionStepAttributeValueQuery = `SELECT 'Test_Case_View_Navigation_Step' as 'QueryDataType',tcfs.VIEW_NAVIGATION_STEP_UUID,tcfs.TEST_CASE_VIEW_NAVIGATION_STEP_UUID, TEST_CASE_VIEW_NAVIGATION_STEP_ID, TEST_CASE_VIEW_NAVIGATION_STEP_NAME, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, CURRENT_PAGE_CONTEXT, NEXT_PAGE_CONTEXT, TEST_CASE_VIEW_NAVIGATION_STEP_TYPE, TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID, tcfs.TEST_CASE_STEP_UUID as 'ParentKey', tcfs.FUNCTIONAL_AREA_UUID, tcfsav.FUNCTION_UUID,tcfs.FUNCTION_UUID as 'FUNCTION_UUIDS',tcfs.FUNCTION_STEP_UUID, tcfs.VIEW_UUID, TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID, TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_ID, STEP_DEFINITION_ATTRIBUTE_UUID, TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA AS 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', PRE_DEFINED_VALUES_UUID, SCOPE_VARIABLE_TYPE, SCOPE_VARIABLE_UUID FROM TEST_CASE_VIEW_NAVIGATION_STEP tcfs LEFT JOIN TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE tcfsav ON tcfs.TEST_CASE_VIEW_NAVIGATION_STEP_UUID = tcfsav.TEST_CASE_VIEW_NAVIGATION_STEP_UUID WHERE tcfs.TEST_CASE_STEP_UUID in(${
+      testCaseStepId ? testCaseStepId : `''`
+    }) AND (tcfs.FUNCTION_UUID IS NULL OR tcfs.FUNCTION_UUID='') AND (tcfs.FUNCTION_STEP_UUID IS NULL OR tcfs.FUNCTION_STEP_UUID='') AND tcfs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+    result.push(...(await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCasefunctionStepAttributeValueQuery, input)));
+  }
+  if (dataObject['isFunctionUIElementGroupExist'] == 'Yes') {
+    const functionStepAttributeValueQuery = `SELECT 'Function_UI_Element_Group_Step' as 'QueryDataType',fuiegs.FUNCTION_UI_ELEMENT_GROUP_STEP_UUID, FUNCTION_UI_ELEMENT_GROUP_STEP_ID, FUNCTION_UI_ELEMENT_GROUP_STEP_NAME, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, CURRENT_PAGE_CONTEXT, FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE, FUNCTION_UI_ELEMENT_GROUP_STEP_SEQ_ID,fuiegs.FUNCTION_STEP_UUID, fuiegs.FUNCTIONAL_AREA_UUID, fuiegs.FUNCTION_UUID, fuiegs.FUNCTION_STEP_UUID, FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID, FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_ID, STEP_DEFINITION_ATTRIBUTE_UUID, FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA AS 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA', PRE_DEFINED_VALUES_UUID, SCOPE_VARIABLE_TYPE, SCOPE_VARIABLE_UUID,UI_ELEMENT_GROUP_STEP_UUID,fuiegs.FUNCTION_STEP_UUID as 'ParentKey',fuiegs.UI_ELEMENT_GROUP_UUID FROM FUNCTION_UI_ELEMENT_GROUP_STEP fuiegs LEFT JOIN FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE fuiegsav ON fuiegs.FUNCTION_UI_ELEMENT_GROUP_STEP_UUID = fuiegsav.FUNCTION_UI_ELEMENT_GROUP_STEP_UUID WHERE fuiegs.FUNCTION_STEP_UUID in(${
+      testCaseStepId ? testCaseStepId : `''`
+    }) AND fuiegs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+    result.push(...(await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionStepAttributeValueQuery, input)));
+  }
+  if (dataObject['isTestCaseFunctionViewNavigationExist'] == 'Yes') {
+    const testCasefunctionStepAttributeValueQuery = `SELECT 'Test_Case_Function_View_Navigation_Step' as 'QueryDataType',tcfs.VIEW_NAVIGATION_STEP_UUID,tcfs.TEST_CASE_VIEW_NAVIGATION_STEP_UUID, TEST_CASE_VIEW_NAVIGATION_STEP_ID, TEST_CASE_VIEW_NAVIGATION_STEP_NAME, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, CURRENT_PAGE_CONTEXT, NEXT_PAGE_CONTEXT, TEST_CASE_VIEW_NAVIGATION_STEP_TYPE, TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID, tcfs.TEST_CASE_STEP_UUID as 'ParentKey', tcfs.FUNCTIONAL_AREA_UUID, tcfsav.FUNCTION_UUID, tcfs.FUNCTION_STEP_UUID,tcfs.FUNCTION_UUID as 'FUNCTION_UUIDS', tcfs.VIEW_UUID, TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID, TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_ID, STEP_DEFINITION_ATTRIBUTE_UUID, TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA AS 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', PRE_DEFINED_VALUES_UUID, SCOPE_VARIABLE_TYPE, SCOPE_VARIABLE_UUID FROM TEST_CASE_VIEW_NAVIGATION_STEP tcfs LEFT JOIN TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE tcfsav ON tcfs.TEST_CASE_VIEW_NAVIGATION_STEP_UUID = tcfsav.TEST_CASE_VIEW_NAVIGATION_STEP_UUID WHERE tcfs.TEST_CASE_STEP_UUID in(${
+      testCaseStepId ? testCaseStepId : `''`
+    }) AND (tcfs.FUNCTION_UUID IS NOT NULL OR tcfs.FUNCTION_UUID !='') AND (tcfs.FUNCTION_STEP_UUID IS NOT NULL OR tcfs.FUNCTION_STEP_UUID !='') AND tcfs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+    result.push(...(await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCasefunctionStepAttributeValueQuery, input)));
+  }
+  if (dataObject['isFunctionViewNavigationExist'] == 'Yes') {
+    const functionViewNavigationStepAttributeValueQuery = `SELECT 'Function_View_Navigation_Step' as 'QueryDataType',tcfs.VIEW_NAVIGATION_STEP_UUID,tcfs.FUNCTION_VIEW_NAVIGATION_STEP_UUID, FUNCTION_VIEW_NAVIGATION_STEP_ID, FUNCTION_VIEW_NAVIGATION_STEP_NAME, VIEW_NAVIGATION_STEP_UUID STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, CURRENT_PAGE_CONTEXT, NEXT_PAGE_CONTEXT, FUNCTION_VIEW_NAVIGATION_STEP_TYPE, FUNCTION_VIEW_NAVIGATION_STEP_SEQ_ID, tcfs.FUNCTION_STEP_UUID, tcfs.FUNCTIONAL_AREA_UUID, tcfsav.FUNCTION_UUID, tcfs.FUNCTION_STEP_UUID, tcfs.VIEW_UUID, FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID, FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_ID, STEP_DEFINITION_ATTRIBUTE_UUID, FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA AS 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', PRE_DEFINED_VALUES_UUID, SCOPE_VARIABLE_TYPE, SCOPE_VARIABLE_UUID,tcfs.FUNCTION_STEP_UUID as 'ParentKey',tcfs.VIEW_UUID FROM FUNCTION_VIEW_NAVIGATION_STEP tcfs LEFT JOIN FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE tcfsav ON tcfs.FUNCTION_VIEW_NAVIGATION_STEP_UUID = tcfsav.FUNCTION_VIEW_NAVIGATION_STEP_UUID WHERE tcfs.FUNCTION_STEP_UUID in(${
+      testCaseStepId ? testCaseStepId : `''`
+    }) AND tcfs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+    result.push(...(await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionViewNavigationStepAttributeValueQuery, input)));
+  }
+  if (dataObject['isTestCaseUIElementGroupExist'] == 'Yes') {
+    const testCaseUIElementGroupStepAttributeValueQuery = `SELECT 'Test_Case_UI_Element_Group_Step' as 'QueryDataType',fuegs.UI_ELEMENT_GROUP_UUID,fuegs.UI_ELEMENT_GROUP_STEP_UUID,fuegs.TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID, TEST_CASE_UI_ELEMENT_GROUP_STEP_ID, TEST_CASE_UI_ELEMENT_GROUP_STEP_NAME, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, CURRENT_PAGE_CONTEXT, TEST_CASE_UI_ELEMENT_GROUP_STEP_TYPE, TEST_CASE_UI_ELEMENT_GROUP_STEP_SEQ_ID, fuegs.FUNCTIONAL_AREA_UUID, fuegs.TEST_CASE_STEP_UUID as 'ParentKey', TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID, TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_ID, STEP_DEFINITION_ATTRIBUTE_UUID, TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA AS 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA', PRE_DEFINED_VALUES_UUID, SCOPE_VARIABLE_TYPE, SCOPE_VARIABLE_UUID FROM TEST_CASE_UI_ELEMENT_GROUP_STEP fuegs LEFT JOIN TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE fuegsav ON fuegs.TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID = fuegsav.TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID WHERE fuegs.TEST_CASE_STEP_UUID in(${
+      testCaseStepId ? testCaseStepId : `''`
+    }) AND fuegs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID;`;
+    result.push(...(await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseUIElementGroupStepAttributeValueQuery, input)));
+  }
+  if (dataObject['isTestCaseFunctionUIElementGroupExist'] == 'Yes') {
+    const testCaseFunctionUIElementGroupStepAttributeValueQuery = `SELECT 'Test_Case_Function_UI_Element_Group_Step' as 'QueryDataType',fuegs.UI_ELEMENT_GROUP_UUID,fuegs.UI_ELEMENT_GROUP_STEP_UUID,fuegs.TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_NAME, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, CURRENT_PAGE_CONTEXT, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_SEQ_ID, fuegs.FUNCTIONAL_AREA_UUID, fuegs.TEST_CASE_STEP_UUID as 'ParentKey', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_ID, STEP_DEFINITION_ATTRIBUTE_UUID, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA AS 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA', PRE_DEFINED_VALUES_UUID, SCOPE_VARIABLE_TYPE, SCOPE_VARIABLE_UUID FROM TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP fuegs LEFT JOIN TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE fuegsav ON fuegs.TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID = fuegsav.TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID WHERE fuegs.TEST_CASE_STEP_UUID in(${
+      testCaseStepId ? testCaseStepId : `''`
+    }) AND fuegs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID;`;
+    result.push(...(await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionUIElementGroupStepAttributeValueQuery, input)));
+  }
+  return result;
+}
+function getDataByParentKeyAndType(stepData, pk) {
+  return stepData.filter((item) => item['ParentKey'] == pk);
+}
+async function getStepChildData(dataObject, functionStepIds) {
+  let result = [];
+  if (dataObject['isTestCaseFunctionViewNavigationExist'] == 'Yes') {
+    const testCasefunctionStepAttributeValueQuery = `SELECT 'Test_Case_Function_View_Navigation_Step' as 'QueryDataType',tcfs.VIEW_NAVIGATION_STEP_UUID,tcfs.FUNCTION_VIEW_NAVIGATION_STEP_UUID, FUNCTION_VIEW_NAVIGATION_STEP_ID, FUNCTION_VIEW_NAVIGATION_STEP_NAME, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, CURRENT_PAGE_CONTEXT, NEXT_PAGE_CONTEXT, FUNCTION_VIEW_NAVIGATION_STEP_TYPE, FUNCTION_VIEW_NAVIGATION_STEP_SEQ_ID, tcfs.FUNCTIONAL_AREA_UUID, tcfs.FUNCTION_UUID, tcfs.FUNCTION_STEP_UUID, tcfs.VIEW_UUID, FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID, FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_ID, STEP_DEFINITION_ATTRIBUTE_UUID, FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA AS 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', PRE_DEFINED_VALUES_UUID, SCOPE_VARIABLE_TYPE, SCOPE_VARIABLE_UUID FROM FUNCTION_VIEW_NAVIGATION_STEP tcfs LEFT JOIN FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE tcfsav ON tcfs.FUNCTION_VIEW_NAVIGATION_STEP_UUID = tcfsav.FUNCTION_VIEW_NAVIGATION_STEP_UUID WHERE tcfs.FUNCTION_STEP_UUID in(${
+      functionStepIds ? functionStepIds : `''`
+    }) AND tcfs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+    result.push(...(await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCasefunctionStepAttributeValueQuery, input)));
+  }
+  if (dataObject['isTestCaseFunctionUIElementGroupExist'] == 'Yes') {
+    const testCasefunctionStepAttributeValueQuery = `SELECT 'Test_Case_Function_UI_Element_Group_Step' as 'QueryDataType',fuiegs.UI_ELEMENT_GROUP_UUID,fuiegs.FUNCTION_UI_ELEMENT_GROUP_STEP_UUID, FUNCTION_UI_ELEMENT_GROUP_STEP_ID, FUNCTION_UI_ELEMENT_GROUP_STEP_NAME, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, CURRENT_PAGE_CONTEXT, FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE, FUNCTION_UI_ELEMENT_GROUP_STEP_SEQ_ID,fuiegs.FUNCTION_STEP_UUID, fuiegs.FUNCTIONAL_AREA_UUID, fuiegs.FUNCTION_UUID, fuiegs.FUNCTION_STEP_UUID, FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID, FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_ID, STEP_DEFINITION_ATTRIBUTE_UUID, FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA AS 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA', PRE_DEFINED_VALUES_UUID, SCOPE_VARIABLE_TYPE, SCOPE_VARIABLE_UUID,UI_ELEMENT_GROUP_STEP_UUID FROM FUNCTION_UI_ELEMENT_GROUP_STEP fuiegs LEFT JOIN FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE fuiegsav ON fuiegs.FUNCTION_UI_ELEMENT_GROUP_STEP_UUID = fuiegsav.FUNCTION_UI_ELEMENT_GROUP_STEP_UUID WHERE fuiegs.FUNCTION_STEP_UUID in(${
+      functionStepIds ? functionStepIds : `''`
+    }) AND fuiegs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+    result.push(...(await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCasefunctionStepAttributeValueQuery, input)));
+  }
+  return result;
+}
+async function getStepDataUsingChild(data, currentAttributeId, childStepAttributeValueData) {
+  let result = [];
+  if (data['QueryDataType'] == 'Test_Case_Function_View_Navigation_Step') {
+    result = childStepAttributeValueData.filter(
+      (item) =>
+        item[data['PRIMARY_COLUMN_NAME']] == data['PRIMARY_COLUMN_VALUE'] &&
+        item['STEP_DEFINITION_ATTRIBUTE_UUID'] == currentAttributeId &&
+        item['VIEW_UUID'] == data['ViewKey'] &&
+        item['FUNCTION_UUID'] == data['FunctionKey'] &&
+        item['FUNCTION_STEP_UUID'] == data['FunctionStepKey'] &&
+        data['QueryDataType'] == item['QueryDataType']
+    );
+  } else if (data['QueryDataType'] == 'Test_Case_Function_UI_Element_Group_Step') {
+    result = childStepAttributeValueData.filter(
+      (item) =>
+        item[data['PRIMARY_COLUMN_NAME']] == data['PRIMARY_COLUMN_VALUE'] &&
+        item['STEP_DEFINITION_ATTRIBUTE_UUID'] == currentAttributeId &&
+        item['UI_ELEMENT_GROUP_UUID'] == data['UIElementGroupKey'] &&
+        item['FUNCTION_STEP_UUID'] == data['FunctionStepKey'] &&
+        data['QueryDataType'] == item['QueryDataType']
+    );
+  }
+  return result;
+}
+const normalize = (value) => (value === null || value === undefined || value === '' || value === 'null' || value === 'undefined' ? '' : value);
+async function filterStepByCurrentStep(parentStepAttributeValueData, data, currentAttributeId, dataObject, childStepAttributeValueData) {
+  let result = [];
+  if (data['QueryDataType'] == 'Test_Case_Step_Normal') {
+    result = [];
+  } else if (data['QueryDataType'] == 'Test_Case_View_Navigation_Step') {
+    result = parentStepAttributeValueData.filter(
+      (item) =>
+        item[data['PRIMARY_COLUMN_NAME']] == data['PRIMARY_COLUMN_VALUE'] &&
+        item['STEP_DEFINITION_ATTRIBUTE_UUID'] == currentAttributeId &&
+        item['VIEW_UUID'] == data['ViewKey'] &&
+        normalize(item['FUNCTION_UUIDS']) == '' &&
+        normalize(item['FUNCTION_STEP_UUID']) == '' &&
+        data['QueryDataType'] == item['QueryDataType']
+    );
+  } else if (data['QueryDataType'] == 'Test_Case_Function_Step') {
+    result = parentStepAttributeValueData.filter(
+      (item) =>
+        item[data['PRIMARY_COLUMN_NAME']] == data['PRIMARY_COLUMN_VALUE'] &&
+        item['STEP_DEFINITION_ATTRIBUTE_UUID'] == currentAttributeId &&
+        item['FUNCTION_UUID'] == data['FunctionKey'] &&
+        data['QueryDataType'] == item['QueryDataType']
+    );
+  } else if (data['QueryDataType'] == 'Test_Case_Function_View_Navigation_Step') {
+    result = parentStepAttributeValueData.filter(
+      (item) =>
+        item[data['PRIMARY_COLUMN_NAME']] == data['PRIMARY_COLUMN_VALUE'] &&
+        item['STEP_DEFINITION_ATTRIBUTE_UUID'] == currentAttributeId &&
+        item['VIEW_UUID'] == data['ViewKey'] &&
+        normalize(item['FUNCTION_UUIDS']) &&
+        normalize(item['FUNCTION_STEP_UUID']) &&
+        data['QueryDataType'] == item['QueryDataType']
+    );
+    if (result && result.length == 0) {
+      result = await getStepDataUsingChild(data, currentAttributeId, childStepAttributeValueData);
+    }
+  } else if (data['QueryDataType'] == 'Test_Case_Function_UI_Element_Group_Step') {
+    result = parentStepAttributeValueData.filter(
+      (item) =>
+        item[data['PRIMARY_COLUMN_NAME']] == data['PRIMARY_COLUMN_VALUE'] &&
+        item['STEP_DEFINITION_ATTRIBUTE_UUID'] == currentAttributeId &&
+        item['UI_ELEMENT_GROUP_UUID'] == data['UIElementGroupKey'] &&
+        data['QueryDataType'] == item['QueryDataType']
+    );
+    if (result && result.length == 0) {
+      result = await getStepDataUsingChild(data, currentAttributeId, childStepAttributeValueData);
+    }
+  } else if (data['QueryDataType'] == 'Test_Case_UI_Element_Group_Step') {
+    result = parentStepAttributeValueData.filter(
+      (item) =>
+        item[data['PRIMARY_COLUMN_NAME']] == data['PRIMARY_COLUMN_VALUE'] &&
+        item['STEP_DEFINITION_ATTRIBUTE_UUID'] == currentAttributeId &&
+        item['UI_ELEMENT_GROUP_UUID'] == data['UIElementGroupKey'] &&
+        data['QueryDataType'] == item['QueryDataType']
+    );
+  } else if (data['QueryDataType'] == 'Function_UI_Element_Group_Step') {
+    result = parentStepAttributeValueData.filter(
+      (item) =>
+        item[data['PRIMARY_COLUMN_NAME']] == data['PRIMARY_COLUMN_VALUE'] &&
+        item['STEP_DEFINITION_ATTRIBUTE_UUID'] == currentAttributeId &&
+        item['UI_ELEMENT_GROUP_UUID'] == data['UIElementGroupKey'] &&
+        data['QueryDataType'] == item['QueryDataType']
+    );
+  } else if (data['QueryDataType'] == 'Function_View_Navigation_Step') {
+    result = parentStepAttributeValueData.filter(
+      (item) =>
+        item[data['PRIMARY_COLUMN_NAME']] == data['PRIMARY_COLUMN_VALUE'] &&
+        item['STEP_DEFINITION_ATTRIBUTE_UUID'] == currentAttributeId &&
+        item['VIEW_UUID'] == data['ViewKey'] &&
+        data['QueryDataType'] == item['QueryDataType']
+    );
+  } else if (data['QueryDataType'] == 'Function_Normal') {
+    result = [];
+  }
+  return result;
+}
+function primaryIdString(testCaseStepNormalQueryData) {
+  const keys = ['ParentKey', 'FunctionKey', 'FunctionStepKey', 'UIElementGroupKey', 'UIElementGroupStepKey'];
+  const collectedUUIDs = keys.flatMap((key) => [...new Set(testCaseStepNormalQueryData.map((item) => item[key]).filter(isValidUUID))]);
+  return collectedUUIDs.map((uuid) => `'${uuid}'`).join(', ');
 }
 let formData = msg.payload.apiRequestBody.baseEntity && msg.payload.apiRequestBody.baseEntity.records[0] ? msg.payload.apiRequestBody.baseEntity.records[0] : msg.payload.apiRequestBody;
 let input = Object.assign(formData, msg.payload.referenceData);
@@ -719,12 +899,17 @@ let uiElementTypeQueryDataList = await serviceOrchestrator.selectRecordsUsingQue
 if (actionName == 'Test Data Download Template') {
   input['APPLICATION_ENVIRONMENT_BASE_URL'] = 'test_data_template';
 }
+let dataObject = {};
 if (
   input.APPLICATION_ENVIRONMENT_BASE_URL &&
   input.TEST_SET_UUID &&
   input.TEST_SET_NAME &&
   input.FUNCTIONAL_AREA_UUID &&
-  (input.GRID_NAME == 'Test Set' || input.GRID_NAME == 'Page Navigation Test Set' || input.GRID_NAME == 'Unit Functional Test Set' || input.GRID_NAME == 'Orphan Test Set')
+  (input.GRID_NAME == 'Test Set' ||
+    input.GRID_NAME == 'Page Navigation Test Set' ||
+    input.GRID_NAME == 'Unit Functional Test Set' ||
+    input.GRID_NAME == 'Orphan Test Set' ||
+    input.GRID_NAME == 'API Test Set')
 ) {
   msg.payload.result = {};
   let maxLength = 200;
@@ -752,41 +937,45 @@ if (
       return { ...testSet, 'Test Set Name': testSet['Test Set Name'].substring(0, 200) };
     });
   }
+  const tcCondition = getTcCondition('TEST_CASE');
   objectData['Test Set'] = generateExcelData(testSetQueryData);
-  let testCaseQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', TEST_CASE_SEQ_ID AS 'Test Case Seq ID', TEST_CASE_NAME AS 'Test Case Name', 'Active' AS Status, 'No Action' AS Actions, TEST_CASE_UUID AS 'Test Case UUID' FROM TEST_CASE, TEST_SET WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID AND TEST_CASE.TEST_SET_UUID=:TEST_SET_UUID AND TEST_CASE.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND TEST_CASE.TEST_CASE_STATUS = 'COMMITTED' ORDER BY TEST_CASE_SEQ_ID ASC;`;
+  let testCaseQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', TEST_CASE_SEQ_ID AS 'Test Case Seq ID', TEST_CASE_NAME AS 'Test Case Name', 'Active' AS Status, 'No Action' AS Actions, TEST_CASE_UUID AS 'Test Case UUID' FROM TEST_CASE, TEST_SET WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID AND TEST_CASE.TEST_SET_UUID=:TEST_SET_UUID AND TEST_CASE.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND ${tcCondition} ORDER BY TEST_CASE_SEQ_ID ASC;`;
   let testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input);
   objectData['Test Case'] = generateExcelData(testCaseQueryData);
-  let testCaseStepNormalQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP IS NULL ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND ( vns.FUNCTION_STEP_UUID IS NULL OR vns.FUNCTION_STEP_UUID = '' ) AND ( vns.FUNCTION_UUID IS NULL OR vns.FUNCTION_UUID = '' ) ) ) ) ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
+  const testCaseCondition = getTcCondition('tc');
+  let testCaseStepNormalQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_Step_Normal' as 'QueryDataType' FROM TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ${testCaseCondition} AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP IS NULL ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ) ) ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
   let testCaseStepNormalQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseStepNormalQuery, input);
+  dataObject['isNormalTestCaseExist'] = testCaseStepNormalQueryData && testCaseStepNormalQueryData.length ? 'Yes' : 'No';
   queryListMap.push(testCaseStepNormalQueryObject([...new Set(testCaseStepNormalQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
-  let testCaseNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT(tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND (vns.FUNCTION_STEP_UUID IS NULL OR vns.FUNCTION_STEP_UUID = '') AND (vns.FUNCTION_UUID IS NULL OR vns.FUNCTION_UUID = '') ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+  let testCaseNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE , tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_View_Navigation_Step' as 'QueryDataType' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ${testCaseCondition} AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.VIEW_UUID = tcs.VIEW_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
   let testCaseNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseNavigationStepQuery, input);
-  queryListMap.push(
-    testCaseNavigationStepQueryObject([...new Set(testCaseNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
-  );
+  dataObject['isTestCaseViewNavigationExist'] = testCaseNavigationStepQueryData && testCaseNavigationStepQueryData.length ? 'Yes' : 'No';
+  queryListMap.push(viewNavigationStepQueryObject([...new Set(testCaseNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseNavigationStepQueryData);
-  let testCaseFunctionStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcfs.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, TEST_CASE_FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfs.TEST_CASE_FUNCTION_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE tc, TEST_SET ts, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND ( tcfs.IS_PURE_NAVIGATION_STEP = 'No' OR tcfs.IS_PURE_NAVIGATION_STEP IS NULL OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.FUNCTION_STEP_UUID IS NOT NULL AND vns.FUNCTION_STEP_UUID != '' AND vns.FUNCTION_UUID IS NOT NULL AND vns.FUNCTION_UUID != '' ) ) ) ORDER BY TEST_CASE_STEP_ID, TEST_CASE_FUNCTION_STEP_ID ASC;`;
+  let testCaseFunctionStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', FUNCTION_STEP_SEQ_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcfs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'FUNCTION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'FUNCTION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'FUNCTION_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfs.FUNCTION_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, FUNCTION_STEP tcfs, TEST_CASE tc, TEST_SET ts, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE ${testCaseCondition} AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ( tcfs.IS_PURE_NAVIGATION_STEP = 'No' OR tcfs.IS_PURE_NAVIGATION_STEP IS NULL OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcfs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ) ) ORDER BY TEST_CASE_STEP_ID, FUNCTION_STEP_ID ASC;`;
   let testCaseFunctionStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionStepQuery, input);
-  queryListMap.push(testCaseFunctionStepQueryObject([...new Set(testCaseFunctionStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
+  dataObject['isTestCaseFunctionExist'] = testCaseFunctionStepQueryData && testCaseFunctionStepQueryData.length ? 'Yes' : 'No';
+  queryListMap.push(functionStepNormalQueryObject([...new Set(testCaseFunctionStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionStepQueryData);
-  let testCaseFunctionNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT(tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function - ', (SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT), ' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcfs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.FUNCTION_STEP_UUID IS NOT NULL AND vns.FUNCTION_STEP_UUID != '' AND vns.FUNCTION_UUID IS NOT NULL AND vns.FUNCTION_UUID != '' ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+  let testCaseFunctionNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.FUNCTION_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ), ' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_View_Navigation_Step' as 'QueryDataType' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ${testCaseCondition} AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcfs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.VIEW_UUID = tcfs.VIEW_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcfs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
   let testCaseFunctionNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionNavigationStepQuery, input);
+  dataObject['isTestCaseFunctionViewNavigationExist'] = testCaseFunctionNavigationStepQueryData && testCaseFunctionNavigationStepQueryData.length ? 'Yes' : 'No';
   queryListMap.push(
-    testCaseFunctionNavigationStepQueryObject([...new Set(testCaseFunctionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
+    viewNavigationStepQueryObject([...new Set(testCaseFunctionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
   );
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionNavigationStepQueryData);
-  let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function - ', (SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT) AS 'Page ID', 'Active' AS Status, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfuegs.TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcfs.TEST_CASE_FUNCTION_STEP_UUID = tcfuegs.TEST_CASE_FUNCTION_STEP_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE ORDER BY TEST_CASE_STEP_ID ASC, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID ASC;`;
+  let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', FUNCTION_STEP_SEQ_ID, '-', UI_ELEMENT_GROUP_STEP_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT ) AS 'Page ID', 'Active' AS Status, UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfuegs.UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE , tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcfs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', tcfuegs.UI_ELEMENT_GROUP_STEP_UUID as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_UI_Element_Group_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, FUNCTION_STEP tcfs, UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE ${testCaseCondition} AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND tcfs.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY TEST_CASE_STEP_ID ASC, UI_ELEMENT_GROUP_STEP_ID ASC;`;
   let testCaseFunctionUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionUIElementGroupStepQuery, input);
+  dataObject['isTestCaseFunctionUIElementGroupExist'] = testCaseFunctionUIElementGroupStepQueryData && testCaseFunctionUIElementGroupStepQueryData.length ? 'Yes' : 'No';
   queryListMap.push(
-    testCaseFunctionUIElementGroupStepQueryObject(
-      [...new Set(testCaseFunctionUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')
-    )
+    uIElementGroupStepQueryObject([...new Set(testCaseFunctionUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
   );
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionUIElementGroupStepQueryData);
-  let testCaseUIElementGroupStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_UI_ELEMENT_GROUP_STEP_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_UI_ELEMENT_GROUP_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT) AS 'Page ID', 'Active' AS Status, TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcuegs.TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcuegs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE ORDER BY TEST_CASE_STEP_ID, TEST_CASE_UI_ELEMENT_GROUP_STEP_ID ASC;`;
+  let testCaseUIElementGroupStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', UI_ELEMENT_GROUP_STEP_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT ) AS 'Page ID', 'Active' AS Status, UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcuegs.UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', tcuegs.UI_ELEMENT_GROUP_STEP_UUID as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_UI_Element_Group_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc, TEST_SET ts WHERE ${testCaseCondition} AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcuegs.UI_ELEMENT_GROUP_UUID = tcs.UI_ELEMENT_GROUP_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE ORDER BY TEST_CASE_STEP_ID, UI_ELEMENT_GROUP_STEP_ID ASC;`;
   let testCaseUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseUIElementGroupStepQuery, input);
+  dataObject['isTestCaseUIElementGroupExist'] = testCaseUIElementGroupStepQueryData && testCaseUIElementGroupStepQueryData.length ? 'Yes' : 'No';
   queryListMap.push(
-    testCaseUIElementGroupStepQueryObject([...new Set(testCaseUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
+    uIElementGroupStepQueryObject([...new Set(testCaseUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
   );
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseUIElementGroupStepQueryData);
   let primaryKeyIds = concatePrimaryKeys(testCaseQueryData);
@@ -808,23 +997,14 @@ if (
     let uiElementGroupQueryDataList = await fetchUIElementGroupDetails(attributeIds);
     let apiQueryDataList = await fetchApiDetails(attributeIds);
     let apiAttributeQueryDataList = await fetchApiAttributeDetails(attributeIds);
+    let primaryColumnIds = primaryIdString(testCaseStepNormalQueryData);
+    let parentStepAttributeValueData = await getStepData(dataObject, primaryColumnIds);
+    let childStepAttributeValueData = await getStepChildData(dataObject, primaryColumnIds);
     for (let data of testCaseStepNormalQueryData) {
       let inc = 0;
       let stepDefAttributeQueryData = getStepAttributeData(stepDefAttributeQueryDataList, data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID']);
       let attributeValueQueryData = getChildAttributeData(attributeDataObject.attributeValueQueryDataEntries, data.PRIMARY_COLUMN_VALUE, data.PRIMARY_COLUMN_NAME);
-      if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
-        let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
-        if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
-          let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
-            attributeValueQueryData,
-            uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
-            data['CHILD_ATTRIBUTE_DATA']
-          );
-          if (isUIElementValueEmpty) {
-            data['isItemRemove'] = true;
-          }
-        }
-      }
+      let filteredStepAttributeValueData = getDataByParentKeyAndType(parentStepAttributeValueData, data['ParentKey']);
       if (data && data['TEST_CASE_EXECUTON_TYPE'] == 'Automated') {
         let inputStepType = data['Test Case Step Type'] && data['Test Case Step Type'] == 'Data' ? 'Given' : data['Test Case Step Type'];
         data['Test Case Step Type'] = inputStepType;
@@ -840,6 +1020,7 @@ if (
             switch (codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID']) {
               case '57b76ab3-8112-4343-af0f-49643c808bf7':
                 {
+                  debugger;
                   let pageName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   let pageNewQueryData = getPageDetails(pageQueryDataList, pageName);
                   if (pageNewQueryData && Object.keys(pageNewQueryData).length) {
@@ -878,6 +1059,23 @@ if (
                 break;
               case '74da67d2-41c9-4cf7-9eea-715243e5fcdc':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
                   let uiElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   let uiElementValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (uiElementValueData && Object.keys(uiElementValueData).length && uiElementValueData['SCOPE_VARIABLE_UUID']) {
@@ -885,14 +1083,15 @@ if (
                     if (
                       selectedAttributeDetails &&
                       Object.keys(selectedAttributeDetails).length &&
-                      uiElementValueData['FUNCTION_UUID'] &&
                       [
-                        'TEST_CASE_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'
-                      ].includes(data['CHILD_ATTRIBUTE_DATA'])
+                        'Test_Case_Step_Normal',
+                        'Test_Case_View_Navigation_Step',
+                        'Test_Case_Function_Step',
+                        'Test_Case_Function_View_Navigation_Step',
+                        'Test_Case_Function_UI_Element_Group_Step',
+                        'Test_Case_UI_Element_Group_Step'
+                      ].includes(data['QueryDataType']) &&
+                      selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
                     ) {
                       let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${uiElementValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                       let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -900,6 +1099,7 @@ if (
                     } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                       uiElementValue = selectedAttributeDetails['NAME'];
                     }
+                    uiElementValue = decideScopePrefix(uiElementValueData) + uiElementValue;
                   }
                   if (!checkTestDataExistsForTestCase(testCaseQueryData, testDataQueryData, data)) {
                     getAttr = replaceKeyword(uiElementValue);
@@ -917,6 +1117,10 @@ if (
                 break;
               case '235dfa3a-a897-4076-b9bc-ed813ec7c39f':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let keyNameInKeyPad = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(keyNameInKeyPad);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll('<Key Name in Keypad>', function () {
@@ -950,17 +1154,23 @@ if (
                 }
                 break;
               case 'afe5f489-b9b3-11ee-a0ed-12e85c8c3755':
-                let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(confirmUIElementValue);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Confirm UI Element Value>',
-                  confirmUIElementValue
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(confirmUIElementValue);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Confirm UI Element Value>',
+                    confirmUIElementValue
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '6c698ae8-6305-4bb6-8c23-3a938e7234bd':
                 {
@@ -990,6 +1200,23 @@ if (
                 break;
               case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '3f50ff70-f3e4-11ee-9a12-6fc3e771212a');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
                   let uiElementValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(uiElementValue1);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1043,6 +1270,10 @@ if (
                 break;
               case '2dc3a50e-004d-4dec-8270-c7ec5d36cb2c':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let pageNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(pageNumber);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1058,6 +1289,10 @@ if (
                 break;
               case 'bca9a7f7-1948-407c-9953-2d01356bbd15':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let dataKey = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(dataKey);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1073,6 +1308,10 @@ if (
                 break;
               case '3aff7b0e-472c-4393-b6b2-5a61b07cfbff':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let dataValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(dataValue);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1088,6 +1327,10 @@ if (
                 break;
               case 'ceb66327-216f-42fd-845b-9f4543c62baa':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let fileName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(fileName);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1103,6 +1346,10 @@ if (
                 break;
               case 'd20f4347-d4d0-47a1-96f6-190d3b5e4a90':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let downloadParserName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(downloadParserName);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1144,16 +1391,32 @@ if (
                 break;
               case '7182ebf0-2e33-11ef-9033-4bb93e602d01':
                 {
-                  let apiAttributeValue = '';
-                  apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '7182ebf0-2e33-11ef-9033-4bb93e602d01');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
+                  let apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   let apiAttributeValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (apiAttributeValueData && Object.keys(apiAttributeValueData).length && apiAttributeValueData['SCOPE_VARIABLE_UUID']) {
                     let selectedAttributeDetails = await getAttributeValueDetails(apiAttributeValueData['SCOPE_VARIABLE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     if (
                       selectedAttributeDetails &&
                       Object.keys(selectedAttributeDetails).length &&
-                      apiAttributeValueData['FUNCTION_UUID'] &&
-                      ['TEST_CASE_STEP_ATTRIBUTE_DATA', 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'].includes(data['CHILD_ATTRIBUTE_DATA'])
+                      ['Test_Case_Step_Normal', 'Test_Case_Function_Step'].includes(data['QueryDataType']) &&
+                      selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
                     ) {
                       let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${apiAttributeValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                       let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -1161,6 +1424,7 @@ if (
                     } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                       apiAttributeValue = selectedAttributeDetails['NAME'];
                     }
+                    apiAttributeValue = decideScopePrefix(apiAttributeValueData) + apiAttributeValue;
                   }
                   getAttr = replaceKeyword(apiAttributeValue);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1219,6 +1483,10 @@ if (
                 break;
               case '2afdf3ea-2d25-42c6-ab5e-9f5a6b15e0f8':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let timeOot = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(timeOot);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1238,9 +1506,14 @@ if (
                   let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (
                     functionIds &&
-                    !['FUNCTION_STEP_ATTRIBUTE_DATA', 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'].includes(
-                      data['CHILD_ATTRIBUTE_DATA']
-                    )
+                    [
+                      'Test_Case_Step_Normal',
+                      'Test_Case_View_Navigation_Step',
+                      'Test_Case_Function_Step',
+                      'Test_Case_Function_View_Navigation_Step',
+                      'Test_Case_Function_UI_Element_Group_Step',
+                      'Test_Case_UI_Element_Group_Step'
+                    ].includes(data['QueryDataType'])
                   ) {
                     let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                     let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -1264,9 +1537,14 @@ if (
                   let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (
                     functionIds &&
-                    !['FUNCTION_STEP_ATTRIBUTE_DATA', 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'].includes(
-                      data['CHILD_ATTRIBUTE_DATA']
-                    )
+                    [
+                      'Test_Case_Step_Normal',
+                      'Test_Case_View_Navigation_Step',
+                      'Test_Case_Function_Step',
+                      'Test_Case_Function_View_Navigation_Step',
+                      'Test_Case_Function_UI_Element_Group_Step',
+                      'Test_Case_UI_Element_Group_Step'
+                    ].includes(data['QueryDataType'])
                   ) {
                     let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                     let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -1285,30 +1563,42 @@ if (
                 }
                 break;
               case 'e0568059-ce39-4a69-aadd-6a0dccba696d':
-                let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(timeInterval);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Time Interval>',
-                  timeInterval
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(timeInterval);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(timeInterval);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Time Interval>',
+                    timeInterval
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(timeInterval);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '9d27f361-ac8b-4673-82fe-66c40b2cb634':
-                let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(attempts);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Attempts>',
-                  attempts
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(attempts);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(attempts);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Attempts>',
+                    attempts
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(attempts);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'd797acb4-5e5c-447b-b0c5-60dad38e39a5':
                 {
@@ -1324,30 +1614,55 @@ if (
                 }
                 break;
               case '75b16425-1531-4cee-8c09-30f5be70c4b0':
-                let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(cellValue);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Cell Value>',
-                  cellValue
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(cellValue);
-                        return `'` + Datawithbackslash + `'`;
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '75b16425-1531-4cee-8c09-30f5be70c4b0');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
                       }
-                    : `' '`
-                );
+                    }
+                  }
+                  let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(cellValue);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Cell Value>',
+                    cellValue
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(cellValue);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'ed2ebd4b-9267-4e41-8f56-d5a61abe7ba5':
-                let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(rowNumber);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Row Number>',
-                  rowNumber
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(rowNumber);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(rowNumber);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Row Number>',
+                    rowNumber
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(rowNumber);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'd25a4d7f-5c5d-4117-b325-1c669b9a42ab':
                 {
@@ -1376,33 +1691,62 @@ if (
                 }
                 break;
               case 'ba1ef281-412a-4544-b615-7767b06eb489':
-                let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(cellValue1);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Cell Value 1>',
-                  cellValue1
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(cellValue1);
-                        return `'` + Datawithbackslash + `'`;
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, 'ba1ef281-412a-4544-b615-7767b06eb489');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
                       }
-                    : `' '`
-                );
+                    }
+                  }
+                  let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(cellValue1);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Cell Value 1>',
+                    cellValue1
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(cellValue1);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'f7b6ba5d-74a7-4d36-82cd-222d57b2ce83':
-                let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(columnNumber);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Column Number>',
-                  columnNumber
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(columnNumber);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(columnNumber);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Column Number>',
+                    columnNumber
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(columnNumber);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '28058e26-fa09-42fb-868a-1988bd0a746c':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let fileFullPath = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(fileFullPath);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1436,6 +1780,13 @@ if (
         delete data['PRIMARY_COLUMN_VALUE'];
         delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
         delete data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'];
+        delete data['FunctionKey'];
+        delete data['FunctionStepKey'];
+        delete data['UIElementGroupKey'];
+        delete data['UIElementGroupStepKey'];
+        delete data['ViewKey'];
+        delete data['QueryDataType'];
+        delete data['ParentKey'];
       } else if (data && data['TEST_CASE_EXECUTON_TYPE'] == 'Recorded') {
         let inputStepType = data['Test Case Step Type'] && data['Test Case Step Type'] == 'Data' ? 'Given' : data['Test Case Step Type'];
         data['Test Case Step Type'] = inputStepType;
@@ -1452,6 +1803,13 @@ if (
         delete data['PRIMARY_COLUMN_VALUE'];
         delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
         delete data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'];
+        delete data['FunctionKey'];
+        delete data['FunctionStepKey'];
+        delete data['UIElementGroupKey'];
+        delete data['UIElementGroupStepKey'];
+        delete data['ViewKey'];
+        delete data['QueryDataType'];
+        delete data['ParentKey'];
       }
     }
   }
@@ -1591,7 +1949,8 @@ if (
   (input.GRID_NAME == 'Personal Test Set' ||
     input.GRID_NAME == 'Personal - Regular Test Set' ||
     input.GRID_NAME == 'Personal - Unit Functional Test Set' ||
-    input.GRID_NAME == 'Personal - Orphan Test Set')
+    input.GRID_NAME == 'Personal - Orphan Test Set' ||
+    input.GRID_NAME == 'Personal - API Test Set')
 ) {
   msg.payload.result = {};
   let maxLength = 200;
@@ -1623,37 +1982,39 @@ if (
   let testCaseQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', TEST_CASE_SEQ_ID AS 'Test Case Seq ID', TEST_CASE_NAME AS 'Test Case Name', 'Active' AS Status, 'No Action' AS Actions, TEST_CASE_UUID AS 'Test Case UUID' FROM TEST_CASE, TEST_SET WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID AND TEST_CASE.TEST_SET_UUID=:TEST_SET_UUID AND TEST_CASE.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND TEST_CASE.TEST_CASE_STATUS = 'DRAFT' AND TEST_CASE.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID ORDER BY TEST_CASE_SEQ_ID ASC;`;
   let testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input);
   objectData['Test Case'] = generateExcelData(testCaseQueryData);
-  let testCaseStepNormalQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP IS NULL ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND ( vns.FUNCTION_STEP_UUID IS NULL OR vns.FUNCTION_STEP_UUID = '' ) AND ( vns.FUNCTION_UUID IS NULL OR vns.FUNCTION_UUID = '' ) ) ) ) ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
+  let testCaseStepNormalQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE , tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_Step_Normal' as 'QueryDataType' FROM TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP IS NULL ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ) ) ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
   let testCaseStepNormalQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseStepNormalQuery, input);
+  dataObject['isNormalTestCaseExist'] = testCaseStepNormalQueryData && testCaseStepNormalQueryData.length ? 'Yes' : 'No';
   queryListMap.push(testCaseStepNormalQueryObject([...new Set(testCaseStepNormalQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
-  let testCaseNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT(tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND (vns.FUNCTION_STEP_UUID IS NULL OR vns.FUNCTION_STEP_UUID = '') AND (vns.FUNCTION_UUID IS NULL OR vns.FUNCTION_UUID = '') ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+  let testCaseNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_View_Navigation_Step' as 'QueryDataType' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.VIEW_UUID = tcs.VIEW_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
   let testCaseNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseNavigationStepQuery, input);
-  queryListMap.push(
-    testCaseNavigationStepQueryObject([...new Set(testCaseNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
-  );
+  dataObject['isTestCaseViewNavigationExist'] = testCaseNavigationStepQueryData && testCaseNavigationStepQueryData.length ? 'Yes' : 'No';
+  queryListMap.push(viewNavigationStepQueryObject([...new Set(testCaseNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseNavigationStepQueryData);
-  let testCaseFunctionStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcfs.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, TEST_CASE_FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfs.TEST_CASE_FUNCTION_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE tc, TEST_SET ts, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID AND ( tcfs.IS_PURE_NAVIGATION_STEP = 'No' OR tcfs.IS_PURE_NAVIGATION_STEP IS NULL OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.FUNCTION_STEP_UUID IS NOT NULL AND vns.FUNCTION_STEP_UUID != '' AND vns.FUNCTION_UUID IS NOT NULL AND vns.FUNCTION_UUID != '' ) ) ) ORDER BY TEST_CASE_STEP_ID, TEST_CASE_FUNCTION_STEP_ID ASC;`;
+  let testCaseFunctionStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', FUNCTION_STEP_SEQ_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcfs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'FUNCTION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'FUNCTION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'FUNCTION_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfs.FUNCTION_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, FUNCTION_STEP tcfs, TEST_CASE tc, TEST_SET ts, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ( tcfs.IS_PURE_NAVIGATION_STEP = 'No' OR tcfs.IS_PURE_NAVIGATION_STEP IS NULL OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcfs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ) ) ORDER BY TEST_CASE_STEP_ID, FUNCTION_STEP_ID ASC;`;
   let testCaseFunctionStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionStepQuery, input);
-  queryListMap.push(testCaseFunctionStepQueryObject([...new Set(testCaseFunctionStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
+  dataObject['isTestCaseFunctionExist'] = testCaseFunctionStepQueryData && testCaseFunctionStepQueryData.length ? 'Yes' : 'No';
+  queryListMap.push(functionStepNormalQueryObject([...new Set(testCaseFunctionStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionStepQueryData);
-  let testCaseFunctionNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT(tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function - ', (SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT), ' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcfs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.FUNCTION_STEP_UUID IS NOT NULL AND vns.FUNCTION_STEP_UUID != '' AND vns.FUNCTION_UUID IS NOT NULL AND vns.FUNCTION_UUID != '' ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+  let testCaseFunctionNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.FUNCTION_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ), ' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_View_Navigation_Step' as 'QueryDataType' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcfs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.VIEW_UUID = tcfs.VIEW_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcfs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
   let testCaseFunctionNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionNavigationStepQuery, input);
+  dataObject['isTestCaseFunctionViewNavigationExist'] = testCaseFunctionNavigationStepQueryData && testCaseFunctionNavigationStepQueryData.length ? 'Yes' : 'No';
   queryListMap.push(
-    testCaseFunctionNavigationStepQueryObject([...new Set(testCaseFunctionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
+    viewNavigationStepQueryObject([...new Set(testCaseFunctionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
   );
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionNavigationStepQueryData);
-  let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function - ', (SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT) AS 'Page ID', 'Active' AS Status, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfuegs.TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcfs.TEST_CASE_FUNCTION_STEP_UUID = tcfuegs.TEST_CASE_FUNCTION_STEP_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID ORDER BY TEST_CASE_STEP_ID ASC, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID ASC;`;
+  let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', FUNCTION_STEP_SEQ_ID, '-', UI_ELEMENT_GROUP_STEP_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT ) AS 'Page ID', 'Active' AS Status, UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfuegs.UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcfs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', tcfuegs.UI_ELEMENT_GROUP_STEP_UUID as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_UI_Element_Group_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, FUNCTION_STEP tcfs, UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND tcfs.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY TEST_CASE_STEP_ID ASC, UI_ELEMENT_GROUP_STEP_ID ASC;`;
   let testCaseFunctionUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionUIElementGroupStepQuery, input);
+  dataObject['isTestCaseFunctionUIElementGroupExist'] = testCaseFunctionUIElementGroupStepQueryData && testCaseFunctionUIElementGroupStepQueryData.length ? 'Yes' : 'No';
   queryListMap.push(
-    testCaseFunctionUIElementGroupStepQueryObject(
-      [...new Set(testCaseFunctionUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')
-    )
+    uIElementGroupStepQueryObject([...new Set(testCaseFunctionUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
   );
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionUIElementGroupStepQueryData);
-  let testCaseUIElementGroupStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_UI_ELEMENT_GROUP_STEP_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_UI_ELEMENT_GROUP_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT) AS 'Page ID', 'Active' AS Status, TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcuegs.TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcuegs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID ORDER BY TEST_CASE_STEP_ID, TEST_CASE_UI_ELEMENT_GROUP_STEP_ID ASC;`;
+  let testCaseUIElementGroupStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', UI_ELEMENT_GROUP_STEP_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT ) AS 'Page ID', 'Active' AS Status, UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcuegs.UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', tcuegs.UI_ELEMENT_GROUP_STEP_UUID as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_UI_Element_Group_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcuegs.UI_ELEMENT_GROUP_UUID = tcs.UI_ELEMENT_GROUP_UUID AND tcs.TEST_SET_UUID=:TEST_SET_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID ORDER BY TEST_CASE_STEP_ID, UI_ELEMENT_GROUP_STEP_ID ASC;`;
   let testCaseUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseUIElementGroupStepQuery, input);
+  dataObject['isTestCaseUIElementGroupExist'] = testCaseUIElementGroupStepQueryData && testCaseUIElementGroupStepQueryData.length ? 'Yes' : 'No';
   queryListMap.push(
-    testCaseUIElementGroupStepQueryObject([...new Set(testCaseUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
+    uIElementGroupStepQueryObject([...new Set(testCaseUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
   );
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseUIElementGroupStepQueryData);
   let primaryKeyIds = concatePrimaryKeys(testCaseQueryData);
@@ -1675,23 +2036,14 @@ if (
     let uiElementGroupQueryDataList = await fetchUIElementGroupDetails(attributeIds);
     let apiQueryDataList = await fetchApiDetails(attributeIds);
     let apiAttributeQueryDataList = await fetchApiAttributeDetails(attributeIds);
+    let primaryColumnIds = primaryIdString(testCaseStepNormalQueryData);
+    let parentStepAttributeValueData = await getStepData(dataObject, primaryColumnIds);
+    let childStepAttributeValueData = await getStepChildData(dataObject, primaryColumnIds);
     for (let data of testCaseStepNormalQueryData) {
       let inc = 0;
       let stepDefAttributeQueryData = getStepAttributeData(stepDefAttributeQueryDataList, data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID']);
       let attributeValueQueryData = getChildAttributeData(attributeDataObject.attributeValueQueryDataEntries, data.PRIMARY_COLUMN_VALUE, data.PRIMARY_COLUMN_NAME);
-      if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
-        let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
-        if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
-          let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
-            attributeValueQueryData,
-            uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
-            data['CHILD_ATTRIBUTE_DATA']
-          );
-          if (isUIElementValueEmpty) {
-            data['isItemRemove'] = true;
-          }
-        }
-      }
+      let filteredStepAttributeValueData = getDataByParentKeyAndType(parentStepAttributeValueData, data['ParentKey']);
       if (data && data['TEST_CASE_EXECUTON_TYPE'] == 'Automated') {
         let inputStepType = data['Test Case Step Type'] && data['Test Case Step Type'] == 'Data' ? 'Given' : data['Test Case Step Type'];
         data['Test Case Step Type'] = inputStepType;
@@ -1745,6 +2097,23 @@ if (
                 break;
               case '74da67d2-41c9-4cf7-9eea-715243e5fcdc':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
                   let uiElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   let uiElementValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (uiElementValueData && Object.keys(uiElementValueData).length && uiElementValueData['SCOPE_VARIABLE_UUID']) {
@@ -1752,14 +2121,15 @@ if (
                     if (
                       selectedAttributeDetails &&
                       Object.keys(selectedAttributeDetails).length &&
-                      uiElementValueData['FUNCTION_UUID'] &&
                       [
-                        'TEST_CASE_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'
-                      ].includes(data['CHILD_ATTRIBUTE_DATA'])
+                        'Test_Case_Step_Normal',
+                        'Test_Case_View_Navigation_Step',
+                        'Test_Case_Function_Step',
+                        'Test_Case_Function_View_Navigation_Step',
+                        'Test_Case_Function_UI_Element_Group_Step',
+                        'Test_Case_UI_Element_Group_Step'
+                      ].includes(data['QueryDataType']) &&
+                      selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
                     ) {
                       let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${uiElementValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                       let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -1767,6 +2137,7 @@ if (
                     } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                       uiElementValue = selectedAttributeDetails['NAME'];
                     }
+                    uiElementValue = decideScopePrefix(uiElementValueData) + uiElementValue;
                   }
                   if (!checkTestDataExistsForTestCase(testCaseQueryData, testDataQueryData, data)) {
                     getAttr = replaceKeyword(uiElementValue);
@@ -1784,6 +2155,10 @@ if (
                 break;
               case '235dfa3a-a897-4076-b9bc-ed813ec7c39f':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let keyNameInKeyPad = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(keyNameInKeyPad);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll('<Key Name in Keypad>', function () {
@@ -1817,17 +2192,23 @@ if (
                 }
                 break;
               case 'afe5f489-b9b3-11ee-a0ed-12e85c8c3755':
-                let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(confirmUIElementValue);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Confirm UI Element Value>',
-                  confirmUIElementValue
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(confirmUIElementValue);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Confirm UI Element Value>',
+                    confirmUIElementValue
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '6c698ae8-6305-4bb6-8c23-3a938e7234bd':
                 {
@@ -1857,6 +2238,23 @@ if (
                 break;
               case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '3f50ff70-f3e4-11ee-9a12-6fc3e771212a');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
                   let uiElementValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(uiElementValue1);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1910,6 +2308,10 @@ if (
                 break;
               case '2dc3a50e-004d-4dec-8270-c7ec5d36cb2c':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let pageNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(pageNumber);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1925,6 +2327,10 @@ if (
                 break;
               case 'bca9a7f7-1948-407c-9953-2d01356bbd15':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let dataKey = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(dataKey);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1940,6 +2346,10 @@ if (
                 break;
               case '3aff7b0e-472c-4393-b6b2-5a61b07cfbff':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let dataValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(dataValue);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1955,6 +2365,10 @@ if (
                 break;
               case 'ceb66327-216f-42fd-845b-9f4543c62baa':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let fileName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(fileName);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -1970,6 +2384,10 @@ if (
                 break;
               case 'd20f4347-d4d0-47a1-96f6-190d3b5e4a90':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let downloadParserName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(downloadParserName);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -2011,16 +2429,32 @@ if (
                 break;
               case '7182ebf0-2e33-11ef-9033-4bb93e602d01':
                 {
-                  let apiAttributeValue = '';
-                  apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '7182ebf0-2e33-11ef-9033-4bb93e602d01');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
+                  let apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   let apiAttributeValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (apiAttributeValueData && Object.keys(apiAttributeValueData).length && apiAttributeValueData['SCOPE_VARIABLE_UUID']) {
                     let selectedAttributeDetails = await getAttributeValueDetails(apiAttributeValueData['SCOPE_VARIABLE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     if (
                       selectedAttributeDetails &&
                       Object.keys(selectedAttributeDetails).length &&
-                      apiAttributeValueData['FUNCTION_UUID'] &&
-                      ['TEST_CASE_STEP_ATTRIBUTE_DATA', 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'].includes(data['CHILD_ATTRIBUTE_DATA'])
+                      ['Test_Case_Step_Normal', 'Test_Case_Function_Step'].includes(data['QueryDataType']) &&
+                      selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
                     ) {
                       let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${apiAttributeValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                       let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -2028,6 +2462,7 @@ if (
                     } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                       apiAttributeValue = selectedAttributeDetails['NAME'];
                     }
+                    apiAttributeValue = decideScopePrefix(apiAttributeValueData) + apiAttributeValue;
                   }
                   getAttr = replaceKeyword(apiAttributeValue);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -2086,6 +2521,10 @@ if (
                 break;
               case '2afdf3ea-2d25-42c6-ab5e-9f5a6b15e0f8':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let timeOot = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(timeOot);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -2105,9 +2544,14 @@ if (
                   let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (
                     functionIds &&
-                    !['FUNCTION_STEP_ATTRIBUTE_DATA', 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'].includes(
-                      data['CHILD_ATTRIBUTE_DATA']
-                    )
+                    [
+                      'Test_Case_Step_Normal',
+                      'Test_Case_View_Navigation_Step',
+                      'Test_Case_Function_Step',
+                      'Test_Case_Function_View_Navigation_Step',
+                      'Test_Case_Function_UI_Element_Group_Step',
+                      'Test_Case_UI_Element_Group_Step'
+                    ].includes(data['QueryDataType'])
                   ) {
                     let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                     let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -2131,9 +2575,14 @@ if (
                   let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (
                     functionIds &&
-                    !['FUNCTION_STEP_ATTRIBUTE_DATA', 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'].includes(
-                      data['CHILD_ATTRIBUTE_DATA']
-                    )
+                    [
+                      'Test_Case_Step_Normal',
+                      'Test_Case_View_Navigation_Step',
+                      'Test_Case_Function_Step',
+                      'Test_Case_Function_View_Navigation_Step',
+                      'Test_Case_Function_UI_Element_Group_Step',
+                      'Test_Case_UI_Element_Group_Step'
+                    ].includes(data['QueryDataType'])
                   ) {
                     let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                     let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -2152,30 +2601,42 @@ if (
                 }
                 break;
               case 'e0568059-ce39-4a69-aadd-6a0dccba696d':
-                let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(timeInterval);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Time Interval>',
-                  timeInterval
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(timeInterval);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(timeInterval);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Time Interval>',
+                    timeInterval
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(timeInterval);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '9d27f361-ac8b-4673-82fe-66c40b2cb634':
-                let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(attempts);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Attempts>',
-                  attempts
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(attempts);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(attempts);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Attempts>',
+                    attempts
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(attempts);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'd797acb4-5e5c-447b-b0c5-60dad38e39a5':
                 {
@@ -2191,30 +2652,55 @@ if (
                 }
                 break;
               case '75b16425-1531-4cee-8c09-30f5be70c4b0':
-                let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(cellValue);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Cell Value>',
-                  cellValue
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(cellValue);
-                        return `'` + Datawithbackslash + `'`;
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '75b16425-1531-4cee-8c09-30f5be70c4b0');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
                       }
-                    : `' '`
-                );
+                    }
+                  }
+                  let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(cellValue);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Cell Value>',
+                    cellValue
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(cellValue);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'ed2ebd4b-9267-4e41-8f56-d5a61abe7ba5':
-                let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(rowNumber);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Row Number>',
-                  rowNumber
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(rowNumber);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(rowNumber);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Row Number>',
+                    rowNumber
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(rowNumber);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'd25a4d7f-5c5d-4117-b325-1c669b9a42ab':
                 {
@@ -2243,33 +2729,62 @@ if (
                 }
                 break;
               case 'ba1ef281-412a-4544-b615-7767b06eb489':
-                let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(cellValue1);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Cell Value 1>',
-                  cellValue1
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(cellValue1);
-                        return `'` + Datawithbackslash + `'`;
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, 'ba1ef281-412a-4544-b615-7767b06eb489');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
                       }
-                    : `' '`
-                );
+                    }
+                  }
+                  let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(cellValue1);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Cell Value 1>',
+                    cellValue1
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(cellValue1);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'f7b6ba5d-74a7-4d36-82cd-222d57b2ce83':
-                let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(columnNumber);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Column Number>',
-                  columnNumber
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(columnNumber);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(columnNumber);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Column Number>',
+                    columnNumber
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(columnNumber);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '28058e26-fa09-42fb-868a-1988bd0a746c':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let fileFullPath = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(fileFullPath);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -2303,6 +2818,13 @@ if (
         delete data['PRIMARY_COLUMN_VALUE'];
         delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
         delete data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'];
+        delete data['FunctionKey'];
+        delete data['FunctionStepKey'];
+        delete data['UIElementGroupKey'];
+        delete data['UIElementGroupStepKey'];
+        delete data['ViewKey'];
+        delete data['QueryDataType'];
+        delete data['ParentKey'];
       } else if (data && data['TEST_CASE_EXECUTON_TYPE'] == 'Recorded') {
         let inputStepType = data['Test Case Step Type'] && data['Test Case Step Type'] == 'Data' ? 'Given' : data['Test Case Step Type'];
         data['Test Case Step Type'] = inputStepType;
@@ -2319,6 +2841,13 @@ if (
         delete data['PRIMARY_COLUMN_VALUE'];
         delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
         delete data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'];
+        delete data['FunctionKey'];
+        delete data['FunctionStepKey'];
+        delete data['UIElementGroupKey'];
+        delete data['UIElementGroupStepKey'];
+        delete data['ViewKey'];
+        delete data['QueryDataType'];
+        delete data['ParentKey'];
       }
     }
   }
@@ -2482,37 +3011,39 @@ if (
   let testCaseQuery = `SELECT TEST_SET_ID as 'Test Set ID',TEST_CASE_ID as 'Test Case ID',TEST_CASE_SEQ_ID as 'Test Case Seq ID',TEST_CASE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions,TEST_CASE_UUID as 'Test Case UUID' FROM TEST_CASE,TEST_SET WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID and TEST_CASE.TEST_CASE_UUID=:TEST_CASE_UUID order by TEST_CASE_SEQ_ID asc`;
   let testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input);
   objectData['Test Case'] = generateExcelData(testCaseQueryData);
-  let testCaseStepNormalQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tc.TEST_CASE_UUID=:TEST_CASE_UUID AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' or tcs.IS_PURE_NAVIGATION_STEP is null ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and (vns.FUNCTION_STEP_UUID IS NULL or vns.FUNCTION_STEP_UUID='' ) and (vns.FUNCTION_UUID IS NULL or vns.FUNCTION_UUID='') ) ) ) ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
+  let testCaseStepNormalQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey',tcs.VIEW_UUID as 'ViewKey','Test_Case_Step_Normal' as 'QueryDataType' FROM TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tc.TEST_CASE_UUID=:TEST_CASE_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' or tcs.IS_PURE_NAVIGATION_STEP is null ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ) ) ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
   let testCaseStepNormalQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseStepNormalQuery, input);
+  dataObject['isNormalTestCaseExist'] = testCaseStepNormalQueryData && testCaseStepNormalQueryData.length ? 'Yes' : 'No';
   queryListMap.push(testCaseStepNormalQueryObject([...new Set(testCaseStepNormalQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
-  let testCaseNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12,tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' as PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID as PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tc.TEST_CASE_UUID=:TEST_CASE_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and vns.FUNCTION_STEP_UUID IS NULL or vns.FUNCTION_STEP_UUID ='' and vns.FUNCTION_UUID IS NULL or vns.FUNCTION_UUID ='') ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+  let testCaseNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' as PRIMARY_COLUMN_NAME, vns.VIEW_NAVIGATION_STEP_UUID as PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE,tcs.TEST_CASE_STEP_UUID as 'ParentKey',tcs.FUNCTION_UUID as 'FunctionKey','' as 'FunctionStepKey',tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey','' as 'UIElementGroupStepKey',tcs.VIEW_UUID as 'ViewKey','Test_Case_View_Navigation_Step' as 'QueryDataType' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tc.TEST_CASE_UUID=:TEST_CASE_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.VIEW_UUID = tcs.VIEW_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
   let testCaseNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseNavigationStepQuery, input);
-  queryListMap.push(
-    testCaseNavigationStepQueryObject([...new Set(testCaseNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
-  );
+  dataObject['isTestCaseViewNavigationExist'] = testCaseNavigationStepQueryData && testCaseNavigationStepQueryData.length ? 'Yes' : 'No';
+  queryListMap.push(viewNavigationStepQueryObject([...new Set(testCaseNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseNavigationStepQueryData);
-  let testCaseFunctionStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcfs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, TEST_CASE_FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfs.TEST_CASE_FUNCTION_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE tc, TEST_SET ts, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tc.TEST_CASE_UUID=:TEST_CASE_UUID AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND ( ( tcfs.IS_PURE_NAVIGATION_STEP = 'No' or tcfs.IS_PURE_NAVIGATION_STEP is null ) OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and vns.FUNCTION_STEP_UUID IS NOT NULL and vns.FUNCTION_STEP_UUID!='' and vns.FUNCTION_UUID IS NOT NULL and vns.FUNCTION_UUID !='' ) ) ) ORDER BY TEST_CASE_STEP_ID, TEST_CASE_FUNCTION_STEP_ID ASC`;
+  let testCaseFunctionStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', FUNCTION_STEP_SEQ_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcfs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'FUNCTION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'FUNCTION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'FUNCTION_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfs.FUNCTION_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE,tcs.TEST_CASE_STEP_UUID as 'ParentKey',tcs.FUNCTION_UUID as 'FunctionKey',tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey',tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey','' as 'UIElementGroupStepKey',tcfs.VIEW_UUID as 'ViewKey','Test_Case_Function_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, FUNCTION_STEP tcfs, TEST_CASE tc, TEST_SET ts, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND tc.TEST_CASE_UUID=:TEST_CASE_UUID AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ( ( tcfs.IS_PURE_NAVIGATION_STEP = 'No' or tcfs.IS_PURE_NAVIGATION_STEP is null ) OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcfs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ) ) ORDER BY TEST_CASE_STEP_ID, FUNCTION_STEP_ID ASC`;
   let testCaseFunctionStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionStepQuery, input);
-  queryListMap.push(testCaseFunctionStepQueryObject([...new Set(testCaseFunctionStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
+  dataObject['isTestCaseFunctionExist'] = testCaseFunctionStepQueryData && testCaseFunctionStepQueryData.length ? 'Yes' : 'No';
+  queryListMap.push(functionStepNormalQueryObject([...new Set(testCaseFunctionStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionStepQueryData);
-  let testCaseFunctionNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ), ' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2,CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' as PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID as PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW v, TEST_CASE_FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tc.TEST_CASE_UUID=:TEST_CASE_UUID AND tcfs.CURRENT_PAGE_CONTEXT = v.PAGE_UUID AND v.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and vns.FUNCTION_STEP_UUID IS NOT NULL and vns.FUNCTION_STEP_UUID!='' and vns.FUNCTION_UUID IS NOT NULL and vns.FUNCTION_UUID !='' ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+  let testCaseFunctionNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.FUNCTION_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ), ' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' as PRIMARY_COLUMN_NAME, vns.VIEW_NAVIGATION_STEP_UUID as PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey',tcs.FUNCTION_UUID as 'FunctionKey',tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey',tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey','' as 'UIElementGroupStepKey',tcfs.VIEW_UUID as 'ViewKey','Test_Case_Function_View_Navigation_Step' as 'QueryDataType' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW v, FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tc.TEST_CASE_UUID=:TEST_CASE_UUID AND tcfs.CURRENT_PAGE_CONTEXT = v.PAGE_UUID AND v.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.VIEW_UUID = tcfs.VIEW_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND EXISTS( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcfs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
   let testCaseFunctionNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionNavigationStepQuery, input);
+  dataObject['isTestCaseFunctionViewNavigationExist'] = testCaseFunctionNavigationStepQueryData && testCaseFunctionNavigationStepQueryData.length ? 'Yes' : 'No';
   queryListMap.push(
-    testCaseFunctionNavigationStepQueryObject([...new Set(testCaseFunctionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
+    viewNavigationStepQueryObject([...new Set(testCaseFunctionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
   );
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionNavigationStepQueryData);
-  let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', concat( TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, concat( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfuegs.TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID and ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and tcfs.TEST_CASE_FUNCTION_STEP_UUID = tcfuegs.TEST_CASE_FUNCTION_STEP_UUID and tc.TEST_CASE_UUID=:TEST_CASE_UUID and tcs.IS_FUNCTION_STEP = 'Yes' and tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY TEST_CASE_STEP_ID asc, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID asc`;
+  let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', concat( TEST_CASE_STEP_SEQ_ID, '-', FUNCTION_STEP_SEQ_ID, '-', UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID',STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, concat( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfuegs.UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey',tcs.FUNCTION_UUID as 'FunctionKey',tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey',tcfs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey',tcfuegs.UI_ELEMENT_GROUP_STEP_UUID as 'UIElementGroupStepKey',tcfs.VIEW_UUID as 'ViewKey','Test_Case_Function_UI_Element_Group_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, FUNCTION_STEP tcfs, UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID and ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID and tcfs.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID and tc.TEST_CASE_UUID=:TEST_CASE_UUID and tcs.IS_FUNCTION_STEP = 'Yes' and tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY TEST_CASE_STEP_ID asc, UI_ELEMENT_GROUP_STEP_ID asc`;
   let testCaseFunctionUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionUIElementGroupStepQuery, input);
+  dataObject['isTestCaseFunctionUIElementGroupExist'] = testCaseFunctionUIElementGroupStepQueryData && testCaseFunctionUIElementGroupStepQueryData.length ? 'Yes' : 'No';
   queryListMap.push(
-    testCaseFunctionUIElementGroupStepQueryObject(
-      [...new Set(testCaseFunctionUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')
-    )
+    uIElementGroupStepQueryObject([...new Set(testCaseFunctionUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
   );
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionUIElementGroupStepQueryData);
-  let testCaseUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', concat( TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', TEST_CASE_UI_ELEMENT_GROUP_STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, concat( ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcuegs.TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID and ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcuegs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID and tc.TEST_CASE_UUID=:TEST_CASE_UUID and tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY TEST_CASE_STEP_ID, TEST_CASE_UI_ELEMENT_GROUP_STEP_ID asc`;
+  let testCaseUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', concat( TEST_CASE_STEP_SEQ_ID, '-', UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID',STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, concat( ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcuegs.UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE,tcs.TEST_CASE_STEP_UUID as 'ParentKey',tcs.FUNCTION_UUID as 'FunctionKey','' as 'FunctionStepKey',tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey',tcuegs.UI_ELEMENT_GROUP_STEP_UUID as 'UIElementGroupStepKey',tcs.VIEW_UUID as 'ViewKey','Test_Case_UI_Element_Group_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID and ts.TEST_SET_UUID = tcs.TEST_SET_UUID and tcuegs.UI_ELEMENT_GROUP_UUID = tcs.UI_ELEMENT_GROUP_UUID and tc.TEST_CASE_UUID=:TEST_CASE_UUID and tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY TEST_CASE_STEP_ID, UI_ELEMENT_GROUP_STEP_ID asc`;
   let testCaseUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseUIElementGroupStepQuery, input);
+  dataObject['isTestCaseUIElementGroupExist'] = testCaseUIElementGroupStepQueryData && testCaseUIElementGroupStepQueryData.length ? 'Yes' : 'No';
   queryListMap.push(
-    testCaseUIElementGroupStepQueryObject([...new Set(testCaseUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
+    uIElementGroupStepQueryObject([...new Set(testCaseUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
   );
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseUIElementGroupStepQueryData);
   let primaryKeyIds = concatePrimaryKeys(testCaseQueryData);
@@ -2535,24 +3066,19 @@ if (
     let uiElementGroupQueryDataList = await fetchUIElementGroupDetails(attributeIds);
     let apiQueryDataList = await fetchApiDetails(attributeIds);
     let apiAttributeQueryDataList = await fetchApiAttributeDetails(attributeIds);
+    let primaryColumnIds = primaryIdString(testCaseStepNormalQueryData);
+    debugger;
+    let parentStepAttributeValueData = await getStepData(dataObject, primaryColumnIds);
+    let childStepAttributeValueData = await getStepChildData(dataObject, primaryColumnIds);
     for (let data of testCaseStepNormalQueryData) {
+      if (data['Test Case Step ID'] == '3-3') {
+        debugger;
+      }
       let inc = 0;
       let stepDefAttributeQueryData = getStepAttributeData(stepDefAttributeQueryDataList, data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID']);
       let attributeValueQueryData = getChildAttributeData(attributeDataObject.attributeValueQueryDataEntries, data.PRIMARY_COLUMN_VALUE, data.PRIMARY_COLUMN_NAME);
-      if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
-        let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
-        if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
-          let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
-            attributeValueQueryData,
-            uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
-            data['CHILD_ATTRIBUTE_DATA']
-          );
-          if (isUIElementValueEmpty) {
-            data['isItemRemove'] = true;
-          }
-        }
-      }
       executionType = data['TEST_CASE_EXECUTON_TYPE'] ? data['TEST_CASE_EXECUTON_TYPE'] : '';
+      let filteredStepAttributeValueData = getDataByParentKeyAndType(parentStepAttributeValueData, data['ParentKey']);
       if (data && data['TEST_CASE_EXECUTON_TYPE'] != 'Recorded') {
         let inputStepType = data['Test Case Step Type'] && data['Test Case Step Type'] == 'Data' ? 'Given' : data['Test Case Step Type'];
         data['Test Case Step Type'] = inputStepType;
@@ -2606,6 +3132,23 @@ if (
                 break;
               case '74da67d2-41c9-4cf7-9eea-715243e5fcdc':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
                   let uiElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   let uiElementValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (uiElementValueData && Object.keys(uiElementValueData).length && uiElementValueData['SCOPE_VARIABLE_UUID']) {
@@ -2613,14 +3156,15 @@ if (
                     if (
                       selectedAttributeDetails &&
                       Object.keys(selectedAttributeDetails).length &&
-                      uiElementValueData['FUNCTION_UUID'] &&
                       [
-                        'TEST_CASE_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'
-                      ].includes(data['CHILD_ATTRIBUTE_DATA'])
+                        'Test_Case_Step_Normal',
+                        'Test_Case_View_Navigation_Step',
+                        'Test_Case_Function_Step',
+                        'Test_Case_Function_View_Navigation_Step',
+                        'Test_Case_Function_UI_Element_Group_Step',
+                        'Test_Case_UI_Element_Group_Step'
+                      ].includes(data['QueryDataType']) &&
+                      selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
                     ) {
                       let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${uiElementValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                       let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -2628,6 +3172,7 @@ if (
                     } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                       uiElementValue = selectedAttributeDetails['NAME'];
                     }
+                    uiElementValue = decideScopePrefix(uiElementValueData) + uiElementValue;
                   }
                   if (!msg.payload.filePresent) {
                     getAttr = replaceKeyword(uiElementValue);
@@ -2645,6 +3190,10 @@ if (
                 break;
               case '235dfa3a-a897-4076-b9bc-ed813ec7c39f':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let keyNameInKeyPad = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(keyNameInKeyPad);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll('<Key Name in Keypad>', function () {
@@ -2678,17 +3227,23 @@ if (
                 }
                 break;
               case 'afe5f489-b9b3-11ee-a0ed-12e85c8c3755':
-                let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(confirmUIElementValue);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Confirm UI Element Value>',
-                  confirmUIElementValue
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(confirmUIElementValue);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Confirm UI Element Value>',
+                    confirmUIElementValue
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '6c698ae8-6305-4bb6-8c23-3a938e7234bd':
                 {
@@ -2718,6 +3273,23 @@ if (
                 break;
               case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '3f50ff70-f3e4-11ee-9a12-6fc3e771212a');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
                   let uiElementValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(uiElementValue1);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -2771,6 +3343,10 @@ if (
                 break;
               case '2dc3a50e-004d-4dec-8270-c7ec5d36cb2c':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let pageNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(pageNumber);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -2786,6 +3362,10 @@ if (
                 break;
               case 'bca9a7f7-1948-407c-9953-2d01356bbd15':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let dataKey = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(dataKey);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -2801,6 +3381,10 @@ if (
                 break;
               case '3aff7b0e-472c-4393-b6b2-5a61b07cfbff':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let dataValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(dataValue);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -2816,6 +3400,10 @@ if (
                 break;
               case 'ceb66327-216f-42fd-845b-9f4543c62baa':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let fileName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(fileName);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -2831,6 +3419,10 @@ if (
                 break;
               case 'd20f4347-d4d0-47a1-96f6-190d3b5e4a90':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let downloadParserName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(downloadParserName);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -2872,16 +3464,32 @@ if (
                 break;
               case '7182ebf0-2e33-11ef-9033-4bb93e602d01':
                 {
-                  let apiAttributeValue = '';
-                  apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '7182ebf0-2e33-11ef-9033-4bb93e602d01');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
+                  let apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   let apiAttributeValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (apiAttributeValueData && Object.keys(apiAttributeValueData).length && apiAttributeValueData['SCOPE_VARIABLE_UUID']) {
                     let selectedAttributeDetails = await getAttributeValueDetails(apiAttributeValueData['SCOPE_VARIABLE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     if (
                       selectedAttributeDetails &&
                       Object.keys(selectedAttributeDetails).length &&
-                      apiAttributeValueData['FUNCTION_UUID'] &&
-                      ['TEST_CASE_STEP_ATTRIBUTE_DATA', 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'].includes(data['CHILD_ATTRIBUTE_DATA'])
+                      ['Test_Case_Step_Normal', 'Test_Case_Function_Step'].includes(data['QueryDataType']) &&
+                      selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
                     ) {
                       let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${apiAttributeValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                       let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -2889,6 +3497,7 @@ if (
                     } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                       apiAttributeValue = selectedAttributeDetails['NAME'];
                     }
+                    apiAttributeValue = decideScopePrefix(apiAttributeValueData) + apiAttributeValue;
                   }
                   getAttr = replaceKeyword(apiAttributeValue);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -2947,6 +3556,10 @@ if (
                 break;
               case '2afdf3ea-2d25-42c6-ab5e-9f5a6b15e0f8':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let timeOot = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(timeOot);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -2966,9 +3579,14 @@ if (
                   let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (
                     functionIds &&
-                    !['FUNCTION_STEP_ATTRIBUTE_DATA', 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'].includes(
-                      data['CHILD_ATTRIBUTE_DATA']
-                    )
+                    [
+                      'Test_Case_Step_Normal',
+                      'Test_Case_View_Navigation_Step',
+                      'Test_Case_Function_Step',
+                      'Test_Case_Function_View_Navigation_Step',
+                      'Test_Case_Function_UI_Element_Group_Step',
+                      'Test_Case_UI_Element_Group_Step'
+                    ].includes(data['QueryDataType'])
                   ) {
                     let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                     let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -2992,9 +3610,14 @@ if (
                   let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (
                     functionIds &&
-                    !['FUNCTION_STEP_ATTRIBUTE_DATA', 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'].includes(
-                      data['CHILD_ATTRIBUTE_DATA']
-                    )
+                    [
+                      'Test_Case_Step_Normal',
+                      'Test_Case_View_Navigation_Step',
+                      'Test_Case_Function_Step',
+                      'Test_Case_Function_View_Navigation_Step',
+                      'Test_Case_Function_UI_Element_Group_Step',
+                      'Test_Case_UI_Element_Group_Step'
+                    ].includes(data['QueryDataType'])
                   ) {
                     let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                     let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -3013,30 +3636,42 @@ if (
                 }
                 break;
               case 'e0568059-ce39-4a69-aadd-6a0dccba696d':
-                let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(timeInterval);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Time Interval>',
-                  timeInterval
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(timeInterval);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(timeInterval);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Time Interval>',
+                    timeInterval
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(timeInterval);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '9d27f361-ac8b-4673-82fe-66c40b2cb634':
-                let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(attempts);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Attempts>',
-                  attempts
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(attempts);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(attempts);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Attempts>',
+                    attempts
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(attempts);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'd797acb4-5e5c-447b-b0c5-60dad38e39a5':
                 {
@@ -3052,30 +3687,55 @@ if (
                 }
                 break;
               case '75b16425-1531-4cee-8c09-30f5be70c4b0':
-                let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(cellValue);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Cell Value>',
-                  cellValue
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(cellValue);
-                        return `'` + Datawithbackslash + `'`;
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '75b16425-1531-4cee-8c09-30f5be70c4b0');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
                       }
-                    : `' '`
-                );
+                    }
+                  }
+                  let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(cellValue);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Cell Value>',
+                    cellValue
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(cellValue);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'ed2ebd4b-9267-4e41-8f56-d5a61abe7ba5':
-                let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(rowNumber);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Row Number>',
-                  rowNumber
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(rowNumber);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(rowNumber);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Row Number>',
+                    rowNumber
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(rowNumber);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'd25a4d7f-5c5d-4117-b325-1c669b9a42ab':
                 {
@@ -3104,33 +3764,62 @@ if (
                 }
                 break;
               case 'ba1ef281-412a-4544-b615-7767b06eb489':
-                let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(cellValue1);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Cell Value 1>',
-                  cellValue1
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(cellValue1);
-                        return `'` + Datawithbackslash + `'`;
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, 'ba1ef281-412a-4544-b615-7767b06eb489');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
                       }
-                    : `' '`
-                );
+                    }
+                  }
+                  let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(cellValue1);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Cell Value 1>',
+                    cellValue1
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(cellValue1);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'f7b6ba5d-74a7-4d36-82cd-222d57b2ce83':
-                let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(columnNumber);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Column Number>',
-                  columnNumber
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(columnNumber);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(columnNumber);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Column Number>',
+                    columnNumber
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(columnNumber);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '28058e26-fa09-42fb-868a-1988bd0a746c':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let fileFullPath = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(fileFullPath);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -3164,6 +3853,13 @@ if (
         delete data['PRIMARY_COLUMN_VALUE'];
         delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
         delete data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'];
+        delete data['FunctionKey'];
+        delete data['FunctionStepKey'];
+        delete data['UIElementGroupKey'];
+        delete data['UIElementGroupStepKey'];
+        delete data['ViewKey'];
+        delete data['QueryDataType'];
+        delete data['ParentKey'];
       } else if (data && data['TEST_CASE_EXECUTON_TYPE'] == 'Recorded') {
         let inputStepType = data['Test Case Step Type'] && data['Test Case Step Type'] == 'Data' ? 'Given' : data['Test Case Step Type'];
         data['Test Case Step Type'] = inputStepType;
@@ -3180,6 +3876,13 @@ if (
         delete data['PRIMARY_COLUMN_VALUE'];
         delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
         delete data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'];
+        delete data['FunctionKey'];
+        delete data['FunctionStepKey'];
+        delete data['UIElementGroupKey'];
+        delete data['UIElementGroupStepKey'];
+        delete data['ViewKey'];
+        delete data['QueryDataType'];
+        delete data['ParentKey'];
       }
     }
   }
@@ -3373,21 +4076,20 @@ if (
   let functionQuery = `SELECT FUNCTION_ID as 'Test Set ID',FUNCTION_ID as 'Test Case ID','' as 'Test Case Seq ID',FUNCTION_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions,FUNCTION_UUID as 'Test Case UUID' FROM featuremanagement_app.FUNCTION,FUNCTIONAL_AREA WHERE FUNCTION_UUID=:FUNCTION_UUID AND featuremanagement_app.FUNCTION.FUNCTIONAL_AREA_UUID = FUNCTIONAL_AREA.FUNCTIONAL_AREA_UUID`;
   let functionQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
   objectData['Test Case'] = generateExcelData(functionQueryData);
-  let functionStepNormalQuery = `SELECT FUNCTION_ID AS 'Test Set ID', FUNCTION_ID AS 'Test Case ID', tcs.FUNCTION_STEP_SEQ_ID AS 'Test Case Step ID', tcs.FUNCTION_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.FUNCTION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, tcs.FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, tcs.API_UUID, 'FUNCTION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'FUNCTION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'FUNCTION_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.FUNCTION_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM featuremanagement_app.FUNCTION tc JOIN FUNCTION_STEP tcs ON tc.FUNCTION_UUID = tcs.FUNCTION_UUID WHERE tcs.FUNCTION_UUID=:FUNCTION_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP is null ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS( SELECT 1 FROM FUNCTION_VIEW_NAVIGATION_STEP vns WHERE vns.FUNCTION_STEP_UUID = tcs.FUNCTION_STEP_UUID ) ) ) ORDER BY FUNCTION_STEP_ID, FUNCTION_STEP_SEQ_ID ASC`;
+  let functionStepNormalQuery = `SELECT FUNCTION_ID AS 'Test Set ID', FUNCTION_ID AS 'Test Case ID', tcs.FUNCTION_STEP_SEQ_ID AS 'Test Case Step ID', tcs.FUNCTION_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.FUNCTION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, tcs.FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, 'FUNCTION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'FUNCTION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'FUNCTION_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.FUNCTION_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE , tcs.FUNCTION_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Function_Normal' as 'QueryDataType' FROM featuremanagement_app.FUNCTION tc JOIN FUNCTION_STEP tcs ON tc.FUNCTION_UUID = tcs.FUNCTION_UUID WHERE tcs.FUNCTION_UUID=:FUNCTION_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP is null ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ) ) ORDER BY FUNCTION_STEP_ID, FUNCTION_STEP_SEQ_ID ASC`;
   let functionStepNormalQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionStepNormalQuery, input);
+  dataObject['isNormalFunctionExist'] = functionStepNormalQueryData && functionStepNormalQueryData.length ? 'Yes' : 'No';
   queryListMap.push(functionStepNormalQueryObject([...new Set(functionStepNormalQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
-  let functionNavigationStepQuery = `SELECT tc.FUNCTION_ID AS 'Test Set ID', tc.FUNCTION_ID AS 'Test Case ID', CONCAT( tcs.FUNCTION_STEP_SEQ_ID, '-', vns.FUNCTION_VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.FUNCTION_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.FUNCTION_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.FUNCTION_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'FUNCTION_VIEW_NAVIGATION_STEP_UUID' as PRIMARY_COLUMN_NAME, vns.FUNCTION_VIEW_NAVIGATION_STEP_UUID as PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM FUNCTION_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, FUNCTION_STEP tcs, featuremanagement_app.FUNCTION tc, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE tc.FUNCTION_UUID = tcs.FUNCTION_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tc.FUNCTION_UUID=:FUNCTION_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.FUNCTION_STEP_UUID = tcs.FUNCTION_STEP_UUID AND EXISTS( SELECT 1 FROM FUNCTION_VIEW_NAVIGATION_STEP vns where vns.FUNCTION_STEP_UUID = tcs.FUNCTION_STEP_UUID ) ORDER BY vns.FUNCTION_VIEW_NAVIGATION_STEP_ID, vns.FUNCTION_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+  let functionNavigationStepQuery = `SELECT tc.FUNCTION_ID AS 'Test Set ID', tc.FUNCTION_ID AS 'Test Case ID', CONCAT( tcs.FUNCTION_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' as PRIMARY_COLUMN_NAME, vns.VIEW_NAVIGATION_STEP_UUID as PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.FUNCTION_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Function_View_Navigation_Step' as 'QueryDataType' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, FUNCTION_STEP tcs, featuremanagement_app.FUNCTION tc, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE tc.FUNCTION_UUID = tcs.FUNCTION_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tc.FUNCTION_UUID=:FUNCTION_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.VIEW_UUID = tcs.VIEW_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND EXISTS( SELECT 1 FROM VIEW_NAVIGATION_STEP vns where vns.VIEW_UUID = tcs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
   let functionNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionNavigationStepQuery, input);
-  queryListMap.push(
-    functionNavigationStepQueryObject([...new Set(functionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
-  );
+  dataObject['isFunctionViewNavigationExist'] = functionNavigationStepQueryData && functionNavigationStepQueryData.length ? 'Yes' : 'No';
+  queryListMap.push(viewNavigationStepQueryObject([...new Set(functionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
   functionStepNormalQueryData = functionStepNormalQueryData.concat(functionNavigationStepQueryData);
-  let functionUIElementGroupStepNormalQuery = `SELECT FUNCTION_ID as 'Test Set ID', FUNCTION_ID as 'Test Case ID', concat( tcs.FUNCTION_STEP_SEQ_ID, '-', tcfs.FUNCTION_UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', tcs.FUNCTION_STEP_SEQ_ID as 'Test Case Step Seq ID', tcfs.FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, concat( ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP f WHERE f.UI_ELEMENT_GROUP_UUID = tcfs.UI_ELEMENT_GROUP_UUID ), ' UI_ELEMENT_GROUP' ) as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, tcfs.FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6,'' AS v7,'' AS v8,'' AS v9,'' AS v10,'' AS v11,'' AS v12, tcs.API_UUID, 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'FUNCTION_UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfs.FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM FUNCTION_STEP tcs, FUNCTION_UI_ELEMENT_GROUP_STEP tcfs, featuremanagement_app.FUNCTION tc WHERE tc.FUNCTION_UUID = tcs.FUNCTION_UUID and tcfs.FUNCTION_STEP_UUID = tcs.FUNCTION_STEP_UUID and tcs.FUNCTION_UUID=:FUNCTION_UUID and tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY FUNCTION_STEP_ID, FUNCTION_UI_ELEMENT_GROUP_STEP_ID asc`;
+  let functionUIElementGroupStepNormalQuery = `SELECT FUNCTION_ID as 'Test Set ID', FUNCTION_ID as 'Test Case ID', concat( tcs.FUNCTION_STEP_SEQ_ID, '-', tcfs.UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', tcs.FUNCTION_STEP_SEQ_ID as 'Test Case Step Seq ID', tcfs.STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, concat( ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP f WHERE f.UI_ELEMENT_GROUP_UUID = tcfs.UI_ELEMENT_GROUP_UUID ), ' UI_ELEMENT_GROUP' ) as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, tcfs.UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfs.UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE , tcs.FUNCTION_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', tcfs.UI_ELEMENT_GROUP_STEP_UUID as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Function_UI_Element_Group_Step' as 'QueryDataType' FROM FUNCTION_STEP tcs, UI_ELEMENT_GROUP_STEP tcfs, featuremanagement_app.FUNCTION tc WHERE tc.FUNCTION_UUID = tcs.FUNCTION_UUID and tcfs.UI_ELEMENT_GROUP_UUID = tcs.UI_ELEMENT_GROUP_UUID and tcs.FUNCTION_UUID=:FUNCTION_UUID and tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY FUNCTION_STEP_ID, UI_ELEMENT_GROUP_STEP_ID asc`;
   let functionUIElementGroupStepNormalQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionUIElementGroupStepNormalQuery, input);
+  dataObject['isFunctionUIElementGroupExist'] = functionUIElementGroupStepNormalQueryData && functionUIElementGroupStepNormalQueryData.length ? 'Yes' : 'No';
   queryListMap.push(
-    functionUIElementGroupStepNormalQueryObject(
-      [...new Set(functionUIElementGroupStepNormalQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')
-    )
+    uIElementGroupStepQueryObject([...new Set(functionUIElementGroupStepNormalQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
   );
   functionStepNormalQueryData = functionStepNormalQueryData.concat(functionUIElementGroupStepNormalQueryData);
   let attributeIds = '';
@@ -3403,23 +4105,14 @@ if (
     let uiElementGroupQueryDataList = await fetchUIElementGroupDetails(attributeIds);
     let apiQueryDataList = await fetchApiDetails(attributeIds);
     let apiAttributeQueryDataList = await fetchApiAttributeDetails(attributeIds);
+    let primaryColumnIds = primaryIdString(functionStepNormalQueryData);
+    let parentStepAttributeValueData = await getStepData(dataObject, primaryColumnIds);
+    let childStepAttributeValueData = await getStepChildData(dataObject, primaryColumnIds);
     for (let data of functionStepNormalQueryData) {
       let inc = 0;
       let stepDefAttributeQueryData = getStepAttributeData(stepDefAttributeQueryDataList, data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID']);
       let attributeValueQueryData = getChildAttributeData(attributeDataObject.attributeValueQueryDataEntries, data.PRIMARY_COLUMN_VALUE, data.PRIMARY_COLUMN_NAME);
-      if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
-        let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
-        if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
-          let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
-            attributeValueQueryData,
-            uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
-            data['CHILD_ATTRIBUTE_DATA']
-          );
-          if (isUIElementValueEmpty) {
-            data['isItemRemove'] = true;
-          }
-        }
-      }
+      let filteredStepAttributeValueData = getDataByParentKeyAndType(parentStepAttributeValueData, data['ParentKey']);
       if (data && Object.keys(data).length) {
         let inputStepType = data['Test Case Step Type'];
         let stepDefTemplateVerbiageQueryData = getStepVerbiageData(stepDefTemplateVerbiageQueryDataList, data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID']);
@@ -3472,6 +4165,23 @@ if (
                 break;
               case '74da67d2-41c9-4cf7-9eea-715243e5fcdc':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
                   let uiElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   let uiElementValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (uiElementValueData && Object.keys(uiElementValueData).length && uiElementValueData['SCOPE_VARIABLE_UUID']) {
@@ -3479,14 +4189,15 @@ if (
                     if (
                       selectedAttributeDetails &&
                       Object.keys(selectedAttributeDetails).length &&
-                      uiElementValueData['FUNCTION_UUID'] &&
                       [
-                        'TEST_CASE_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-                        'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'
-                      ].includes(data['CHILD_ATTRIBUTE_DATA'])
+                        'Test_Case_Step_Normal',
+                        'Test_Case_View_Navigation_Step',
+                        'Test_Case_Function_Step',
+                        'Test_Case_Function_View_Navigation_Step',
+                        'Test_Case_Function_UI_Element_Group_Step',
+                        'Test_Case_UI_Element_Group_Step'
+                      ].includes(data['QueryDataType']) &&
+                      selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
                     ) {
                       let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${uiElementValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                       let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -3494,6 +4205,7 @@ if (
                     } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                       uiElementValue = selectedAttributeDetails['NAME'];
                     }
+                    uiElementValue = decideScopePrefix(uiElementValueData) + uiElementValue;
                   }
                   getAttr = replaceKeyword(uiElementValue);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -3509,6 +4221,10 @@ if (
                 break;
               case '235dfa3a-a897-4076-b9bc-ed813ec7c39f':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let keyNameInKeyPad = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(keyNameInKeyPad);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll('<Key Name in Keypad>', function () {
@@ -3542,17 +4258,23 @@ if (
                 }
                 break;
               case 'afe5f489-b9b3-11ee-a0ed-12e85c8c3755':
-                let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(confirmUIElementValue);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Confirm UI Element Value>',
-                  confirmUIElementValue
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(confirmUIElementValue);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Confirm UI Element Value>',
+                    confirmUIElementValue
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '6c698ae8-6305-4bb6-8c23-3a938e7234bd':
                 {
@@ -3582,6 +4304,23 @@ if (
                 break;
               case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '3f50ff70-f3e4-11ee-9a12-6fc3e771212a');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
                   let uiElementValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(uiElementValue1);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -3635,6 +4374,10 @@ if (
                 break;
               case '2dc3a50e-004d-4dec-8270-c7ec5d36cb2c':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let pageNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(pageNumber);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -3650,6 +4393,10 @@ if (
                 break;
               case 'bca9a7f7-1948-407c-9953-2d01356bbd15':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let dataKey = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(dataKey);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -3665,6 +4412,10 @@ if (
                 break;
               case '3aff7b0e-472c-4393-b6b2-5a61b07cfbff':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let dataValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(dataValue);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -3680,6 +4431,10 @@ if (
                 break;
               case 'ceb66327-216f-42fd-845b-9f4543c62baa':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let fileName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(fileName);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -3695,6 +4450,10 @@ if (
                 break;
               case 'd20f4347-d4d0-47a1-96f6-190d3b5e4a90':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let downloadParserName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(downloadParserName);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -3736,16 +4495,32 @@ if (
                 break;
               case '7182ebf0-2e33-11ef-9033-4bb93e602d01':
                 {
-                  let apiAttributeValue = '';
-                  apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '7182ebf0-2e33-11ef-9033-4bb93e602d01');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
+                  let apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   let apiAttributeValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (apiAttributeValueData && Object.keys(apiAttributeValueData).length && apiAttributeValueData['SCOPE_VARIABLE_UUID']) {
                     let selectedAttributeDetails = await getAttributeValueDetails(apiAttributeValueData['SCOPE_VARIABLE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     if (
                       selectedAttributeDetails &&
                       Object.keys(selectedAttributeDetails).length &&
-                      apiAttributeValueData['FUNCTION_UUID'] &&
-                      ['TEST_CASE_STEP_ATTRIBUTE_DATA', 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'].includes(data['CHILD_ATTRIBUTE_DATA'])
+                      ['Test_Case_Step_Normal', 'Test_Case_Function_Step'].includes(data['QueryDataType']) &&
+                      selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
                     ) {
                       let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${apiAttributeValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                       let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -3753,6 +4528,7 @@ if (
                     } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                       apiAttributeValue = selectedAttributeDetails['NAME'];
                     }
+                    apiAttributeValue = decideScopePrefix(apiAttributeValueData) + apiAttributeValue;
                   }
                   getAttr = replaceKeyword(apiAttributeValue);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -3811,6 +4587,10 @@ if (
                 break;
               case '2afdf3ea-2d25-42c6-ab5e-9f5a6b15e0f8':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let timeOot = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(timeOot);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -3830,9 +4610,14 @@ if (
                   let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (
                     functionIds &&
-                    !['FUNCTION_STEP_ATTRIBUTE_DATA', 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'].includes(
-                      data['CHILD_ATTRIBUTE_DATA']
-                    )
+                    [
+                      'Test_Case_Step_Normal',
+                      'Test_Case_View_Navigation_Step',
+                      'Test_Case_Function_Step',
+                      'Test_Case_Function_View_Navigation_Step',
+                      'Test_Case_Function_UI_Element_Group_Step',
+                      'Test_Case_UI_Element_Group_Step'
+                    ].includes(data['QueryDataType'])
                   ) {
                     let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                     let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -3856,9 +4641,14 @@ if (
                   let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (
                     functionIds &&
-                    !['FUNCTION_STEP_ATTRIBUTE_DATA', 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'].includes(
-                      data['CHILD_ATTRIBUTE_DATA']
-                    )
+                    [
+                      'Test_Case_Step_Normal',
+                      'Test_Case_View_Navigation_Step',
+                      'Test_Case_Function_Step',
+                      'Test_Case_Function_View_Navigation_Step',
+                      'Test_Case_Function_UI_Element_Group_Step',
+                      'Test_Case_UI_Element_Group_Step'
+                    ].includes(data['QueryDataType'])
                   ) {
                     let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                     let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -3877,30 +4667,42 @@ if (
                 }
                 break;
               case 'e0568059-ce39-4a69-aadd-6a0dccba696d':
-                let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(timeInterval);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Time Interval>',
-                  timeInterval
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(timeInterval);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(timeInterval);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Time Interval>',
+                    timeInterval
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(timeInterval);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '9d27f361-ac8b-4673-82fe-66c40b2cb634':
-                let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(attempts);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Attempts>',
-                  attempts
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(attempts);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(attempts);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Attempts>',
+                    attempts
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(attempts);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'd797acb4-5e5c-447b-b0c5-60dad38e39a5':
                 {
@@ -3916,30 +4718,55 @@ if (
                 }
                 break;
               case '75b16425-1531-4cee-8c09-30f5be70c4b0':
-                let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(cellValue);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Cell Value>',
-                  cellValue
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(cellValue);
-                        return `'` + Datawithbackslash + `'`;
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '75b16425-1531-4cee-8c09-30f5be70c4b0');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
                       }
-                    : `' '`
-                );
+                    }
+                  }
+                  let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(cellValue);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Cell Value>',
+                    cellValue
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(cellValue);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'ed2ebd4b-9267-4e41-8f56-d5a61abe7ba5':
-                let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(rowNumber);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Row Number>',
-                  rowNumber
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(rowNumber);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(rowNumber);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Row Number>',
+                    rowNumber
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(rowNumber);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'd25a4d7f-5c5d-4117-b325-1c669b9a42ab':
                 {
@@ -3968,33 +4795,62 @@ if (
                 }
                 break;
               case 'ba1ef281-412a-4544-b615-7767b06eb489':
-                let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(cellValue1);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Cell Value 1>',
-                  cellValue1
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(cellValue1);
-                        return `'` + Datawithbackslash + `'`;
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, 'ba1ef281-412a-4544-b615-7767b06eb489');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
                       }
-                    : `' '`
-                );
+                    }
+                  }
+                  let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(cellValue1);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Cell Value 1>',
+                    cellValue1
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(cellValue1);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'f7b6ba5d-74a7-4d36-82cd-222d57b2ce83':
-                let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(columnNumber);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Column Number>',
-                  columnNumber
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(columnNumber);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(columnNumber);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Column Number>',
+                    columnNumber
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(columnNumber);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '28058e26-fa09-42fb-868a-1988bd0a746c':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let fileFullPath = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(fileFullPath);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -4026,6 +4882,13 @@ if (
         delete data['PRIMARY_COLUMN_VALUE'];
         delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
         delete data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'];
+        delete data['FunctionKey'];
+        delete data['FunctionStepKey'];
+        delete data['UIElementGroupKey'];
+        delete data['UIElementGroupStepKey'];
+        delete data['ViewKey'];
+        delete data['QueryDataType'];
+        delete data['ParentKey'];
       }
     }
   }
@@ -4185,59 +5048,61 @@ if (
     }
     testSetTabList.push(...generateExcelData(testSetQueryData));
     let testCaseQuery = `''`;
+    const tcCondition = getTcCondition('TEST_CASE');
+    const usTcCondition = getTcCondition('tc');
     if (input.TEST_SUITE_TYPE !== 'Release' || input.TEST_SUITE_TYPE == null) {
-      testCaseQuery = `SELECT TEST_SET_ID as 'Test Set ID',TEST_CASE_ID as 'Test Case ID',TEST_CASE_SEQ_ID as 'Test Case Seq ID',TEST_CASE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions,TEST_CASE_UUID as 'Test Case UUID',TEST_CASE_UUID FROM TEST_CASE,TEST_SET WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID AND TEST_CASE.TEST_SET_UUID in(${testSetID}) AND TEST_CASE.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND TEST_CASE.TEST_CASE_STATUS='COMMITTED' ORDER BY TEST_CASE_SEQ_ID asc`;
+      testCaseQuery = `SELECT TEST_SET_ID as 'Test Set ID',TEST_CASE_ID as 'Test Case ID',TEST_CASE_SEQ_ID as 'Test Case Seq ID',TEST_CASE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions,TEST_CASE_UUID as 'Test Case UUID',TEST_CASE_UUID FROM TEST_CASE,TEST_SET WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID AND TEST_CASE.TEST_SET_UUID in(${testSetID}) AND TEST_CASE.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND ${tcCondition} ORDER BY TEST_CASE_SEQ_ID asc`;
     } else {
-      testCaseQuery = `SELECT DISTINCT TEST_SET_ID as 'Test Set ID',TEST_CASE_ID as 'Test Case ID',TEST_CASE_SEQ_ID as 'Test Case Seq ID',TEST_CASE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions, tc.TEST_CASE_UUID as 'Test Case UUID',tc.TEST_CASE_UUID FROM TEST_CASE tc INNER JOIN TEST_SET ts ON tc.USER_STORY_UUID LIKE CONCAT('%', ts.USER_STORY_UUID, '%') INNER JOIN TEST_CASE_STEP tsc ON tc.TEST_CASE_UUID = tsc.TEST_CASE_UUID WHERE ts.TEST_SET_UUID in (${testSetID}) ORDER BY tc.TEST_CASE_ID ASC; `;
+      testCaseQuery = `SELECT DISTINCT TEST_SET_ID as 'Test Set ID',TEST_CASE_ID as 'Test Case ID',TEST_CASE_SEQ_ID as 'Test Case Seq ID',TEST_CASE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions, tc.TEST_CASE_UUID as 'Test Case UUID',tc.TEST_CASE_UUID FROM TEST_CASE tc INNER JOIN TEST_SET ts ON tc.USER_STORY_UUID LIKE CONCAT('%', ts.USER_STORY_UUID, '%') INNER JOIN TEST_CASE_STEP tsc ON tc.TEST_CASE_UUID = tsc.TEST_CASE_UUID WHERE ts.TEST_SET_UUID in (${testSetID}) AND ${usTcCondition} ORDER BY tc.TEST_CASE_ID ASC; `;
     }
     let testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input);
     testCaseTabList.push(...generateExcelData(testCaseQueryData));
     let testCaseID = testCaseQueryData && testCaseQueryData.length ? [...new Set(testCaseQueryData.map((item) => item.TEST_CASE_UUID).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ') : '';
-    let testCaseStepNormalQuery = `SELECT TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tc.TEST_SET_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.TEST_CASE_UUID in (${
+    let testCaseStepNormalQuery = `SELECT TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_Step_Normal' as 'QueryDataType' FROM TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tc.TEST_SET_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.TEST_CASE_UUID in (${
       testCaseID ? testCaseID : `''`
-    }) AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP IS NULL ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND ( vns.FUNCTION_STEP_UUID IS NULL OR vns.FUNCTION_STEP_UUID = '' ) AND ( vns.FUNCTION_UUID IS NULL OR vns.FUNCTION_UUID = '' ) ) ) ) ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
+    }) AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP IS NULL ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ) ) ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
     let testCaseStepNormalQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseStepNormalQuery, input);
+    dataObject['isNormalTestCaseExist'] = testCaseStepNormalQueryData && testCaseStepNormalQueryData.length ? 'Yes' : 'No';
     queryListMap.push(testCaseStepNormalQueryObject([...new Set(testCaseStepNormalQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
-    let testCaseNavigationStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT(tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tc.TEST_SET_UUID AND tcs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcs.TEST_CASE_UUID in (${
+    let testCaseNavigationStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_View_Navigation_Step' as 'QueryDataType' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tc.TEST_SET_UUID AND tcs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcs.TEST_CASE_UUID in (${
       testCaseID ? testCaseID : `''`
-    }) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND (vns.FUNCTION_STEP_UUID IS NULL OR vns.FUNCTION_STEP_UUID = '') AND (vns.FUNCTION_UUID IS NULL OR vns.FUNCTION_UUID = '') ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+    }) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.VIEW_UUID = tcs.VIEW_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
     let testCaseNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseNavigationStepQuery, input);
-    queryListMap.push(
-      testCaseNavigationStepQueryObject([...new Set(testCaseNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
-    );
+    dataObject['isTestCaseViewNavigationExist'] = testCaseNavigationStepQueryData && testCaseNavigationStepQueryData.length ? 'Yes' : 'No';
+    queryListMap.push(viewNavigationStepQueryObject([...new Set(testCaseNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseNavigationStepQueryData);
-    let testCaseFunctionStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcfs.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, TEST_CASE_FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfs.TEST_CASE_FUNCTION_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE tc, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd , TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tc.TEST_SET_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_CASE_UUID in (${
+    let testCaseFunctionStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', FUNCTION_STEP_SEQ_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcfs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'FUNCTION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'FUNCTION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'FUNCTION_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfs.FUNCTION_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, FUNCTION_STEP tcfs, TEST_CASE tc, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tc.TEST_SET_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND tcs.TEST_CASE_UUID in (${
       testCaseID ? testCaseID : `''`
-    }) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND ( tcfs.IS_PURE_NAVIGATION_STEP = 'No' OR tcfs.IS_PURE_NAVIGATION_STEP IS NULL OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.FUNCTION_STEP_UUID IS NOT NULL AND vns.FUNCTION_STEP_UUID != '' AND vns.FUNCTION_UUID IS NOT NULL AND vns.FUNCTION_UUID != '' ) ) ) ORDER BY TEST_CASE_STEP_ID, TEST_CASE_FUNCTION_STEP_ID ASC;`;
+    }) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ( tcfs.IS_PURE_NAVIGATION_STEP = 'No' OR tcfs.IS_PURE_NAVIGATION_STEP IS NULL OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcfs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ) ) ORDER BY TEST_CASE_STEP_ID, FUNCTION_STEP_ID ASC;`;
     let testCaseFunctionStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionStepQuery, input);
-    queryListMap.push(testCaseFunctionStepQueryObject([...new Set(testCaseFunctionStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
+    dataObject['isTestCaseFunctionExist'] = testCaseFunctionStepQueryData && testCaseFunctionStepQueryData.length ? 'Yes' : 'No';
+    queryListMap.push(functionStepNormalQueryObject([...new Set(testCaseFunctionStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionStepQueryData);
-    let testCaseFunctionNavigationStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT(tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function - ', (SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT), ' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tc.TEST_SET_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.TEST_CASE_UUID in (${
+    let testCaseFunctionNavigationStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.FUNCTION_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ), ' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE , tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_View_Navigation_Step' as 'QueryDataType' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tc.TEST_SET_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.TEST_CASE_UUID in (${
       testCaseID ? testCaseID : `''`
-    }) AND tcfs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.FUNCTION_STEP_UUID IS NOT NULL AND vns.FUNCTION_STEP_UUID != '' AND vns.FUNCTION_UUID IS NOT NULL AND vns.FUNCTION_UUID != '' ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+    }) AND tcfs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.VIEW_UUID = tcfs.VIEW_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcfs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
     let testCaseFunctionNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionNavigationStepQuery, input);
+    dataObject['isTestCaseFunctionViewNavigationExist'] = testCaseFunctionNavigationStepQueryData && testCaseFunctionNavigationStepQueryData.length ? 'Yes' : 'No';
     queryListMap.push(
-      testCaseFunctionNavigationStepQueryObject(
-        [...new Set(testCaseFunctionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')
-      )
+      viewNavigationStepQueryObject([...new Set(testCaseFunctionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
     );
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionNavigationStepQueryData);
-    let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function - ', (SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT) AS 'Page ID', 'Active' AS Status, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfuegs.TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tc.TEST_SET_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcfs.TEST_CASE_FUNCTION_STEP_UUID = tcfuegs.TEST_CASE_FUNCTION_STEP_UUID AND tcs.TEST_CASE_UUID in (${
+    let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', FUNCTION_STEP_SEQ_ID, '-', UI_ELEMENT_GROUP_STEP_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT ) AS 'Page ID', 'Active' AS Status, UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfuegs.UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcfs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', tcfuegs.UI_ELEMENT_GROUP_STEP_UUID as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_UI_Element_Group_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, FUNCTION_STEP tcfs, UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tc.TEST_SET_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND tcfs.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID AND tcs.TEST_CASE_UUID in (${
       testCaseID ? testCaseID : `''`
-    }) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY TEST_CASE_STEP_ID ASC, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID ASC;`;
+    }) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY TEST_CASE_STEP_ID ASC, UI_ELEMENT_GROUP_STEP_ID ASC;`;
     let testCaseFunctionUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionUIElementGroupStepQuery, input);
+    dataObject['isTestCaseFunctionUIElementGroupExist'] = testCaseFunctionUIElementGroupStepQueryData && testCaseFunctionUIElementGroupStepQueryData.length ? 'Yes' : 'No';
     queryListMap.push(
-      testCaseFunctionUIElementGroupStepQueryObject(
-        [...new Set(testCaseFunctionUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')
-      )
+      uIElementGroupStepQueryObject([...new Set(testCaseFunctionUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
     );
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionUIElementGroupStepQueryData);
-    let testCaseUIElementGroupStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_UI_ELEMENT_GROUP_STEP_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_UI_ELEMENT_GROUP_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT) AS 'Page ID', 'Active' AS Status, TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcuegs.TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tc.TEST_SET_UUID AND tcuegs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_CASE_UUID in (${
+    let testCaseUIElementGroupStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', UI_ELEMENT_GROUP_STEP_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT ) AS 'Page ID', 'Active' AS Status, UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcuegs.UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE , tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', tcuegs.UI_ELEMENT_GROUP_STEP_UUID as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_UI_Element_Group_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tc.TEST_SET_UUID AND tcuegs.UI_ELEMENT_GROUP_UUID = tcs.UI_ELEMENT_GROUP_UUID AND tcs.TEST_CASE_UUID in (${
       testCaseID ? testCaseID : `''`
-    }) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY TEST_CASE_STEP_ID, TEST_CASE_UI_ELEMENT_GROUP_STEP_ID ASC;`;
+    }) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY TEST_CASE_STEP_ID, UI_ELEMENT_GROUP_STEP_ID ASC;`;
     let testCaseUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseUIElementGroupStepQuery, input);
+    dataObject['isTestCaseUIElementGroupExist'] = testCaseUIElementGroupStepQueryData && testCaseUIElementGroupStepQueryData.length ? 'Yes' : 'No';
     queryListMap.push(
-      testCaseUIElementGroupStepQueryObject([...new Set(testCaseUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
+      uIElementGroupStepQueryObject([...new Set(testCaseUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
     );
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseUIElementGroupStepQueryData);
     let attributeIds = '';
@@ -4259,23 +5124,14 @@ if (
       let uiElementGroupQueryDataList = await fetchUIElementGroupDetails(attributeIds);
       let apiQueryDataList = await fetchApiDetails(attributeIds);
       let apiAttributeQueryDataList = await fetchApiAttributeDetails(attributeIds);
+      let primaryColumnIds = primaryIdString(testCaseStepNormalQueryData);
+      let parentStepAttributeValueData = await getStepData(dataObject, primaryColumnIds);
+      let childStepAttributeValueData = await getStepChildData(dataObject, primaryColumnIds);
       for (let data of testCaseStepNormalQueryData) {
         let inc = 0;
         let stepDefAttributeQueryData = getStepAttributeData(stepDefAttributeQueryDataList, data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID']);
         let attributeValueQueryData = getChildAttributeData(attributeDataObject.attributeValueQueryDataEntries, data.PRIMARY_COLUMN_VALUE, data.PRIMARY_COLUMN_NAME);
-        if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
-          let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
-          if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
-            let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
-              attributeValueQueryData,
-              uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
-              data['CHILD_ATTRIBUTE_DATA']
-            );
-            if (isUIElementValueEmpty) {
-              data['isItemRemove'] = true;
-            }
-          }
-        }
+        let filteredStepAttributeValueData = getDataByParentKeyAndType(parentStepAttributeValueData, data['ParentKey']);
         if (data && data['TEST_CASE_EXECUTON_TYPE'] == 'Automated') {
           let inputStepType = data['Test Case Step Type'] && data['Test Case Step Type'] == 'Data' ? 'Given' : data['Test Case Step Type'];
           data['Test Case Step Type'] = inputStepType;
@@ -4329,6 +5185,23 @@ if (
                   break;
                 case '74da67d2-41c9-4cf7-9eea-715243e5fcdc':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                      let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
+                      if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                        let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                          attributeValueQueryData,
+                          uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                          data['CHILD_ATTRIBUTE_DATA']
+                        );
+                        if (isUIElementValueEmpty) {
+                          data['isItemRemove'] = true;
+                        }
+                      }
+                    }
                     let uiElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     let uiElementValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     if (uiElementValueData && Object.keys(uiElementValueData).length && uiElementValueData['SCOPE_VARIABLE_UUID']) {
@@ -4336,14 +5209,15 @@ if (
                       if (
                         selectedAttributeDetails &&
                         Object.keys(selectedAttributeDetails).length &&
-                        uiElementValueData['FUNCTION_UUID'] &&
                         [
-                          'TEST_CASE_STEP_ATTRIBUTE_DATA',
-                          'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA',
-                          'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-                          'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-                          'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'
-                        ].includes(data['CHILD_ATTRIBUTE_DATA'])
+                          'Test_Case_Step_Normal',
+                          'Test_Case_View_Navigation_Step',
+                          'Test_Case_Function_Step',
+                          'Test_Case_Function_View_Navigation_Step',
+                          'Test_Case_Function_UI_Element_Group_Step',
+                          'Test_Case_UI_Element_Group_Step'
+                        ].includes(data['QueryDataType']) &&
+                        selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
                       ) {
                         let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${uiElementValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                         let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -4351,6 +5225,7 @@ if (
                       } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                         uiElementValue = selectedAttributeDetails['NAME'];
                       }
+                      uiElementValue = decideScopePrefix(uiElementValueData) + uiElementValue;
                     }
                     if (!checkTestDataExistsForTestCase(testCaseQueryData, testDataQueryData, data)) {
                       if (uiElementValue) {
@@ -4370,6 +5245,10 @@ if (
                   break;
                 case '235dfa3a-a897-4076-b9bc-ed813ec7c39f':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let keyNameInKeyPad = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     if (keyNameInKeyPad) {
                       getAttr = replaceKeyword(keyNameInKeyPad);
@@ -4405,19 +5284,25 @@ if (
                   }
                   break;
                 case 'afe5f489-b9b3-11ee-a0ed-12e85c8c3755':
-                  let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  if (confirmUIElementValue) {
-                    getAttr = replaceKeyword(confirmUIElementValue);
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    if (confirmUIElementValue) {
+                      getAttr = replaceKeyword(confirmUIElementValue);
+                    }
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Confirm UI Element Value>',
+                      confirmUIElementValue
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
                   }
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Confirm UI Element Value>',
-                    confirmUIElementValue
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
-                          return `'` + Datawithbackslash + `'`;
-                        }
-                      : `' '`
-                  );
                   break;
                 case '6c698ae8-6305-4bb6-8c23-3a938e7234bd':
                   {
@@ -4447,6 +5332,23 @@ if (
                   break;
                 case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                      let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '3f50ff70-f3e4-11ee-9a12-6fc3e771212a');
+                      if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                        let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                          attributeValueQueryData,
+                          uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                          data['CHILD_ATTRIBUTE_DATA']
+                        );
+                        if (isUIElementValueEmpty) {
+                          data['isItemRemove'] = true;
+                        }
+                      }
+                    }
                     let uiElementValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
                       '<UI Element Value 1>',
@@ -4499,6 +5401,10 @@ if (
                   break;
                 case '2dc3a50e-004d-4dec-8270-c7ec5d36cb2c':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let pageNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     if (pageNumber) {
                       getAttr = replaceKeyword(pageNumber);
@@ -4516,6 +5422,10 @@ if (
                   break;
                 case 'bca9a7f7-1948-407c-9953-2d01356bbd15':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let dataKey = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     if (dataKey) {
                       getAttr = replaceKeyword(dataKey);
@@ -4533,6 +5443,10 @@ if (
                   break;
                 case '3aff7b0e-472c-4393-b6b2-5a61b07cfbff':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let dataValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     if (dataValue) {
                       getAttr = replaceKeyword(dataValue);
@@ -4550,6 +5464,10 @@ if (
                   break;
                 case 'ceb66327-216f-42fd-845b-9f4543c62baa':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let fileName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     if (fileName) {
                       getAttr = replaceKeyword(fileName);
@@ -4567,6 +5485,10 @@ if (
                   break;
                 case 'd20f4347-d4d0-47a1-96f6-190d3b5e4a90':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let downloadParserName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     if (downloadParserName) {
                       getAttr = replaceKeyword(downloadParserName);
@@ -4610,16 +5532,32 @@ if (
                   break;
                 case '7182ebf0-2e33-11ef-9033-4bb93e602d01':
                   {
-                    let apiAttributeValue = '';
-                    apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                      let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '7182ebf0-2e33-11ef-9033-4bb93e602d01');
+                      if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                        let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                          attributeValueQueryData,
+                          uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                          data['CHILD_ATTRIBUTE_DATA']
+                        );
+                        if (isUIElementValueEmpty) {
+                          data['isItemRemove'] = true;
+                        }
+                      }
+                    }
+                    let apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     let apiAttributeValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     if (apiAttributeValueData && Object.keys(apiAttributeValueData).length && apiAttributeValueData['SCOPE_VARIABLE_UUID']) {
                       let selectedAttributeDetails = await getAttributeValueDetails(apiAttributeValueData['SCOPE_VARIABLE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                       if (
                         selectedAttributeDetails &&
                         Object.keys(selectedAttributeDetails).length &&
-                        apiAttributeValueData['FUNCTION_UUID'] &&
-                        ['TEST_CASE_STEP_ATTRIBUTE_DATA', 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'].includes(data['CHILD_ATTRIBUTE_DATA'])
+                        ['Test_Case_Step_Normal', 'Test_Case_Function_Step'].includes(data['QueryDataType']) &&
+                        selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
                       ) {
                         let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${apiAttributeValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                         let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -4627,6 +5565,7 @@ if (
                       } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                         apiAttributeValue = selectedAttributeDetails['NAME'];
                       }
+                      apiAttributeValue = decideScopePrefix(apiAttributeValueData) + apiAttributeValue;
                     }
                     getAttr = replaceKeyword(apiAttributeValue);
                     stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -4689,6 +5628,10 @@ if (
                   break;
                 case '2afdf3ea-2d25-42c6-ab5e-9f5a6b15e0f8':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let timeOot = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     if (timeOot) {
                       getAttr = replaceKeyword(timeOot);
@@ -4710,12 +5653,14 @@ if (
                     let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     if (
                       functionIds &&
-                      ![
-                        'FUNCTION_STEP_ATTRIBUTE_DATA',
-                        'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA',
-                        'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA',
-                        'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'
-                      ].includes(data['CHILD_ATTRIBUTE_DATA'])
+                      [
+                        'Test_Case_Step_Normal',
+                        'Test_Case_View_Navigation_Step',
+                        'Test_Case_Function_Step',
+                        'Test_Case_Function_View_Navigation_Step',
+                        'Test_Case_Function_UI_Element_Group_Step',
+                        'Test_Case_UI_Element_Group_Step'
+                      ].includes(data['QueryDataType'])
                     ) {
                       let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                       let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -4739,12 +5684,14 @@ if (
                     let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     if (
                       functionIds &&
-                      ![
-                        'FUNCTION_STEP_ATTRIBUTE_DATA',
-                        'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA',
-                        'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA',
-                        'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'
-                      ].includes(data['CHILD_ATTRIBUTE_DATA'])
+                      [
+                        'Test_Case_Step_Normal',
+                        'Test_Case_View_Navigation_Step',
+                        'Test_Case_Function_Step',
+                        'Test_Case_Function_View_Navigation_Step',
+                        'Test_Case_Function_UI_Element_Group_Step',
+                        'Test_Case_UI_Element_Group_Step'
+                      ].includes(data['QueryDataType'])
                     ) {
                       let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                       let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -4763,30 +5710,42 @@ if (
                   }
                   break;
                 case 'e0568059-ce39-4a69-aadd-6a0dccba696d':
-                  let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  getAttr = replaceKeyword(timeInterval);
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Time Interval>',
-                    timeInterval
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(timeInterval);
-                          return `'` + Datawithbackslash + `'`;
-                        }
-                      : `' '`
-                  );
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    getAttr = replaceKeyword(timeInterval);
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Time Interval>',
+                      timeInterval
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(timeInterval);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
+                  }
                   break;
                 case '9d27f361-ac8b-4673-82fe-66c40b2cb634':
-                  let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  getAttr = replaceKeyword(attempts);
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Attempts>',
-                    attempts
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(attempts);
-                          return `'` + Datawithbackslash + `'`;
-                        }
-                      : `' '`
-                  );
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    getAttr = replaceKeyword(attempts);
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Attempts>',
+                      attempts
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(attempts);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
+                  }
                   break;
                 case 'd797acb4-5e5c-447b-b0c5-60dad38e39a5':
                   {
@@ -4802,30 +5761,55 @@ if (
                   }
                   break;
                 case '75b16425-1531-4cee-8c09-30f5be70c4b0':
-                  let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  getAttr = replaceKeyword(cellValue);
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Cell Value>',
-                    cellValue
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(cellValue);
-                          return `'` + Datawithbackslash + `'`;
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                      let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '75b16425-1531-4cee-8c09-30f5be70c4b0');
+                      if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                        let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                          attributeValueQueryData,
+                          uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                          data['CHILD_ATTRIBUTE_DATA']
+                        );
+                        if (isUIElementValueEmpty) {
+                          data['isItemRemove'] = true;
                         }
-                      : `' '`
-                  );
+                      }
+                    }
+                    let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    getAttr = replaceKeyword(cellValue);
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Cell Value>',
+                      cellValue
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(cellValue);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
+                  }
                   break;
                 case 'ed2ebd4b-9267-4e41-8f56-d5a61abe7ba5':
-                  let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  getAttr = replaceKeyword(rowNumber);
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Row Number>',
-                    rowNumber
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(rowNumber);
-                          return `'` + Datawithbackslash + `'`;
-                        }
-                      : `' '`
-                  );
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    getAttr = replaceKeyword(rowNumber);
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Row Number>',
+                      rowNumber
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(rowNumber);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
+                  }
                   break;
                 case 'd25a4d7f-5c5d-4117-b325-1c669b9a42ab':
                   {
@@ -4854,33 +5838,62 @@ if (
                   }
                   break;
                 case 'ba1ef281-412a-4544-b615-7767b06eb489':
-                  let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  getAttr = replaceKeyword(cellValue1);
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Cell Value 1>',
-                    cellValue1
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(cellValue1);
-                          return `'` + Datawithbackslash + `'`;
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                      let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, 'ba1ef281-412a-4544-b615-7767b06eb489');
+                      if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                        let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                          attributeValueQueryData,
+                          uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                          data['CHILD_ATTRIBUTE_DATA']
+                        );
+                        if (isUIElementValueEmpty) {
+                          data['isItemRemove'] = true;
                         }
-                      : `' '`
-                  );
+                      }
+                    }
+                    let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    getAttr = replaceKeyword(cellValue1);
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Cell Value 1>',
+                      cellValue1
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(cellValue1);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
+                  }
                   break;
                 case 'f7b6ba5d-74a7-4d36-82cd-222d57b2ce83':
-                  let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  getAttr = replaceKeyword(columnNumber);
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Column Number>',
-                    columnNumber
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(columnNumber);
-                          return `'` + Datawithbackslash + `'`;
-                        }
-                      : `' '`
-                  );
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    getAttr = replaceKeyword(columnNumber);
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Column Number>',
+                      columnNumber
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(columnNumber);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
+                  }
                   break;
                 case '28058e26-fa09-42fb-868a-1988bd0a746c':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let fileFullPath = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     getAttr = replaceKeyword(fileFullPath);
                     stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -4914,6 +5927,13 @@ if (
           delete data['PRIMARY_COLUMN_VALUE'];
           delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
           delete data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'];
+          delete data['FunctionKey'];
+          delete data['FunctionStepKey'];
+          delete data['UIElementGroupKey'];
+          delete data['UIElementGroupStepKey'];
+          delete data['ViewKey'];
+          delete data['QueryDataType'];
+          delete data['ParentKey'];
         } else if (data && data['TEST_CASE_EXECUTON_TYPE'] == 'Recorded') {
           let inputStepType = data['Test Case Step Type'] && data['Test Case Step Type'] == 'Data' ? 'Given' : data['Test Case Step Type'];
           data['Test Case Step Type'] = inputStepType;
@@ -4930,6 +5950,13 @@ if (
           delete data['PRIMARY_COLUMN_VALUE'];
           delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
           delete data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'];
+          delete data['FunctionKey'];
+          delete data['FunctionStepKey'];
+          delete data['UIElementGroupKey'];
+          delete data['UIElementGroupStepKey'];
+          delete data['ViewKey'];
+          delete data['QueryDataType'];
+          delete data['ParentKey'];
         }
       }
     }
@@ -5830,43 +6857,45 @@ if (
         return { ...testSet, 'Test Set Name': testSet['Test Set Name'].substring(0, 200) };
       });
     }
+    const testCaseCondition = getTcCondition('TEST_CASE');
     testSetTabList.push(...generateExcelData(testSetQueryData));
-    let testCaseQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', TEST_CASE_SEQ_ID as 'Test Case Seq ID', TEST_CASE_NAME as 'Test Case Name', 'Active' as Status, 'No Action' as Actions, TEST_CASE_UUID as 'Test Case UUID' FROM TEST_CASE, TEST_SET WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID AND TEST_CASE.TEST_SET_UUID in(${testSetID}) AND TEST_CASE.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND ( TEST_CASE.TEST_CASE_STATUS = 'COMMITTED' OR (TEST_CASE.TEST_CASE_STATUS = 'DRAFT' AND TEST_CASE.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID) ) ORDER BY TEST_CASE_SEQ_ID ASC;`;
+    let testCaseQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', TEST_CASE_SEQ_ID as 'Test Case Seq ID', TEST_CASE_NAME as 'Test Case Name', 'Active' as Status, 'No Action' as Actions, TEST_CASE_UUID as 'Test Case UUID' FROM TEST_CASE, TEST_SET WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID AND TEST_CASE.TEST_SET_UUID in(${testSetID}) AND TEST_CASE.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND ${testCaseCondition} ORDER BY TEST_CASE_SEQ_ID ASC;`;
     let testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input);
     testCaseTabList.push(...generateExcelData(testCaseQueryData));
-    let testCaseStepNormalQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.TEST_SET_UUID in(${testSetID}) AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP is null ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND (vns.FUNCTION_STEP_UUID IS NULL OR vns.FUNCTION_STEP_UUID = '') AND (vns.FUNCTION_UUID IS NULL OR vns.FUNCTION_UUID = '') ) ) ) AND ( tc.TEST_CASE_STATUS = 'COMMITTED' OR (tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID) ) ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
+    const tcCondition = getTcCondition('tc');
+    let testCaseStepNormalQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_Step_Normal' as 'QueryDataType' FROM TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.TEST_SET_UUID in(${testSetID}) AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP is null ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ) ) AND ${tcCondition} ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
     let testCaseStepNormalQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseStepNormalQuery, input);
+    dataObject['isNormalTestCaseExist'] = testCaseStepNormalQueryData && testCaseStepNormalQueryData.length ? 'Yes' : 'No';
     queryListMap.push(testCaseStepNormalQueryObject([...new Set(testCaseStepNormalQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
-    let testCaseNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT(tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW v, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.CURRENT_PAGE_CONTEXT = v.PAGE_UUID AND v.VIEW_UUID = vns.VIEW_UUID AND tcs.TEST_SET_UUID IN (${testSetID}) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND ( tc.TEST_CASE_STATUS = 'COMMITTED' OR (tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID) ) AND EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns_inner WHERE vns_inner.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND (vns_inner.FUNCTION_STEP_UUID IS NULL OR vns_inner.FUNCTION_STEP_UUID = '') AND (vns_inner.FUNCTION_UUID IS NULL OR vns_inner.FUNCTION_UUID = '') ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+    let testCaseNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE , tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_View_Navigation_Step' as 'QueryDataType' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW v, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.CURRENT_PAGE_CONTEXT = v.PAGE_UUID AND v.VIEW_UUID = vns.VIEW_UUID AND tcs.TEST_SET_UUID IN (${testSetID}) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.VIEW_UUID = tcs.VIEW_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ${tcCondition} AND EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns_inner WHERE vns_inner.VIEW_UUID = tcs.VIEW_UUID AND vns_inner.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
     let testCaseNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseNavigationStepQuery, input);
+    dataObject['isTestCaseViewNavigationExist'] = testCaseNavigationStepQueryData && testCaseNavigationStepQueryData.length ? 'Yes' : 'No';
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseNavigationStepQueryData);
-    queryListMap.push(
-      testCaseNavigationStepQueryObject([...new Set(testCaseNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
-    );
-    let testCaseFunctionStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcfs.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, TEST_CASE_FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_STEP_UUID' as PRIMARY_COLUMN_NAME, TEST_CASE_FUNCTION_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE tc, TEST_SET ts, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_SET_UUID in(${testSetID}) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND ( tc.TEST_CASE_STATUS = 'COMMITTED' OR (tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID) ) AND ( (tcfs.IS_PURE_NAVIGATION_STEP = 'No' OR tcfs.IS_PURE_NAVIGATION_STEP IS NULL) OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.FUNCTION_STEP_UUID IS NOT NULL AND vns.FUNCTION_STEP_UUID != '' AND vns.FUNCTION_UUID IS NOT NULL AND vns.FUNCTION_UUID != '' ) ) ) ORDER BY TEST_CASE_STEP_ID, TEST_CASE_FUNCTION_STEP_ID ASC;`;
+    queryListMap.push(viewNavigationStepQueryObject([...new Set(testCaseNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
+    let testCaseFunctionStepQuery = `SELECT TEST_SET_ID AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', FUNCTION_STEP_SEQ_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcfs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'FUNCTION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'FUNCTION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'FUNCTION_STEP_UUID' as PRIMARY_COLUMN_NAME, FUNCTION_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, FUNCTION_STEP tcfs, TEST_CASE tc, TEST_SET ts, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND tcs.TEST_SET_UUID in(${testSetID}) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ${tcCondition} AND ( ( tcfs.IS_PURE_NAVIGATION_STEP = 'No' OR tcfs.IS_PURE_NAVIGATION_STEP IS NULL ) OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcfs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ) ) ORDER BY TEST_CASE_STEP_ID, FUNCTION_STEP_ID ASC;`;
     let testCaseFunctionStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionStepQuery, input);
-    queryListMap.push(testCaseFunctionStepQueryObject([...new Set(testCaseFunctionStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
+    dataObject['isTestCaseFunctionExist'] = testCaseFunctionStepQueryData && testCaseFunctionStepQueryData.length ? 'Yes' : 'No';
+    queryListMap.push(functionStepNormalQueryObject([...new Set(testCaseFunctionStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionStepQueryData);
-    let testCaseFunctionNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT(tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function - ', (SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT), ' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' as PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID as PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.TEST_SET_UUID IN (${testSetID}) AND tcfs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND ( tc.TEST_CASE_STATUS = 'COMMITTED' OR (tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID) ) AND EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns_inner WHERE vns_inner.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns_inner.FUNCTION_STEP_UUID IS NOT NULL AND vns_inner.FUNCTION_STEP_UUID != '' AND vns_inner.FUNCTION_UUID IS NOT NULL AND vns_inner.FUNCTION_UUID != '' ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+    let testCaseFunctionNavigationStepQuery = `SELECT ts.TEST_SET_ID AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.FUNCTION_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ), ' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' as PRIMARY_COLUMN_NAME, vns.VIEW_NAVIGATION_STEP_UUID as PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE , tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_View_Navigation_Step' as 'QueryDataType' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc, TEST_SET ts WHERE ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.TEST_SET_UUID IN (${testSetID}) AND tcfs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.VIEW_UUID = tcfs.VIEW_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ${tcCondition} AND EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns_inner WHERE vns_inner.VIEW_UUID = tcfs.VIEW_UUID AND vns_inner.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
     let testCaseFunctionNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionNavigationStepQuery, input);
+    dataObject['isTestCaseFunctionViewNavigationExist'] = testCaseFunctionNavigationStepQueryData && testCaseFunctionNavigationStepQueryData.length ? 'Yes' : 'No';
     queryListMap.push(
-      testCaseFunctionNavigationStepQueryObject(
-        [...new Set(testCaseFunctionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')
-      )
+      viewNavigationStepQueryObject([...new Set(testCaseFunctionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
     );
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionNavigationStepQueryData);
-    let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function - ', (SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID), ' UI Element Group' ) as 'Test Case Step Group Name', '' as reserved2, (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT) as 'Page ID', 'Active' as Status, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfuegs.TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcfs.TEST_CASE_FUNCTION_STEP_UUID = tcfuegs.TEST_CASE_FUNCTION_STEP_UUID AND tcs.TEST_SET_UUID IN (${testSetID}) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND ( tc.TEST_CASE_STATUS = 'COMMITTED' OR (tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID) ) ORDER BY TEST_CASE_STEP_ID ASC, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID ASC;`;
+    let testCaseFunctionUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', FUNCTION_STEP_SEQ_ID, '-', UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcfuegs.UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE , tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcfs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', tcfuegs.UI_ELEMENT_GROUP_STEP_UUID as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_UI_Element_Group_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, FUNCTION_STEP tcfs, UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND tcfs.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID AND tcs.TEST_SET_UUID IN (${testSetID}) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ${tcCondition} ORDER BY TEST_CASE_STEP_ID ASC, UI_ELEMENT_GROUP_STEP_ID ASC;`;
     let testCaseFunctionUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionUIElementGroupStepQuery, input);
+    dataObject['isTestCaseFunctionUIElementGroupExist'] = testCaseFunctionUIElementGroupStepQueryData && testCaseFunctionUIElementGroupStepQueryData.length ? 'Yes' : 'No';
     queryListMap.push(
-      testCaseFunctionUIElementGroupStepQueryObject(
-        [...new Set(testCaseFunctionUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')
-      )
+      uIElementGroupStepQueryObject([...new Set(testCaseFunctionUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
     );
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionUIElementGroupStepQueryData);
-    let testCaseUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_UI_ELEMENT_GROUP_STEP_ID) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', TEST_CASE_UI_ELEMENT_GROUP_STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, CONCAT( (SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID), ' UI Element Group' ) as 'Test Case Step Group Name', '' as reserved2, (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT) as 'Page ID', 'Active' as Status, TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcuegs.TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcuegs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_SET_UUID IN (${testSetID}) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND ( tc.TEST_CASE_STATUS = 'COMMITTED' OR (tc.TEST_CASE_STATUS = 'DRAFT' AND tc.TEST_CASE_OWNER=:APP_LOGGED_IN_USER_ID) ) ORDER BY TEST_CASE_STEP_ID, TEST_CASE_UI_ELEMENT_GROUP_STEP_ID ASC;`;
+    let testCaseUIElementGroupStepQuery = `SELECT TEST_SET_ID as 'Test Set ID', TEST_CASE_ID as 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', UI_ELEMENT_GROUP_STEP_ID ) as 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID as 'Test Case Step Seq ID', STEP_TYPE as 'Test Case Step Type', '' as 'Test Case Step Name', '' as 'Step Definition Template', '' as v1, '' as v2, '' as v3, '' as v4, '' as v5, CONCAT( ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) as 'Test Case Step Group Name', '' as reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT ) as 'Page ID', 'Active' as Status, UI_ELEMENT_GROUP_STEP_UUID as 'Test Case Step UUID', '' as actions, '' AS v6, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'UI_ELEMENT_GROUP_STEP_UUID' as PRIMARY_COLUMN_NAME, tcuegs.UI_ELEMENT_GROUP_STEP_UUID as PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE , tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', tcuegs.UI_ELEMENT_GROUP_STEP_UUID as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_UI_Element_Group_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc, TEST_SET ts WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND ts.TEST_SET_UUID = tcs.TEST_SET_UUID AND tcuegs.UI_ELEMENT_GROUP_UUID = tcs.UI_ELEMENT_GROUP_UUID AND tcs.TEST_SET_UUID IN (${testSetID}) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tc.TEST_CASE_EXECUTON_TYPE=:AUTOMATION_TYPE AND ${tcCondition} ORDER BY TEST_CASE_STEP_ID, UI_ELEMENT_GROUP_STEP_ID ASC;`;
     let testCaseUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseUIElementGroupStepQuery, input);
+    dataObject['isTestCaseUIElementGroupExist'] = testCaseUIElementGroupStepQueryData && testCaseUIElementGroupStepQueryData.length ? 'Yes' : 'No';
     queryListMap.push(
-      testCaseUIElementGroupStepQueryObject([...new Set(testCaseUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
+      uIElementGroupStepQueryObject([...new Set(testCaseUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
     );
     testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseUIElementGroupStepQueryData);
     let primaryKeyIds = concatePrimaryKeys(testCaseQueryData);
@@ -5888,6 +6917,9 @@ if (
       let uiElementGroupQueryDataList = await fetchUIElementGroupDetails(attributeIds);
       let apiQueryDataList = await fetchApiDetails(attributeIds);
       let apiAttributeQueryDataList = await fetchApiAttributeDetails(attributeIds);
+      let primaryColumnIds = primaryIdString(testCaseStepNormalQueryData);
+      let parentStepAttributeValueData = await getStepData(dataObject, primaryColumnIds);
+      let childStepAttributeValueData = await getStepChildData(dataObject, primaryColumnIds);
       for (let data of testCaseStepNormalQueryData) {
         let inc = 0;
         if (data && data['TEST_CASE_EXECUTON_TYPE'] == 'Automated') {
@@ -5895,19 +6927,7 @@ if (
           data['Test Case Step Type'] = inputStepType;
           let stepDefAttributeQueryData = getStepAttributeData(stepDefAttributeQueryDataList, data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID']);
           let attributeValueQueryData = getChildAttributeData(attributeDataObject.attributeValueQueryDataEntries, data.PRIMARY_COLUMN_VALUE, data.PRIMARY_COLUMN_NAME);
-          if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
-            let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
-            if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
-              let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
-                attributeValueQueryData,
-                uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
-                data['CHILD_ATTRIBUTE_DATA']
-              );
-              if (isUIElementValueEmpty) {
-                data['isItemRemove'] = true;
-              }
-            }
-          }
+          let filteredStepAttributeValueData = getDataByParentKeyAndType(parentStepAttributeValueData, data['ParentKey']);
           let stepDefTemplateVerbiageQueryData = getStepVerbiageData(stepDefTemplateVerbiageQueryDataList, data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID']);
           let stepDefTemplateVerbiageName =
             stepDefTemplateVerbiageQueryData && Object.keys(stepDefTemplateVerbiageQueryData).length ? stepDefTemplateVerbiageQueryData['STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME'] : '';
@@ -5958,6 +6978,23 @@ if (
                   break;
                 case '74da67d2-41c9-4cf7-9eea-715243e5fcdc':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                      let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
+                      if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                        let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                          attributeValueQueryData,
+                          uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                          data['CHILD_ATTRIBUTE_DATA']
+                        );
+                        if (isUIElementValueEmpty) {
+                          data['isItemRemove'] = true;
+                        }
+                      }
+                    }
                     let uiElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     let uiElementValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     if (uiElementValueData && Object.keys(uiElementValueData).length && uiElementValueData['SCOPE_VARIABLE_UUID']) {
@@ -5965,14 +7002,15 @@ if (
                       if (
                         selectedAttributeDetails &&
                         Object.keys(selectedAttributeDetails).length &&
-                        uiElementValueData['FUNCTION_UUID'] &&
                         [
-                          'TEST_CASE_STEP_ATTRIBUTE_DATA',
-                          'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA',
-                          'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-                          'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA',
-                          'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA'
-                        ].includes(data['CHILD_ATTRIBUTE_DATA'])
+                          'Test_Case_Step_Normal',
+                          'Test_Case_View_Navigation_Step',
+                          'Test_Case_Function_Step',
+                          'Test_Case_Function_View_Navigation_Step',
+                          'Test_Case_Function_UI_Element_Group_Step',
+                          'Test_Case_UI_Element_Group_Step'
+                        ].includes(data['QueryDataType']) &&
+                        selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
                       ) {
                         let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${uiElementValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                         let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -5980,6 +7018,7 @@ if (
                       } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                         uiElementValue = selectedAttributeDetails['NAME'];
                       }
+                      uiElementValue = decideScopePrefix(uiElementValueData) + uiElementValue;
                     }
                     if (!checkTestDataExistsForTestCase(testCaseQueryData, testDataQueryData, data)) {
                       getAttr = replaceKeyword(uiElementValue);
@@ -5997,6 +7036,10 @@ if (
                   break;
                 case '235dfa3a-a897-4076-b9bc-ed813ec7c39f':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let keyNameInKeyPad = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     getAttr = replaceKeyword(keyNameInKeyPad);
                     stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll('<Key Name in Keypad>', function () {
@@ -6030,17 +7073,23 @@ if (
                   }
                   break;
                 case 'afe5f489-b9b3-11ee-a0ed-12e85c8c3755':
-                  let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  getAttr = replaceKeyword(confirmUIElementValue);
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Confirm UI Element Value>',
-                    confirmUIElementValue
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
-                          return `'` + Datawithbackslash + `'`;
-                        }
-                      : `' '`
-                  );
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    getAttr = replaceKeyword(confirmUIElementValue);
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Confirm UI Element Value>',
+                      confirmUIElementValue
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
+                  }
                   break;
                 case '6c698ae8-6305-4bb6-8c23-3a938e7234bd':
                   {
@@ -6070,6 +7119,23 @@ if (
                   break;
                 case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                      let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '3f50ff70-f3e4-11ee-9a12-6fc3e771212a');
+                      if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                        let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                          attributeValueQueryData,
+                          uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                          data['CHILD_ATTRIBUTE_DATA']
+                        );
+                        if (isUIElementValueEmpty) {
+                          data['isItemRemove'] = true;
+                        }
+                      }
+                    }
                     let uiElementValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     getAttr = replaceKeyword(uiElementValue1);
                     stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -6123,6 +7189,10 @@ if (
                   break;
                 case '2dc3a50e-004d-4dec-8270-c7ec5d36cb2c':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let pageNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     getAttr = replaceKeyword(pageNumber);
                     stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -6138,6 +7208,10 @@ if (
                   break;
                 case 'bca9a7f7-1948-407c-9953-2d01356bbd15':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let dataKey = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     getAttr = replaceKeyword(dataKey);
                     stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -6153,6 +7227,10 @@ if (
                   break;
                 case '3aff7b0e-472c-4393-b6b2-5a61b07cfbff':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let dataValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     getAttr = replaceKeyword(dataValue);
                     stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -6168,6 +7246,10 @@ if (
                   break;
                 case 'ceb66327-216f-42fd-845b-9f4543c62baa':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let fileName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     getAttr = replaceKeyword(fileName);
                     stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -6183,6 +7265,10 @@ if (
                   break;
                 case 'd20f4347-d4d0-47a1-96f6-190d3b5e4a90':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let downloadParserName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     getAttr = replaceKeyword(downloadParserName);
                     stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -6224,16 +7310,32 @@ if (
                   break;
                 case '7182ebf0-2e33-11ef-9033-4bb93e602d01':
                   {
-                    let apiAttributeValue = '';
-                    apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                      let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '7182ebf0-2e33-11ef-9033-4bb93e602d01');
+                      if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                        let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                          attributeValueQueryData,
+                          uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                          data['CHILD_ATTRIBUTE_DATA']
+                        );
+                        if (isUIElementValueEmpty) {
+                          data['isItemRemove'] = true;
+                        }
+                      }
+                    }
+                    let apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     let apiAttributeValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     if (apiAttributeValueData && Object.keys(apiAttributeValueData).length && apiAttributeValueData['SCOPE_VARIABLE_UUID']) {
                       let selectedAttributeDetails = await getAttributeValueDetails(apiAttributeValueData['SCOPE_VARIABLE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                       if (
                         selectedAttributeDetails &&
                         Object.keys(selectedAttributeDetails).length &&
-                        apiAttributeValueData['FUNCTION_UUID'] &&
-                        ['TEST_CASE_STEP_ATTRIBUTE_DATA', 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'].includes(data['CHILD_ATTRIBUTE_DATA'])
+                        ['Test_Case_Step_Normal', 'Test_Case_Function_Step'].includes(data['QueryDataType']) &&
+                        selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
                       ) {
                         let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${apiAttributeValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                         let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -6241,6 +7343,7 @@ if (
                       } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                         apiAttributeValue = selectedAttributeDetails['NAME'];
                       }
+                      apiAttributeValue = decideScopePrefix(apiAttributeValueData) + apiAttributeValue;
                     }
                     getAttr = replaceKeyword(apiAttributeValue);
                     stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -6299,6 +7402,10 @@ if (
                   break;
                 case '2afdf3ea-2d25-42c6-ab5e-9f5a6b15e0f8':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let timeOot = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     getAttr = replaceKeyword(timeOot);
                     stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -6318,12 +7425,14 @@ if (
                     let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     if (
                       functionIds &&
-                      ![
-                        'FUNCTION_STEP_ATTRIBUTE_DATA',
-                        'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA',
-                        'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA',
-                        'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'
-                      ].includes(data['CHILD_ATTRIBUTE_DATA'])
+                      [
+                        'Test_Case_Step_Normal',
+                        'Test_Case_View_Navigation_Step',
+                        'Test_Case_Function_Step',
+                        'Test_Case_Function_View_Navigation_Step',
+                        'Test_Case_Function_UI_Element_Group_Step',
+                        'Test_Case_UI_Element_Group_Step'
+                      ].includes(data['QueryDataType'])
                     ) {
                       let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                       let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -6347,12 +7456,14 @@ if (
                     let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     if (
                       functionIds &&
-                      ![
-                        'FUNCTION_STEP_ATTRIBUTE_DATA',
-                        'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA',
-                        'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA',
-                        'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'
-                      ].includes(data['CHILD_ATTRIBUTE_DATA'])
+                      [
+                        'Test_Case_Step_Normal',
+                        'Test_Case_View_Navigation_Step',
+                        'Test_Case_Function_Step',
+                        'Test_Case_Function_View_Navigation_Step',
+                        'Test_Case_Function_UI_Element_Group_Step',
+                        'Test_Case_UI_Element_Group_Step'
+                      ].includes(data['QueryDataType'])
                     ) {
                       let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                       let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -6371,30 +7482,42 @@ if (
                   }
                   break;
                 case 'e0568059-ce39-4a69-aadd-6a0dccba696d':
-                  let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  getAttr = replaceKeyword(timeInterval);
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Time Interval>',
-                    timeInterval
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(timeInterval);
-                          return `'` + Datawithbackslash + `'`;
-                        }
-                      : `' '`
-                  );
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    getAttr = replaceKeyword(timeInterval);
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Time Interval>',
+                      timeInterval
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(timeInterval);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
+                  }
                   break;
                 case '9d27f361-ac8b-4673-82fe-66c40b2cb634':
-                  let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  getAttr = replaceKeyword(attempts);
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Attempts>',
-                    attempts
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(attempts);
-                          return `'` + Datawithbackslash + `'`;
-                        }
-                      : `' '`
-                  );
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    getAttr = replaceKeyword(attempts);
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Attempts>',
+                      attempts
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(attempts);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
+                  }
                   break;
                 case 'd797acb4-5e5c-447b-b0c5-60dad38e39a5':
                   {
@@ -6410,30 +7533,55 @@ if (
                   }
                   break;
                 case '75b16425-1531-4cee-8c09-30f5be70c4b0':
-                  let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  getAttr = replaceKeyword(cellValue);
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Cell Value>',
-                    cellValue
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(cellValue);
-                          return `'` + Datawithbackslash + `'`;
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                      let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '75b16425-1531-4cee-8c09-30f5be70c4b0');
+                      if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                        let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                          attributeValueQueryData,
+                          uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                          data['CHILD_ATTRIBUTE_DATA']
+                        );
+                        if (isUIElementValueEmpty) {
+                          data['isItemRemove'] = true;
                         }
-                      : `' '`
-                  );
+                      }
+                    }
+                    let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    getAttr = replaceKeyword(cellValue);
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Cell Value>',
+                      cellValue
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(cellValue);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
+                  }
                   break;
                 case 'ed2ebd4b-9267-4e41-8f56-d5a61abe7ba5':
-                  let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  getAttr = replaceKeyword(rowNumber);
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Row Number>',
-                    rowNumber
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(rowNumber);
-                          return `'` + Datawithbackslash + `'`;
-                        }
-                      : `' '`
-                  );
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    getAttr = replaceKeyword(rowNumber);
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Row Number>',
+                      rowNumber
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(rowNumber);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
+                  }
                   break;
                 case 'd25a4d7f-5c5d-4117-b325-1c669b9a42ab':
                   {
@@ -6462,33 +7610,62 @@ if (
                   }
                   break;
                 case 'ba1ef281-412a-4544-b615-7767b06eb489':
-                  let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  getAttr = replaceKeyword(cellValue1);
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Cell Value 1>',
-                    cellValue1
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(cellValue1);
-                          return `'` + Datawithbackslash + `'`;
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                      let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, 'ba1ef281-412a-4544-b615-7767b06eb489');
+                      if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                        let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                          attributeValueQueryData,
+                          uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                          data['CHILD_ATTRIBUTE_DATA']
+                        );
+                        if (isUIElementValueEmpty) {
+                          data['isItemRemove'] = true;
                         }
-                      : `' '`
-                  );
+                      }
+                    }
+                    let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    getAttr = replaceKeyword(cellValue1);
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Cell Value 1>',
+                      cellValue1
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(cellValue1);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
+                  }
                   break;
                 case 'f7b6ba5d-74a7-4d36-82cd-222d57b2ce83':
-                  let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                  getAttr = replaceKeyword(columnNumber);
-                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                    '<Column Number>',
-                    columnNumber
-                      ? function () {
-                          let Datawithbackslash = escapeSingleQuote(columnNumber);
-                          return `'` + Datawithbackslash + `'`;
-                        }
-                      : `' '`
-                  );
+                  {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
+                    let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                    getAttr = replaceKeyword(columnNumber);
+                    stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                      '<Column Number>',
+                      columnNumber
+                        ? function () {
+                            let Datawithbackslash = escapeSingleQuote(columnNumber);
+                            return `'` + Datawithbackslash + `'`;
+                          }
+                        : `' '`
+                    );
+                  }
                   break;
                 case '28058e26-fa09-42fb-868a-1988bd0a746c':
                   {
+                    let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                    if (filteredResult && filteredResult.length) {
+                      attributeValueQueryData = filteredResult;
+                    }
                     let fileFullPath = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     getAttr = replaceKeyword(fileFullPath);
                     stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -6522,6 +7699,13 @@ if (
           delete data['PRIMARY_COLUMN_VALUE'];
           delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
           delete data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'];
+          delete data['FunctionKey'];
+          delete data['FunctionStepKey'];
+          delete data['UIElementGroupKey'];
+          delete data['UIElementGroupStepKey'];
+          delete data['ViewKey'];
+          delete data['QueryDataType'];
+          delete data['ParentKey'];
         } else if (data && data['TEST_CASE_EXECUTON_TYPE'] == 'Recorded') {
           let inputStepType = data['Test Case Step Type'] && data['Test Case Step Type'] == 'Data' ? 'Given' : data['Test Case Step Type'];
           data['Test Case Step Type'] = inputStepType;
@@ -6538,6 +7722,13 @@ if (
           delete data['PRIMARY_COLUMN_VALUE'];
           delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
           delete data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'];
+          delete data['FunctionKey'];
+          delete data['FunctionStepKey'];
+          delete data['UIElementGroupKey'];
+          delete data['UIElementGroupStepKey'];
+          delete data['ViewKey'];
+          delete data['QueryDataType'];
+          delete data['ParentKey'];
         }
       }
     }
@@ -6740,56 +7931,60 @@ if (
   }
   let testSetID = testSetQueryData[0]['Test Set ID'];
   objectData['Test Set'] = generateExcelData(testSetQueryData);
+  const tcCondition = getTcCondition('tc');
+  const tcConditionFeature = getTcCondition('TEST_CASE');
   let testCaseQuery =
     (input.GRID_NAME === 'User Story Test Set' && input.TEST_SET_NAME) || input.PARENT_GRID === 'User Story Test Set'
-      ? `SELECT ${testSetID} as 'Test Set ID', tc.TEST_CASE_ID as 'Test Case ID', tc.TEST_CASE_SEQ_ID as 'Test Case Seq ID', tc.TEST_CASE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions, tc.TEST_CASE_UUID as 'Test Case UUID', tc.TEST_CASE_UUID FROM TEST_SET ts, TEST_CASE tc WHERE tc.TEST_SET_UUID = ts.TEST_SET_UUID AND tc.USER_STORY_UUID LIKE '%${input['TEST_SET_USER_STORY_UUID']}%' AND tc.TEST_CASE_EXECUTON_TYPE = 'Automated' order by TEST_CASE_SEQ_ID asc;`
-      : `SELECT DISTINCT ${testSetID} as 'Test Set ID',TEST_CASE_ID as 'Test Case ID',TEST_CASE_SEQ_ID as 'Test Case Seq ID',TEST_CASE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions,TEST_CASE.TEST_CASE_UUID as 'Test Case UUID',TEST_CASE.TEST_CASE_UUID FROM TEST_CASE,TEST_SET,TEST_CASE_REQUIREMENT tcr WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID and TEST_CASE.TEST_CASE_UUID=tcr.TEST_CASE_UUID and tcr.REQUIREMENT_TITLE_UUID=:FEATURE_UUID AND TEST_CASE.TEST_CASE_EXECUTON_TYPE = 'Automated' order by TEST_CASE_SEQ_ID asc`;
+      ? `SELECT ${testSetID} AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tc.TEST_CASE_SEQ_ID AS 'Test Case Seq ID', tc.TEST_CASE_NAME AS 'Test Case Name', 'Active' AS Status, 'No Action' AS Actions, tc.TEST_CASE_UUID AS 'Test Case UUID', tc.TEST_CASE_UUID FROM TEST_CASE tc JOIN TEST_SET ts ON tc.USER_STORY_UUID LIKE CONCAT('%', '${input['TEST_SET_USER_STORY_UUID']}', '%') WHERE ts.TEST_SET_UUID = tc.TEST_SET_UUID AND tc.TEST_CASE_EXECUTON_TYPE = 'Automated' AND ${tcCondition} ORDER BY tc.TEST_CASE_SEQ_ID ASC`
+      : `SELECT DISTINCT ${testSetID} as 'Test Set ID',TEST_CASE_ID as 'Test Case ID',TEST_CASE_SEQ_ID as 'Test Case Seq ID',TEST_CASE_NAME as 'Test Case Name','Active' as Status, 'No Action' as Actions,TEST_CASE.TEST_CASE_UUID as 'Test Case UUID',TEST_CASE.TEST_CASE_UUID FROM TEST_CASE,TEST_SET,TEST_CASE_REQUIREMENT tcr WHERE TEST_CASE.TEST_SET_UUID = TEST_SET.TEST_SET_UUID and TEST_CASE.TEST_CASE_UUID=tcr.TEST_CASE_UUID and tcr.REQUIREMENT_TITLE_UUID=:FEATURE_UUID AND TEST_CASE.TEST_CASE_EXECUTON_TYPE = 'Automated' AND ${tcConditionFeature} order by TEST_CASE_SEQ_ID asc`;
   let testCaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseQuery, input);
   objectData['Test Case'] = generateExcelData(testCaseQueryData);
   let testCaseID = testCaseQueryData && testCaseQueryData.length ? [...new Set(testCaseQueryData.map((item) => item.TEST_CASE_UUID).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ') : '';
-  let testCaseStepNormalQuery = `SELECT ${testSetID} AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE tc WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.TEST_CASE_UUID in (${
+  let testCaseStepNormalQuery = `SELECT ${testSetID} AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step ID', tcs.TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', tcs.TEST_CASE_STEP_TYPE AS 'Test Case Step Type', TEST_CASE_STEP_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, '' AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, tcs.TEST_CASE_STEP_UUID AS 'Test Case Step UUID', '' as actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tcs.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, tcs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_Step_Normal' as 'QueryDataType' FROM TEST_CASE_STEP tcs, TEST_CASE tc WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.TEST_CASE_UUID in (${
     testCaseID ? testCaseID : `''`
-  }) AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP IS NULL ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND ( vns.FUNCTION_STEP_UUID IS NULL OR vns.FUNCTION_STEP_UUID = '' ) AND ( vns.FUNCTION_UUID IS NULL OR vns.FUNCTION_UUID = '' ) ) ) ) ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
+  }) AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ( ( tcs.IS_PURE_NAVIGATION_STEP = 'No' OR tcs.IS_PURE_NAVIGATION_STEP IS NULL ) OR ( tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ) ) ORDER BY tcs.TEST_CASE_STEP_ID, tcs.TEST_CASE_STEP_SEQ_ID ASC;`;
   let testCaseStepNormalQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseStepNormalQuery, input);
+  dataObject['isNormalTestCaseExist'] = testCaseStepNormalQueryData && testCaseStepNormalQueryData.length ? 'Yes' : 'No';
   queryListMap.push(testCaseStepNormalQueryObject([...new Set(testCaseStepNormalQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
-  let testCaseNavigationStepQuery = `SELECT ${testSetID} AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT(tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_STEP tcs, TEST_CASE tc WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcs.TEST_CASE_UUID in (${
+  let testCaseNavigationStepQuery = `SELECT ${testSetID} AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcs.CURRENT_PAGE_CONTEXT ), ' Page - ', ' Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_View_Navigation_Step' as 'QueryDataType' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_STEP tcs, TEST_CASE tc WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcs.TEST_CASE_UUID in (${
     testCaseID ? testCaseID : `''`
-  }) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND (vns.FUNCTION_STEP_UUID IS NULL OR vns.FUNCTION_STEP_UUID = '') AND (vns.FUNCTION_UUID IS NULL OR vns.FUNCTION_UUID = '') ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+  }) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.IS_FUNCTION_STEP = 'No' AND tcs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.VIEW_UUID = tcs.VIEW_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
   let testCaseNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseNavigationStepQuery, input);
-  queryListMap.push(
-    testCaseNavigationStepQueryObject([...new Set(testCaseNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
-  );
+  dataObject['isTestCaseViewNavigationExist'] = testCaseNavigationStepQueryData && testCaseNavigationStepQueryData.length ? 'Yes' : 'No';
+  queryListMap.push(viewNavigationStepQueryObject([...new Set(testCaseNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseNavigationStepQueryData);
-  let testCaseFunctionStepQuery = `SELECT ${testSetID} AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcfs.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, TEST_CASE_FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfs.TEST_CASE_FUNCTION_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE tc, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_CASE_UUID in (${
+  let testCaseFunctionStepQuery = `SELECT ${testSetID} AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', FUNCTION_STEP_SEQ_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', FUNCTION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN tcfs.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, FUNCTION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'FUNCTION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'FUNCTION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'FUNCTION_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfs.FUNCTION_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, FUNCTION_STEP tcfs, TEST_CASE tc, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND tcs.TEST_CASE_UUID in (${
     testCaseID ? testCaseID : `''`
-  }) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND ( tcfs.IS_PURE_NAVIGATION_STEP = 'No' OR tcfs.IS_PURE_NAVIGATION_STEP IS NULL OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.FUNCTION_STEP_UUID IS NOT NULL AND vns.FUNCTION_STEP_UUID != '' AND vns.FUNCTION_UUID IS NOT NULL AND vns.FUNCTION_UUID != '' ) ) ) ORDER BY TEST_CASE_STEP_ID, TEST_CASE_FUNCTION_STEP_ID ASC;`;
+  }) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND ( tcfs.IS_PURE_NAVIGATION_STEP = 'No' OR tcfs.IS_PURE_NAVIGATION_STEP IS NULL OR ( tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND NOT EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcfs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ) ) ORDER BY TEST_CASE_STEP_ID, FUNCTION_STEP_ID ASC;`;
   let testCaseFunctionStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionStepQuery, input);
-  queryListMap.push(testCaseFunctionStepQueryObject([...new Set(testCaseFunctionStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
+  dataObject['isTestCaseFunctionExist'] = testCaseFunctionStepQueryData && testCaseFunctionStepQueryData.length ? 'Yes' : 'No';
+  queryListMap.push(functionStepNormalQueryObject([...new Set(testCaseFunctionStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')));
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionStepQueryData);
-  let testCaseFunctionNavigationStepQuery = `SELECT ${testSetID} AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT(tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID) AS 'Test Case Step ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.TEST_CASE_VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function - ', (SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT), ' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT) ELSE (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT) END AS 'Page ID', 'Active' AS Status, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.TEST_CASE_VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, TEST_CASE_FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.TEST_CASE_UUID in (${
+  let testCaseFunctionNavigationStepQuery = `SELECT ${testSetID} AS 'Test Set ID', tc.TEST_CASE_ID AS 'Test Case ID', CONCAT( tcs.TEST_CASE_STEP_SEQ_ID, '-', tcfs.FUNCTION_STEP_SEQ_ID, '-', vns.VIEW_NAVIGATION_STEP_SEQ_ID ) AS 'Test Case Step ID', vns.VIEW_NAVIGATION_STEP_SEQ_ID AS 'Test Case Step Seq ID', vns.VIEW_NAVIGATION_STEP_TYPE AS 'Test Case Step Type', STEP_DEFINITION_TEMPLATE_VERBIAGE_NAME AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT PAGE_NAME FROM PAGE pn WHERE pn.PAGE_UUID = tcfs.CURRENT_PAGE_CONTEXT ), ' Page - ', 'Navigation Step' ) AS 'Test Case Step Group Name', '' AS reserved2, CASE WHEN vns.NEXT_PAGE_CONTEXT IS NOT NULL THEN ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.NEXT_PAGE_CONTEXT ) ELSE ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = vns.CURRENT_PAGE_CONTEXT ) END AS 'Page ID', 'Active' AS Status, vns.VIEW_NAVIGATION_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' AS PRIMARY_COLUMN_NAME, vns.VIEW_NAVIGATION_STEP_UUID AS PRIMARY_COLUMN_VALUE, vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE, tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', '' as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_View_Navigation_Step' as 'QueryDataType' FROM VIEW_NAVIGATION_STEP vns, PAGE_VIEW pv, FUNCTION_STEP tcfs, STEP_DEFINITION_TEMPLATE_VERBIAGE tcsd, TEST_CASE_STEP tcs, TEST_CASE tc WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND vns.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = tcsd.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID AND tcs.TEST_CASE_UUID in (${
     testCaseID ? testCaseID : `''`
-  }) AND tcfs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND EXISTS ( SELECT 1 FROM TEST_CASE_VIEW_NAVIGATION_STEP vns WHERE vns.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND vns.FUNCTION_STEP_UUID IS NOT NULL AND vns.FUNCTION_STEP_UUID != '' AND vns.FUNCTION_UUID IS NOT NULL AND vns.FUNCTION_UUID != '' ) ORDER BY vns.TEST_CASE_VIEW_NAVIGATION_STEP_ID, vns.TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
+  }) AND tcfs.CURRENT_PAGE_CONTEXT = pv.PAGE_UUID AND pv.VIEW_UUID = vns.VIEW_UUID AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'No' AND tcfs.IS_PURE_NAVIGATION_STEP = 'Yes' AND vns.VIEW_UUID = tcfs.VIEW_UUID AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND EXISTS ( SELECT 1 FROM VIEW_NAVIGATION_STEP vns WHERE vns.VIEW_UUID = tcfs.VIEW_UUID AND vns.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) ORDER BY vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_SEQ_ID ASC;`;
   let testCaseFunctionNavigationStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionNavigationStepQuery, input);
+  dataObject['isTestCaseFunctionViewNavigationExist'] = testCaseFunctionNavigationStepQueryData && testCaseFunctionNavigationStepQueryData.length ? 'Yes' : 'No';
   queryListMap.push(
-    testCaseFunctionNavigationStepQueryObject([...new Set(testCaseFunctionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
+    viewNavigationStepQueryObject([...new Set(testCaseFunctionNavigationStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
   );
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionNavigationStepQueryData);
-  let testCaseFunctionUIElementGroupStepQuery = `SELECT ${testSetID} AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_STEP_SEQ_ID, '-', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID), ' Function - ', (SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT) AS 'Page ID', 'Active' AS Status, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfuegs.TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_FUNCTION_STEP tcfs, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcfs.TEST_CASE_FUNCTION_STEP_UUID = tcfuegs.TEST_CASE_FUNCTION_STEP_UUID AND tcs.TEST_CASE_UUID in (${
+  let testCaseFunctionUIElementGroupStepQuery = `SELECT ${testSetID} AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', FUNCTION_STEP_SEQ_ID, '-', UI_ELEMENT_GROUP_STEP_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT FUNCTION_NAME FROM featuremanagement_app.FUNCTION f WHERE f.FUNCTION_UUID = tcfs.FUNCTION_UUID ), ' Function - ', ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcfuegs.CURRENT_PAGE_CONTEXT ) AS 'Page ID', 'Active' AS Status, UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcfs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcfuegs.UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcfuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE , tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', tcfs.FUNCTION_STEP_UUID as 'FunctionStepKey', tcfs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', tcfuegs.UI_ELEMENT_GROUP_STEP_UUID as 'UIElementGroupStepKey', tcfs.VIEW_UUID as 'ViewKey', 'Test_Case_Function_UI_Element_Group_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, FUNCTION_STEP tcfs, UI_ELEMENT_GROUP_STEP tcfuegs, TEST_CASE tc WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcfs.FUNCTION_UUID = tcs.FUNCTION_UUID AND tcfs.UI_ELEMENT_GROUP_UUID = tcfuegs.UI_ELEMENT_GROUP_UUID AND tcs.TEST_CASE_UUID in (${
     testCaseID ? testCaseID : `''`
-  }) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY TEST_CASE_STEP_ID ASC, TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_ID ASC;`;
+  }) AND tcs.IS_FUNCTION_STEP = 'Yes' AND tcfs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' AND tcs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY TEST_CASE_STEP_ID ASC, UI_ELEMENT_GROUP_STEP_ID ASC;`;
   let testCaseFunctionUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionUIElementGroupStepQuery, input);
+  dataObject['isTestCaseFunctionUIElementGroupExist'] = testCaseFunctionUIElementGroupStepQueryData && testCaseFunctionUIElementGroupStepQueryData.length ? 'Yes' : 'No';
   queryListMap.push(
-    testCaseFunctionUIElementGroupStepQueryObject(
-      [...new Set(testCaseFunctionUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ')
-    )
+    uIElementGroupStepQueryObject([...new Set(testCaseFunctionUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
   );
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseFunctionUIElementGroupStepQueryData);
-  let testCaseUIElementGroupStepQuery = `SELECT ${testSetID} AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT(TEST_CASE_STEP_SEQ_ID, '-', TEST_CASE_UI_ELEMENT_GROUP_STEP_ID) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', TEST_CASE_UI_ELEMENT_GROUP_STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( (SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, (SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT) AS 'Page ID', 'Active' AS Status, TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcuegs.TEST_CASE_UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE_STEP tcs, TEST_CASE_UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcuegs.TEST_CASE_STEP_UUID = tcs.TEST_CASE_STEP_UUID AND tcs.TEST_CASE_UUID in (${
+  let testCaseUIElementGroupStepQuery = `SELECT ${testSetID} AS 'Test Set ID', TEST_CASE_ID AS 'Test Case ID', CONCAT( TEST_CASE_STEP_SEQ_ID, '-', UI_ELEMENT_GROUP_STEP_ID ) AS 'Test Case Step ID', TEST_CASE_STEP_SEQ_ID AS 'Test Case Step Seq ID', STEP_TYPE AS 'Test Case Step Type', '' AS 'Test Case Step Name', '' AS 'Step Definition Template', '' AS v1, '' AS v2, '' AS v3, '' AS v4, '' AS v5, CONCAT( ( SELECT UI_ELEMENT_GROUP_NAME FROM UI_ELEMENT_GROUP ueg WHERE ueg.UI_ELEMENT_GROUP_UUID = tcuegs.UI_ELEMENT_GROUP_UUID ), ' UI Element Group' ) AS 'Test Case Step Group Name', '' AS reserved2, ( SELECT PAGE_ID FROM PAGE pn WHERE pn.PAGE_UUID = tcuegs.CURRENT_PAGE_CONTEXT ) AS 'Page ID', 'Active' AS Status, UI_ELEMENT_GROUP_STEP_UUID AS 'Test Case Step UUID', '' AS actions, '' AS v6, '' AS v7, '' AS v8, '' AS v9, '' AS v10, '' AS v11, '' AS v12, tcs.API_UUID, tcs.PLAYWRITE_STEP_CODE, tc.TEST_CASE_EXECUTON_TYPE, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE' AS CHILD_ATTRIBUTE_TABLE_NAME, 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA' AS CHILD_ATTRIBUTE_DATA, 'UI_ELEMENT_GROUP_STEP_UUID' AS PRIMARY_COLUMN_NAME, tcuegs.UI_ELEMENT_GROUP_STEP_UUID AS PRIMARY_COLUMN_VALUE, tcuegs.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE , tcs.TEST_CASE_STEP_UUID as 'ParentKey', tcs.FUNCTION_UUID as 'FunctionKey', '' as 'FunctionStepKey', tcs.UI_ELEMENT_GROUP_UUID as 'UIElementGroupKey', tcuegs.UI_ELEMENT_GROUP_STEP_UUID as 'UIElementGroupStepKey', tcs.VIEW_UUID as 'ViewKey', 'Test_Case_UI_Element_Group_Step' as 'QueryDataType' FROM TEST_CASE_STEP tcs, UI_ELEMENT_GROUP_STEP tcuegs, TEST_CASE tc WHERE tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID AND tcuegs.UI_ELEMENT_GROUP_UUID = tcs.UI_ELEMENT_GROUP_UUID AND tcs.TEST_CASE_UUID in (${
     testCaseID ? testCaseID : `''`
-  }) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY TEST_CASE_STEP_ID, TEST_CASE_UI_ELEMENT_GROUP_STEP_ID ASC;`;
+  }) AND tcs.IS_UI_ELEMENT_GROUP_STEP = 'Yes' ORDER BY TEST_CASE_STEP_ID, UI_ELEMENT_GROUP_STEP_ID ASC;`;
   let testCaseUIElementGroupStepQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseUIElementGroupStepQuery, input);
+  dataObject['isTestCaseUIElementGroupExist'] = testCaseUIElementGroupStepQueryData && testCaseUIElementGroupStepQueryData.length ? 'Yes' : 'No';
   queryListMap.push(
-    testCaseUIElementGroupStepQueryObject([...new Set(testCaseUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
+    uIElementGroupStepQueryObject([...new Set(testCaseUIElementGroupStepQueryData.map((item) => item.PRIMARY_COLUMN_VALUE).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', '))
   );
   testCaseStepNormalQueryData = testCaseStepNormalQueryData.concat(testCaseUIElementGroupStepQueryData);
   let primaryKeyIds = concatePrimaryKeys(testCaseQueryData);
@@ -6811,23 +8006,14 @@ if (
     let uiElementGroupQueryDataList = await fetchUIElementGroupDetails(attributeIds);
     let apiQueryDataList = await fetchApiDetails(attributeIds);
     let apiAttributeQueryDataList = await fetchApiAttributeDetails(attributeIds);
+    let primaryColumnIds = primaryIdString(testCaseStepNormalQueryData);
+    let parentStepAttributeValueData = await getStepData(dataObject, primaryColumnIds);
+    let childStepAttributeValueData = await getStepChildData(dataObject, primaryColumnIds);
     for (let data of testCaseStepNormalQueryData) {
       let inc = 0;
       let stepDefAttributeQueryData = getStepAttributeData(stepDefAttributeQueryDataList, data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID']);
       let attributeValueQueryData = getChildAttributeData(attributeDataObject.attributeValueQueryDataEntries, data.PRIMARY_COLUMN_VALUE, data.PRIMARY_COLUMN_NAME);
-      if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
-        let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
-        if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
-          let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
-            attributeValueQueryData,
-            uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
-            data['CHILD_ATTRIBUTE_DATA']
-          );
-          if (isUIElementValueEmpty) {
-            data['isItemRemove'] = true;
-          }
-        }
-      }
+      let filteredStepAttributeValueData = getDataByParentKeyAndType(parentStepAttributeValueData, data['ParentKey']);
       if (data && data['TEST_CASE_EXECUTON_TYPE'] == 'Automated') {
         let inputStepType = data['Test Case Step Type'] && data['Test Case Step Type'] == 'Data' ? 'Given' : data['Test Case Step Type'];
         data['Test Case Step Type'] = inputStepType;
@@ -6881,18 +8067,48 @@ if (
                 break;
               case '74da67d2-41c9-4cf7-9eea-715243e5fcdc':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '74da67d2-41c9-4cf7-9eea-715243e5fcdc');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
                   let uiElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   if (data['CHILD_ATTRIBUTE_DATA'] == 'TEST_CASE_STEP_ATTRIBUTE_DATA') {
                     let uiElementValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                     if (uiElementValueData && Object.keys(uiElementValueData).length && uiElementValueData['SCOPE_VARIABLE_UUID']) {
                       let selectedAttributeDetails = await getAttributeValueDetails(uiElementValueData['SCOPE_VARIABLE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                      if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length && uiElementValueData['FUNCTION_UUID']) {
+                      if (
+                        selectedAttributeDetails &&
+                        Object.keys(selectedAttributeDetails).length &&
+                        [
+                          'Test_Case_Step_Normal',
+                          'Test_Case_View_Navigation_Step',
+                          'Test_Case_Function_Step',
+                          'Test_Case_Function_View_Navigation_Step',
+                          'Test_Case_Function_UI_Element_Group_Step',
+                          'Test_Case_UI_Element_Group_Step'
+                        ].includes(data['QueryDataType']) &&
+                        selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
+                      ) {
                         let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${uiElementValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                         let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
                         uiElementValue = functionQueryData['FUNCTION_NAME'] + ' $ ' + selectedAttributeDetails['NAME'];
                       } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                         uiElementValue = selectedAttributeDetails['NAME'];
                       }
+                      uiElementValue = decideScopePrefix(uiElementValueData) + uiElementValue;
                     }
                   }
                   if (!checkTestDataExistsForTestCase(testCaseQueryData, testDataQueryData, data)) {
@@ -6911,6 +8127,10 @@ if (
                 break;
               case '235dfa3a-a897-4076-b9bc-ed813ec7c39f':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let keyNameInKeyPad = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(keyNameInKeyPad);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll('<Key Name in Keypad>', function () {
@@ -6944,17 +8164,23 @@ if (
                 }
                 break;
               case 'afe5f489-b9b3-11ee-a0ed-12e85c8c3755':
-                let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(confirmUIElementValue);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Confirm UI Element Value>',
-                  confirmUIElementValue
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let confirmUIElementValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(confirmUIElementValue);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Confirm UI Element Value>',
+                    confirmUIElementValue
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(confirmUIElementValue);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '6c698ae8-6305-4bb6-8c23-3a938e7234bd':
                 {
@@ -6984,6 +8210,23 @@ if (
                 break;
               case '3f50ff70-f3e4-11ee-9a12-6fc3e771212a':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '3f50ff70-f3e4-11ee-9a12-6fc3e771212a');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
                   let uiElementValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(uiElementValue1);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -7037,6 +8280,10 @@ if (
                 break;
               case '2dc3a50e-004d-4dec-8270-c7ec5d36cb2c':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let pageNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(pageNumber);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -7052,6 +8299,10 @@ if (
                 break;
               case 'bca9a7f7-1948-407c-9953-2d01356bbd15':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let dataKey = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(dataKey);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -7067,6 +8318,10 @@ if (
                 break;
               case '3aff7b0e-472c-4393-b6b2-5a61b07cfbff':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let dataValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(dataValue);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -7082,6 +8337,10 @@ if (
                 break;
               case 'ceb66327-216f-42fd-845b-9f4543c62baa':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let fileName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(fileName);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -7097,6 +8356,10 @@ if (
                 break;
               case 'd20f4347-d4d0-47a1-96f6-190d3b5e4a90':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let downloadParserName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(downloadParserName);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -7138,16 +8401,32 @@ if (
                 break;
               case '7182ebf0-2e33-11ef-9033-4bb93e602d01':
                 {
-                  let apiAttributeValue = '';
-                  apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '7182ebf0-2e33-11ef-9033-4bb93e602d01');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
+                      }
+                    }
+                  }
+                  let apiAttributeValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   let apiAttributeValueData = getUIElementValueAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (apiAttributeValueData && Object.keys(apiAttributeValueData).length && apiAttributeValueData['SCOPE_VARIABLE_UUID']) {
                     let selectedAttributeDetails = await getAttributeValueDetails(apiAttributeValueData['SCOPE_VARIABLE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                     if (
                       selectedAttributeDetails &&
                       Object.keys(selectedAttributeDetails).length &&
-                      apiAttributeValueData['FUNCTION_UUID'] &&
-                      ['TEST_CASE_STEP_ATTRIBUTE_DATA', 'TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'].includes(data['CHILD_ATTRIBUTE_DATA'])
+                      ['Test_Case_Step_Normal', 'Test_Case_Function_Step'].includes(data['QueryDataType']) &&
+                      selectedAttributeDetails['IS_FUNCTION_ATTRIBUTE'] == 'Yes'
                     ) {
                       let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${apiAttributeValueData['FUNCTION_UUID']}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                       let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -7155,6 +8434,7 @@ if (
                     } else if (selectedAttributeDetails && Object.keys(selectedAttributeDetails).length) {
                       apiAttributeValue = selectedAttributeDetails['NAME'];
                     }
+                    apiAttributeValue = decideScopePrefix(apiAttributeValueData) + apiAttributeValue;
                   }
                   getAttr = replaceKeyword(apiAttributeValue);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -7213,6 +8493,10 @@ if (
                 break;
               case '2afdf3ea-2d25-42c6-ab5e-9f5a6b15e0f8':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let timeOot = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(timeOot);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -7232,9 +8516,14 @@ if (
                   let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (
                     functionIds &&
-                    !['FUNCTION_STEP_ATTRIBUTE_DATA', 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'].includes(
-                      data['CHILD_ATTRIBUTE_DATA']
-                    )
+                    [
+                      'Test_Case_Step_Normal',
+                      'Test_Case_View_Navigation_Step',
+                      'Test_Case_Function_Step',
+                      'Test_Case_Function_View_Navigation_Step',
+                      'Test_Case_Function_UI_Element_Group_Step',
+                      'Test_Case_UI_Element_Group_Step'
+                    ].includes(data['QueryDataType'])
                   ) {
                     let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                     let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -7258,9 +8547,14 @@ if (
                   let functionIds = getFunctionDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID']);
                   if (
                     functionIds &&
-                    !['FUNCTION_STEP_ATTRIBUTE_DATA', 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', 'FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA'].includes(
-                      data['CHILD_ATTRIBUTE_DATA']
-                    )
+                    [
+                      'Test_Case_Step_Normal',
+                      'Test_Case_View_Navigation_Step',
+                      'Test_Case_Function_Step',
+                      'Test_Case_Function_View_Navigation_Step',
+                      'Test_Case_Function_UI_Element_Group_Step',
+                      'Test_Case_UI_Element_Group_Step'
+                    ].includes(data['QueryDataType'])
                   ) {
                     let functionQuery = `SELECT * FROM featuremanagement_app.FUNCTION WHERE FUNCTION_UUID in('${functionIds}') and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
                     let functionQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', functionQuery, input);
@@ -7279,30 +8573,42 @@ if (
                 }
                 break;
               case 'e0568059-ce39-4a69-aadd-6a0dccba696d':
-                let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(timeInterval);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Time Interval>',
-                  timeInterval
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(timeInterval);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let timeInterval = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(timeInterval);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Time Interval>',
+                    timeInterval
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(timeInterval);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '9d27f361-ac8b-4673-82fe-66c40b2cb634':
-                let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(attempts);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Attempts>',
-                  attempts
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(attempts);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let attempts = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(attempts);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Attempts>',
+                    attempts
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(attempts);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'd797acb4-5e5c-447b-b0c5-60dad38e39a5':
                 {
@@ -7318,30 +8624,55 @@ if (
                 }
                 break;
               case '75b16425-1531-4cee-8c09-30f5be70c4b0':
-                let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(cellValue);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Cell Value>',
-                  cellValue
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(cellValue);
-                        return `'` + Datawithbackslash + `'`;
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, '75b16425-1531-4cee-8c09-30f5be70c4b0');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
                       }
-                    : `' '`
-                );
+                    }
+                  }
+                  let cellValue = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(cellValue);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Cell Value>',
+                    cellValue
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(cellValue);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'ed2ebd4b-9267-4e41-8f56-d5a61abe7ba5':
-                let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(rowNumber);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Row Number>',
-                  rowNumber
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(rowNumber);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let rowNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(rowNumber);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Row Number>',
+                    rowNumber
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(rowNumber);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'd25a4d7f-5c5d-4117-b325-1c669b9a42ab':
                 {
@@ -7370,33 +8701,62 @@ if (
                 }
                 break;
               case 'ba1ef281-412a-4544-b615-7767b06eb489':
-                let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(cellValue1);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Cell Value 1>',
-                  cellValue1
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(cellValue1);
-                        return `'` + Datawithbackslash + `'`;
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  if (data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'] == 'Yes') {
+                    let uiElementValueStepAttributeDetails = extactUIElementValueStepAttributeDetails(stepDefAttributeQueryData, 'ba1ef281-412a-4544-b615-7767b06eb489');
+                    if (uiElementValueStepAttributeDetails && uiElementValueStepAttributeDetails.length) {
+                      let isUIElementValueEmpty = checkIsUIElementValueAttributeEmpty(
+                        attributeValueQueryData,
+                        uiElementValueStepAttributeDetails[0]['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        data['CHILD_ATTRIBUTE_DATA']
+                      );
+                      if (isUIElementValueEmpty) {
+                        data['isItemRemove'] = true;
                       }
-                    : `' '`
-                );
+                    }
+                  }
+                  let cellValue1 = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(cellValue1);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Cell Value 1>',
+                    cellValue1
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(cellValue1);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case 'f7b6ba5d-74a7-4d36-82cd-222d57b2ce83':
-                let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
-                getAttr = replaceKeyword(columnNumber);
-                stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
-                  '<Column Number>',
-                  columnNumber
-                    ? function () {
-                        let Datawithbackslash = escapeSingleQuote(columnNumber);
-                        return `'` + Datawithbackslash + `'`;
-                      }
-                    : `' '`
-                );
+                {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
+                  let columnNumber = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
+                  getAttr = replaceKeyword(columnNumber);
+                  stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
+                    '<Column Number>',
+                    columnNumber
+                      ? function () {
+                          let Datawithbackslash = escapeSingleQuote(columnNumber);
+                          return `'` + Datawithbackslash + `'`;
+                        }
+                      : `' '`
+                  );
+                }
                 break;
               case '28058e26-fa09-42fb-868a-1988bd0a746c':
                 {
+                  let filteredResult = await filterStepByCurrentStep(filteredStepAttributeValueData, data, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], dataObject, childStepAttributeValueData);
+                  if (filteredResult && filteredResult.length) {
+                    attributeValueQueryData = filteredResult;
+                  }
                   let fileFullPath = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                   getAttr = replaceKeyword(fileFullPath);
                   stepDefTemplateVerbiageName = stepDefTemplateVerbiageName.replaceAll(
@@ -7430,6 +8790,13 @@ if (
         delete data['PRIMARY_COLUMN_VALUE'];
         delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
         delete data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'];
+        delete data['FunctionKey'];
+        delete data['FunctionStepKey'];
+        delete data['UIElementGroupKey'];
+        delete data['UIElementGroupStepKey'];
+        delete data['ViewKey'];
+        delete data['QueryDataType'];
+        delete data['ParentKey'];
       } else if (data && data['TEST_CASE_EXECUTON_TYPE'] == 'Recorded') {
         let inputStepType = data['Test Case Step Type'] && data['Test Case Step Type'] == 'Data' ? 'Given' : data['Test Case Step Type'];
         data['Test Case Step Type'] = inputStepType;
@@ -7446,6 +8813,13 @@ if (
         delete data['PRIMARY_COLUMN_VALUE'];
         delete data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'];
         delete data['SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE'];
+        delete data['FunctionKey'];
+        delete data['FunctionStepKey'];
+        delete data['UIElementGroupKey'];
+        delete data['UIElementGroupStepKey'];
+        delete data['ViewKey'];
+        delete data['QueryDataType'];
+        delete data['ParentKey'];
       }
     }
   }

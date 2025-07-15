@@ -52,16 +52,10 @@ try {
   const testCaseData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, testCaseQuery, input);
   for (const testCase of testCaseData) {
     console.log('Processing page:', testCase.TEST_CASE_NAME);
-
     const oldData = { ...testCase };
     const updateTcQuery = `UPDATE TEST_CASE SET TEST_CASE_EXECUTON_TYPE = 'Automated', AE_UPDATE_ID = '${USER_ID}', AE_UPDATE_TS= :curr_dt WHERE TEST_CASE_UUID = '${oldData.TEST_CASE_UUID}'`;
     await serviceOrchestrator.update(updateTcQuery, { curr_dt: formatDateToSQL(new Date()) }, 'PRIMARYSPRINGFM');
-    const auditObj = await createAuditObject(
-      { ...oldData, AE_UPDATE_ID: USER_ID, AE_UPDATE_TS: formatDateToSQL(new Date()), TEST_CASE_EXECUTON_TYPE: 'Automated' },
-      'Update',
-      oldData,
-      USER_ID
-    );
+    const auditObj = await createAuditObject({ ...oldData, AE_UPDATE_ID: USER_ID, AE_UPDATE_TS: formatDateToSQL(new Date()), TEST_CASE_EXECUTON_TYPE: 'Automated' }, 'Update', oldData, USER_ID);
     const { PRE_EXISTING_DATA_JSON, USER_INPUT_JSON, ...finalAuditObj } = auditObj;
     await serviceOrchestrator.insert(getInsertAuditQuery(finalAuditObj), finalAuditObj, 'PRIMARYSPRINGFM_AUDIT', 'AE_AUDIT_UUID');
   }

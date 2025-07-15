@@ -913,7 +913,10 @@ if (
 ) {
   msg.payload.result = {};
   let maxLength = 200;
-  let documentName = input.TEST_SET_NAME ? input.TEST_SET_NAME.replaceAll(/[^A-Z0-9-]+/gi, '_') : 'GeneratedTestCase';
+  const sanitizedName = input.TEST_SET_NAME ? input.TEST_SET_NAME.replace(/[^A-Z0-9-]+/gi, '_') : '';
+  const nameWithId = input.TEST_SET_ID && sanitizedName ? `${input.TEST_SET_ID} - ${sanitizedName}` : sanitizedName;
+  const documentName = nameWithId || 'GeneratedTestCase';
+
   msg.payload.result.documentName = documentName && documentName.length > maxLength ? documentName.substring(0, maxLength) : documentName;
   let versionIdquery = `SELECT MASTER_CODE_VERSION_ID FROM AUTOMATION_CODE_VERSION WHERE VERSION_STATUS='Active' and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let versionIdqueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', versionIdquery, input);
@@ -1954,7 +1957,9 @@ if (
 ) {
   msg.payload.result = {};
   let maxLength = 200;
-  let documentName = input.TEST_SET_NAME ? input.TEST_SET_NAME.replaceAll(/[^A-Z0-9-]+/gi, '_') : 'GeneratedTestCase';
+  const sanitizedName = input.TEST_SET_NAME ? input.TEST_SET_NAME.replace(/[^A-Z0-9-]+/gi, '_') : '';
+  const nameWithId = input.TEST_SET_ID && sanitizedName ? `${input.TEST_SET_ID} - ${sanitizedName}` : sanitizedName;
+  const documentName = nameWithId || 'GeneratedTestCase';
   msg.payload.result.documentName = documentName && documentName.length > maxLength ? documentName.substring(0, maxLength) : documentName;
   let versionIdquery = `SELECT MASTER_CODE_VERSION_ID FROM AUTOMATION_CODE_VERSION WHERE VERSION_STATUS='Active' and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let versionIdqueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', versionIdquery, input);
@@ -2982,8 +2987,12 @@ if (
 } else if (input.APPLICATION_ENVIRONMENT_BASE_URL && input.TEST_SET_UUID && input.FUNCTIONAL_AREA_UUID && input.TEST_CASE_UUID && input.TEST_CASE_NAME && input.GRID_NAME == 'Test Case') {
   msg.payload.result = {};
   let maxLength = 200;
-  let docName = input.PARENT_GRID_NAME == 'Page Navigation Test Set' ? (input.TEST_SET_NAME ? input.TEST_SET_NAME + ' ' + input.TEST_CASE_NAME : input.TEST_CASE_NAME) : input.TEST_CASE_NAME;
-  let documentName = docName ? docName.replaceAll(/[^A-Z0-9-]+/gi, '_') : 'GeneratedTestCase';
+
+  const isPageNavigation = input.PARENT_GRID_NAME === 'Page Navigation Test Set';
+  const baseName = isPageNavigation ? `${input.TEST_SET_NAME ? input.TEST_SET_NAME + ' ' : ''}${input.TEST_CASE_NAME}` : input.TEST_CASE_NAME;
+  const sanitizedName = baseName ? baseName.replace(/[^A-Z0-9-]+/gi, '_') : 'GeneratedTestCase';
+  const documentName = input.TEST_CASE_ID && sanitizedName ? `${input.TEST_CASE_ID} - ${sanitizedName}` : sanitizedName;
+
   msg.payload.result.documentName = documentName && documentName.length > maxLength ? documentName.substring(0, maxLength) : documentName;
   let versionIdquery = `SELECT MASTER_CODE_VERSION_ID FROM AUTOMATION_CODE_VERSION WHERE VERSION_STATUS='Active' and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let versionIdqueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', versionIdquery, input);
@@ -4048,7 +4057,9 @@ if (
 } else if (input.APPLICATION_ENVIRONMENT_BASE_URL && input.FUNCTIONAL_AREA_UUID && input.FUNCTION_UUID && input.FUNCTION_NAME && input.GRID_NAME == 'Function') {
   msg.payload.result = {};
   let maxLength = 200;
-  let documentName = input.FUNCTION_NAME ? input.FUNCTION_NAME.replaceAll(/[^A-Z0-9-]+/gi, '_') : 'GeneratedFunction';
+  const sanitizedName = input.FUNCTION_NAME ? input.FUNCTION_NAME.replaceAll(/[^A-Z0-9-]+/gi, '_') : 'GeneratedFunction';
+  let documentName = input.FUNCTION_ID ? `${input.FUNCTION_ID} - ${sanitizedName}` : sanitizedName;
+
   msg.payload.result.documentName = documentName && documentName.length > maxLength ? documentName.substring(0, maxLength) : documentName;
   let versionIdquery = `SELECT MASTER_CODE_VERSION_ID FROM AUTOMATION_CODE_VERSION WHERE VERSION_STATUS='Active' and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let versionIdqueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', versionIdquery, input);
@@ -5012,7 +5023,8 @@ if (
 ) {
   msg.payload.result = {};
   let maxLength = 200;
-  let documentName = input.TEST_SUITE_NAME ? input.TEST_SUITE_NAME.replaceAll(/[^A-Z0-9-]+/gi, '_') : 'GeneratedTestSuite';
+  const sanitizedName = input.TEST_SUITE_NAME ? input.TEST_SUITE_NAME.replaceAll(/[^A-Z0-9-]+/gi, '_') : 'GeneratedTestSuite';
+  let documentName = input.TEST_SUITE_ID ? `${input.TEST_SUITE_ID} - ${sanitizedName}` : sanitizedName;
   msg.payload.result.documentName = documentName && documentName.length > maxLength ? documentName.substring(0, maxLength) : documentName;
   let versionIdquery = `SELECT MASTER_CODE_VERSION_ID FROM AUTOMATION_CODE_VERSION WHERE VERSION_STATUS='Active' and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let versionIdqueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', versionIdquery, input);
@@ -6125,7 +6137,8 @@ if (
   let testSetQuery = `SELECT PAGE_ID as 'Test Set ID',PAGE_NAME as 'Test Set Name','Active' as Status, 'No Action' as Actions,PAGE_UUID as 'Test Set UUID',FUNCTIONAL_AREA_ID as 'App ID' FROM PAGE,FUNCTIONAL_AREA WHERE PAGE_UUID=:PAGE_UUID AND PAGE.FUNCTIONAL_AREA_UUID=FUNCTIONAL_AREA.FUNCTIONAL_AREA_UUID`;
   let testSetQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSetQuery, input);
   let maxLength = 200;
-  let documentName = testSetQueryData[0]['Test Set Name'] ? testSetQueryData[0]['Test Set Name'].replaceAll(/[^A-Z0-9-]+/gi, '_') : 'GeneratedFunction';
+  const sanitizedName = testSetQueryData[0]['Test Set Name'] ? testSetQueryData[0]['Test Set Name'].replaceAll(/[^A-Z0-9-]+/gi, '_') : 'GeneratedFunction';
+  let documentName = testSetQueryData[0]['Test Set ID'] ? `${testSetQueryData[0]['Test Set ID']} - ${sanitizedName}` : sanitizedName;
   msg.payload.result.documentName = documentName && documentName.length > maxLength ? documentName.substring(0, maxLength) : documentName;
   if (testSetQueryData && testSetQueryData.length > 0) {
     testSetQueryData = JSON.parse(JSON.stringify(testSetQueryData));
@@ -6814,7 +6827,8 @@ if (
   let queryListMap = [];
   msg.payload.result = {};
   let maxLength = 200;
-  let documentName = input.TEST_SUITE_NAME ? input.TEST_SUITE_NAME.replaceAll(/[^A-Z0-9-]+/gi, '_') : 'GeneratedTestSuite';
+  const sanitizedName = input.TEST_SUITE_NAME ? input.TEST_SUITE_NAME.replaceAll(/[^A-Z0-9-]+/gi, '_') : 'GeneratedTestSuite';
+  let documentName = input.TEST_SUITE_ID ? `${input.TEST_SUITE_ID} - ${sanitizedName}` : sanitizedName;
   msg.payload.result.documentName = documentName.length > maxLength ? documentName.substring(0, maxLength) : documentName;
   let versionIdquery = `SELECT MASTER_CODE_VERSION_ID FROM AUTOMATION_CODE_VERSION WHERE VERSION_STATUS='Active' and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
   let versionIdqueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', versionIdquery, input);
@@ -7891,17 +7905,19 @@ if (
 ) {
   msg.payload.result = {};
   let maxLength = 200;
-  debugger;
   let documentName;
+  let appendedId;
   if (input.PARENT_GRID === 'Feature Test Set' || input.PARENT_GRID === 'User Story Test Set') {
+    appendedId = input.TEST_CASE_ID ? `${input.TEST_CASE_ID} - ` : '';
     if (input.TEST_SET_NAME) {
-      documentName = `${input.TEST_SET_NAME} ${input.TEST_CASE_NAME}`;
+      documentName = `${appendedId}${input.TEST_SET_NAME} ${input.TEST_CASE_NAME}`;
     } else {
-      documentName = input.TEST_CASE_NAME;
+      documentName = `${appendedId}${input.TEST_CASE_NAME}`;
     }
   } else {
+    appendedId = input.TEST_SET_ID ? `${input.TEST_SET_ID} - ` : '';
     if (input.TEST_SET_NAME) {
-      documentName = input.TEST_SET_NAME.replace(/[^A-Z0-9-]+/gi, '_');
+      documentName = appendedId + input.TEST_SET_NAME.replace(/[^A-Z0-9-]+/gi, '_');
     } else {
       documentName = 'GeneratedTestCase';
     }

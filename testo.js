@@ -1,115 +1,206 @@
-function isValidUUID(uuid) {
-    if (typeof uuid !== 'string' || uuid.trim() == '') {
-        return false;
-    }
-    const parts = uuid && uuid.split('-');
-    if (parts.length == 5 && parts[0].length <= 10 && parts[1].length <= 10 && parts[2].length <= 10 && parts[3].length <= 10 && parts[4].length <= 15) {
-        return parts.every((part) => /^[a-f0-9]+$/i.test(part));
-    }
-    return false;
-}
-input[0]['showMessage'] = '';
-input[0]['isErrorOccured'] = false;
-input[0]['TEST_RUN_START_TIME'] = new Date();
-input[0]['RUN_TRIGGER_TYPE'] = 'Manual';
-input[0]['RUN_AUTOMATION_TYPE'] = 'WebApp';
-input[0]['TEST_RUN_STATUS'] = 'In-Queue';
-const sourceType = input[0]['SOURCE_TYPE'];
-input[0]['RUN_AUTOMATION_SOURCE_TYPE'] = sourceType;
-let runQuery = '';
-let testSetIds = '';
-switch (sourceType) {
-    case 'TEST_CASE':
-        input[0]['RUN_AUTOMATION_SOURCE_UUID'] = input[0]['TEST_CASE_UUID'];
-        runQuery = `SELECT * FROM TEST_CASE_STEP WHERE TEST_CASE_UUID=:TEST_CASE_UUID; `;
-        break;
-    case 'TEST_SET':
-        input[0]['RUN_AUTOMATION_SOURCE_UUID'] = input[0]['TEST_SET_UUID'];
-        runQuery = `SELECT * FROM TEST_CASE_STEP tcs JOIN TEST_CASE tc ON tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID WHERE tc.TEST_CASE_EXECUTON_TYPE='Automated' AND tc.TEST_SET_UUID=:TEST_SET_UUID; `;
-        testSetIds = `'${input[0]['TEST_SET_UUID']}'`;
-        break;
-    case 'PERSONAL_TEST_SET':
-        input[0]['RUN_AUTOMATION_SOURCE_UUID'] = input[0]['TEST_SET_UUID'];
-        runQuery = `SELECT * FROM TEST_CASE_STEP tcs JOIN TEST_CASE tc ON tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID WHERE tc.TEST_CASE_EXECUTON_TYPE='Automated' AND tc.TEST_SET_UUID=:TEST_SET_UUID; `;
-        testSetIds = `'${input[0]['TEST_SET_UUID']}'`;
-        break;
-    case 'FUNCTION':
-        input[0]['RUN_AUTOMATION_SOURCE_UUID'] = input[0]['FUNCTION_UUID'];
-        runQuery = `SELECT * FROM FUNCTION_STEP WHERE FUNCTION_UUID=:FUNCTION_UUID; `;
-        break;
-    case 'TEST_SUITE':
-        input[0]['RUN_AUTOMATION_SOURCE_UUID'] = input[0]['TEST_SUITE_UUID'];
-        let fetchTestSetsIds = `select TEST_SET_UUID from TEST_SUITE_TEST_SET where TEST_SUITE_UUID=:TEST_SUITE_UUID AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID order by TEST_SUITE_TEST_SET_ID asc;`;
-        let testSetIdsData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', fetchTestSetsIds, input[0]);
-        let testSetID = '';
-        if (testSetIdsData && testSetIdsData.length) {
-            testSetID = [...new Set(testSetIdsData.map(item => item.TEST_SET_UUID).filter(isValidUUID))].map(uuid => `'${uuid}'`).join(', ');
-        }
-        runQuery = `SELECT * FROM TEST_CASE_STEP tcs JOIN TEST_CASE tc ON tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID WHERE tc.TEST_CASE_EXECUTON_TYPE='Automated' AND tc.TEST_SET_UUID in (${testSetID}); `;
-        testSetIds = testSetID;
-        break;
-    case 'MULTIPLE_TEST_SET':
-        input[0]['RUN_AUTOMATION_SOURCE_UUID'] = input[0]['TEST_SET_UUID'];
-        let testSetList = input[0]['TEST_SET_UUID'].split(',');
-        let testSetID1 = [...new Set(testSetList.map((item) => item).filter(isValidUUID))].map((uuid) => `'${uuid}'`).join(', ');
-        runQuery = `SELECT * FROM TEST_CASE_STEP tcs JOIN TEST_CASE tc ON tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID WHERE tc.TEST_CASE_EXECUTON_TYPE='Automated' AND tc.TEST_SET_UUID in (${testSetID1}); `;
-        testSetIds = testSetID1;
-        break;
-    case 'NAVIGATION_STEPS':
-        input[0]['RUN_AUTOMATION_SOURCE_UUID'] = input[0]['VIEW_UUID'];
-        runQuery = `SELECT * FROM VIEW_NAVIGATION_STEP WHERE VIEW_UUID=:VIEW_UUID; `;
-        break;
-    case 'FEATURE_TEST_SET':
-        input[0]['RUN_AUTOMATION_SOURCE_UUID'] = input[0]['TEST_SET_UUID'];
-        runQuery = `select * from TEST_CASE_STEP tscp, TEST_CASE tc, TEST_CASE_REQUIREMENT tcr where tscp.TEST_CASE_UUID=tc.TEST_CASE_UUID and tc.TEST_CASE_UUID=tcr.TEST_CASE_UUID and REQUIREMENT_TITLE_UUID=:FEATURE_UUID and tc.TEST_CASE_EXECUTON_TYPE='Automated'; `;
-        let testSetIdsDataFeature = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', runQuery, input[0]);
-        let testSetID_Feature= '';
-        if (testSetIdsDataFeature && testSetIdsDataFeature.length) {
-            testSetID_Feature = [...new Set(testSetIdsDataFeature.map(item => item.TEST_SET_UUID).filter(isValidUUID))].map(uuid => `'${uuid}'`).join(', ');
-        }
-        testSetIds = testSetID_Feature;
-        break;
-    default:
-        throw new Error(`Unsupported SOURCE_TYPE: ${sourceType}`);
-}
+try {
+  function formatDateToSQL(date) {
+    return date.toISOString().slice(0, 23).replace("T", " ");
+  }
+  const getInsertAuditQuery = (auditObj, auditTable) => {
+    const fields = Object.keys(auditObj);
+    const values = fields.map((field) => `:${field}`);
+    return `INSERT INTO ${auditTable} (${fields.join(", ")}) VALUES (${values.join(", ")});`;
+  };
 
-if (runQuery) {
-    let runQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', runQuery, input[0]);
-    if (runQueryData && runQueryData.length == 0) {
-         switch (sourceType) {
-            case 'TEST_CASE':
-            case 'TEST_SET':
-            case 'PERSONAL_TEST_SET':
-            case 'FEATURE_TEST_SET':
-            case 'TEST_SUITE':
-            case 'MULTIPLE_TEST_SET':
-            case 'USER_STORY_TEST_SET':
-                input[0]['showMessage'] = 'Cannot perform this action! There are no Automated Test Cases to be executed.';
-                break;
-            case 'FUNCTION':
-                input[0]['showMessage'] = 'Cannot perform this action! There are no Function Step to be executed.';
-                break;
-            case 'NAVIGATION_STEPS':
-                input[0]['showMessage'] = 'Cannot perform this action! There are no Navigation Step to be executed.';
-                break;
-            default:
-                input[0]['showMessage'] = 'Cannot perform this action! There are no Automated Test Cases to be executed.';
+  async function getNewUUID() {
+    const uuidQuery = `SELECT UUID() AS UNIQUE_UUID;`;
+    const uuidData = await serviceOrchestrator.selectRecordsUsingQuery(
+      `PRIMARYSPRINGFM`,
+      uuidQuery,
+      input
+    );
+    return uuidData[0].UNIQUE_UUID;
+  }
+
+  msg.payload.result = {};
+  const AppengProcessConfig = global.get("AppengProcessConfig");
+  const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
+  let input = msg.payload.apiRequestBody.baseEntity.records[0];
+  const USER_ID = input.APP_LOGGED_IN_USER_ID;
+  const TARGET_TEST_SUITE_UUID = "46079dda-4ddc-11f0-a5ca-02a48541b261";
+  const now = formatDateToSQL(new Date());
+  let mode = { mode: "Enable Message", message: "Data Sync Completed." };
+
+  async function createAuditObject(
+    newObject,
+    operationType = "Insert",
+    oldObject = null,
+    operationPerformedBy = USER_ID
+  ) {
+    const auditObj = { ...newObject };
+    let auditDetails = {};
+    if (operationType === "Insert") {
+      for (let key of Object.keys(newObject)) {
+        auditDetails[key] = { oldValue: null, newValue: newObject[key] };
+      }
+    } else if (operationType === "Update") {
+      if (!oldObject) throw new Error("oldObject must be provided for Update operation.");
+      for (let key of Object.keys(newObject)) {
+        const oldVal = oldObject[key];
+        const newVal = newObject[key];
+        if (oldVal !== newVal) {
+          auditDetails[key] = { oldValue: oldVal, newValue: newVal };
         }
-        input[0]['isErrorOccured'] = true;
+      }
     }
-    let testRunQuery = `SELECT * FROM TEST_RUN WHERE TEST_RUN_STATUS = 'Running'`;
-    let testRunQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testRunQuery, input[0]);
-    if (testRunQueryData && testRunQueryData.length > 9) {
-        input[0]['showMessage'] = 'All Automation Agents are busy serving other Test Run Request. Please try after some time.';
-        input[0]['isErrorOccured'] = true;
-    }
-    if (testSetIds) {
-        let testcaseQuery = `SELECT count(*) as count FROM TEST_CASE WHERE TEST_CASE_EXECUTON_TYPE = 'Automated' AND TEST_SET_UUID in (${testSetIds})`;
-        let testcaseQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testcaseQuery, input[0]);
-        if (testcaseQueryData && testcaseQueryData[0]['count'] == '0' ) {
-            input[0]['showMessage'] = 'Cannot perform this action! There are no automated test cases to be executed.';
-            input[0]['isErrorOccured'] = true;
-        }
+    auditObj.AE_OLD_NEW_COMPARISION_DETAILS = JSON.stringify(auditDetails);
+
+    auditObj.AE_AUDIT_UUID = await getNewUUID();
+    auditObj.AE_OPERATION_TYPE = operationType;
+    auditObj.AE_TIMESTAMP = formatDateToSQL(new Date());
+    auditObj.OPERATION_PERFORMED_BY = operationPerformedBy;
+    return auditObj;
+  }
+
+  const selectedFunctionalAreas = input.SELECTED_FUNCTIONAL_AREAS
+    ? input.SELECTED_FUNCTIONAL_AREAS.split(",").map((area) => `'${area.trim()}'`).join(",")
+    : `''`;
+
+  const apiQuery = `
+    SELECT API_UUID, API_NAME, FUNCTIONAL_AREA_UUID
+    FROM API_NEW
+    WHERE FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas})
+  `;
+
+  const apis = await serviceOrchestrator.selectRecordsUsingQuery(
+    "PRIMARYSPRINGFM",
+    apiQuery,
+    input
+  );
+
+  console.log(`Found ${apis.length} APIs for selected functional areas.`);
+  let insertCount = 0;
+  for (const api of apis) {
+    const { API_UUID, API_NAME, FUNCTIONAL_AREA_UUID } = api;
+    const testSetQuery = `
+      SELECT * FROM TEST_SET
+      WHERE API_UUID = '${API_UUID}' AND TEST_SET_TYPE = 'API'
+    `;
+    const existingTestSetArr = await serviceOrchestrator.selectRecordsUsingQuery(
+      "PRIMARYSPRINGFM",
+      testSetQuery,
+      input
+    );
+
+    if (existingTestSetArr && existingTestSetArr.length > 0) {
+      console.log(`✅ TEST_SET already exists for API_UUID: ${API_UUID} (${API_NAME}), skipping.`);
+      continue;
     }
 
+    const TEST_SET_UUID = await getNewUUID();
+    const API_TRANSACTION_ID = await getNewUUID();
+    const TEST_SUITE_TEST_SET_UUID = await getNewUUID();
+    const SUITE_MAPPING_TRANSACTION_ID = await getNewUUID();
+
+    const maxTestSetIdArr = await serviceOrchestrator.selectRecordsUsingQuery(
+      "PRIMARYSPRINGFM",
+      "SELECT COALESCE(MAX(TEST_SET_ID),0) AS maxId FROM TEST_SET;",
+      input
+    );
+    const TEST_SET_ID = Number(maxTestSetIdArr[0].maxId) + 1;
+
+    const newTestSet = {
+      TEST_SET_UUID,
+      TEST_SET_ID,
+      TEST_SET_NAME: API_NAME,
+      TEST_SET_TYPE: "API",
+      API_UUID,
+      FUNCTIONAL_AREA_UUID,
+      AE_INSERT_ID: USER_ID,
+      AE_INSERT_TS: now,
+      AE_UPDATE_ID: USER_ID,
+      AE_UPDATE_TS: now,
+      AE_TRANSACTION_ID: API_TRANSACTION_ID,
+    };
+
+    await serviceOrchestrator.insert(
+      `INSERT INTO TEST_SET (${Object.keys(newTestSet).join(", ")}) VALUES (${Object.keys(newTestSet).map(k => `:${k}`).join(", ")})`,
+      newTestSet,
+      "PRIMARYSPRINGFM",
+      "TEST_SET_UUID"
+    );
+    console.log(`🟢 Inserted TEST_SET for API: ${API_NAME} (${API_UUID})`);
+
+    const testSetAudit = await createAuditObject(
+      newTestSet,
+      "Insert",
+      null,
+      USER_ID
+    );
+    await serviceOrchestrator.insert(
+      getInsertAuditQuery(testSetAudit, "TEST_SET_AUDIT"),
+      testSetAudit,
+      "PRIMARYSPRINGFM_AUDIT",
+      "AE_AUDIT_UUID"
+    );
+    console.log(`🟢 Inserted TEST_SET_AUDIT for API: ${API_NAME}`);
+
+    const suiteTestSetQuery = `
+      SELECT * FROM TEST_SUITE_TEST_SET
+      WHERE TEST_SUITE_UUID = '${TARGET_TEST_SUITE_UUID}' AND TEST_SET_UUID = '${TEST_SET_UUID}'
+    `;
+    const existingSuiteTestSetArr = await serviceOrchestrator.selectRecordsUsingQuery(
+      "PRIMARYSPRINGFM",
+      suiteTestSetQuery,
+      input
+    );
+    if (existingSuiteTestSetArr && existingSuiteTestSetArr.length > 0) {
+      console.log(`✅ TEST_SUITE_TEST_SET already exists for TEST_SET_UUID: ${TEST_SET_UUID}, skipping.`);
+      continue;
+    }
+
+    const maxSuiteTestSetIdArr = await serviceOrchestrator.selectRecordsUsingQuery(
+      "PRIMARYSPRINGFM",
+      "SELECT COALESCE(MAX(TEST_SUITE_TEST_SET_ID),0) AS maxId FROM TEST_SUITE_TEST_SET;",
+      input
+    );
+    const TEST_SUITE_TEST_SET_ID = Number(maxSuiteTestSetIdArr[0].maxId) + 1;
+
+    const testSuiteTestSet = {
+      TEST_SUITE_TEST_SET_UUID,
+      TEST_SUITE_TEST_SET_ID,
+      TEST_SUITE_UUID: TARGET_TEST_SUITE_UUID,
+      TEST_SET_UUID,
+      FUNCTIONAL_AREA_UUID,
+      AE_INSERT_ID: USER_ID,
+      AE_INSERT_TS: now,
+      AE_UPDATE_ID: USER_ID,
+      AE_UPDATE_TS: now,
+      AE_TRANSACTION_ID: SUITE_MAPPING_TRANSACTION_ID,
+    };
+
+    await serviceOrchestrator.insert(
+      `INSERT INTO TEST_SUITE_TEST_SET (${Object.keys(testSuiteTestSet).join(", ")}) VALUES (${Object.keys(testSuiteTestSet).map(k => `:${k}`).join(", ")})`,
+      testSuiteTestSet,
+      "PRIMARYSPRINGFM",
+      "TEST_SUITE_TEST_SET_UUID"
+    );
+    console.log(`🟢 Inserted TEST_SUITE_TEST_SET for API: ${API_NAME}`);
+    const suiteAudit = await createAuditObject(
+      testSuiteTestSet,
+      "Insert",
+      null,
+      USER_ID
+    );
+    await serviceOrchestrator.insert(
+      getInsertAuditQuery(suiteAudit, "TEST_SUITE_TEST_SET_AUDIT"),
+      suiteAudit,
+      "PRIMARYSPRINGFM_AUDIT",
+      "AE_AUDIT_UUID"
+    );
+    console.log(`🟢 Inserted TEST_SUITE_TEST_SET_AUDIT for API: ${API_NAME}`);
+    insertCount++;
+  }
+
+  msg.payload["result"] = mode;
+  node.send(msg);
+} catch (t) {
+  console.log("Error Occurred", t.message);
+  return;
 }

@@ -1,5 +1,3 @@
-console.log("Page node business rule ========================== >>>>>>>>>>>> ", input)
-
 let UI_ELEMENT = [];
 let VIEW_UI_ELEMENT = [];
 let VIEW_NAVIGATION_STEP = [];
@@ -542,7 +540,7 @@ if (input.compositeEntityAction == "Update") {
   const testCaseObj = {};
   testCaseObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
   testCaseObj['TEST_CASE_NAME'] = input['PAGE_NAME'] + ' - ' + 'Default View';
-  testCaseObj['TEST_CASE_STATUS'] = 'COMMITTED';
+  testCaseObj['TEST_CASE_STATUS'] = 'DRAFT';
   testCaseObj['TEST_SET_UUID'] = TEST_SET_UUID;
   testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Automated';
   testCaseObj['ASSOCIATED_VIEW_UUID'] = viewUUID;

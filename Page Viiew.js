@@ -166,7 +166,7 @@ if (input.compositeEntityAction == "Insert") {
     const testCaseObj = {};
     testCaseObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
     testCaseObj['TEST_CASE_NAME'] = testSetQueryData[0]['TEST_SET_NAME'] + ' - ' + input['VIEW_NAME'];
-    testCaseObj['TEST_CASE_STATUS'] = 'COMMITTED';
+    testCaseObj['TEST_CASE_STATUS'] = 'DRAFT';
     testCaseObj['TEST_SET_UUID'] = testSetQueryData[0]['TEST_SET_UUID'];
     testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Automated';
     testCaseObj['ASSOCIATED_VIEW_UUID'] = input['VIEW_UUID'];

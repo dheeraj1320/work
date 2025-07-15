@@ -399,6 +399,16 @@ else if (input.compositeEntityAction == 'Save'){
     testSetObj['FUNCTIONAL_AREA_UUID'] = input['APP_LOGGED_IN_FUNTIONAL_AREA_ID'];
     testSetObj['USER_STORY_UUID'] = input['USER_STORY_UUID'];
     TEST_SET_NEW.push(testSetObj);
+} else if (input.compositeEntityAction == 'Update'){
+    const testSetQuery = `SELECT TEST_SET_UUID FROM TEST_SET WHERE USER_STORY_UUID = :USER_STORY_UUID AND TEST_SET_TYPE =  'User Story'`;
+    const testSetData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSetQuery, input);
+
+    if (testSetData.length > 0) {
+        const testSetObj = {};
+        testSetObj['TEST_SET_UUID'] = testSetData[0]['TEST_SET_UUID'];
+        testSetObj['TEST_SET_NAME'] = input['USER_STORY_NAME'];
+        TEST_SET_NEW.push(testSetObj);
+    }
 }
 
 
@@ -723,4 +733,4 @@ input["AppEngChildEntity:IMPACTED_USER_STORY"] = impactedUserStoryArray;
 input["AppEngChildEntity:IMPACTED_PROCESS"] = impactedProcessArray;
 input["AppEngChildEntity:INTEGRATION TEST CASE REQUIREMENT"] = testCaseRequirementArray;
 input["AppEngChildEntity:REQUIREMENT_DATA_SET_DATA_ELEMENT"] = requirementDataSetDataElementArray;
-input["AppEngChildEntity:TEST_SET_NEW"] = TEST_SET_NEW;
+input["AppEngChildEntity:TEST_SET_NEW"] = TEST_SET_NEW; 

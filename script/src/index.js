@@ -6,6 +6,7 @@ const { dataFixForTestCaseAndUserStory } = require('./TestCaseUSerStory');
 const { dataFixForAppEnv } = require('./appEnv');
 const { newAPIATTRIBUTE } = require('./amey');
 const { updateApiDataFix } = require('./vipresh');
+const { insertAuditRecord } = require('./test');
 const app = express();
 const port = 8080;
 
@@ -15,7 +16,7 @@ const knex = require('knex')({
     host: 'ae-development-infoapps.cnoaycsucdmt.us-east-1.rds.amazonaws.com',
     user: 'admin',
     password: 'aurora123',
-    database: `uat_featuremanagement_app`
+    database: `featuremanagement_app`
   }
 });
 
@@ -25,7 +26,7 @@ const auditKnex = require('knex')({
     host: 'ae-development-infoapps.cnoaycsucdmt.us-east-1.rds.amazonaws.com',
     user: 'admin',
     password: 'aurora123',
-    database: `uat_featuremanagement_app_audit`
+    database: `featuremanagement_app_audit`
   }
 });
 
@@ -73,10 +74,14 @@ app.get('/', (req, res) => {
 // return dataFixForTestCaseAndUserStory(req, res, knex, auditKnex, 'infoqa');
 // });
 
-app.get('/amey', async (req, res) => {
-  await newAPIATTRIBUTE();
+app.get('/test', async (req, res) => {
+  await insertAuditRecord(auditKnex);
   return res.status(200).json({ message: 'Script ran successfully! ✅✅✅' });
 });
+// app.get('/amey', async (req, res) => {
+//   await newAPIATTRIBUTE();
+//   return res.status(200).json({ message: 'Script ran successfully! ✅✅✅' });
+// });
 
 // app.get('/viper', async (req, res) => {
 //   return await updateApiDataFix(req, res, mssqlKnex, mssqlKnex);

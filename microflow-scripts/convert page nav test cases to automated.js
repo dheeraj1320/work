@@ -48,35 +48,22 @@ try {
         .map((area) => `'${area.trim()}'`)
         .join(',')
     : `''`;
-  const pageQuery = `SELECT PAGE_NAME, PAGE_UUID FROM PAGE WHERE FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas}) ORDER BY PAGE_ID DESC;`;
-  const pageData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, pageQuery, input);
-  for (const page of pageData) {
-    console.log('Processing page:', page.PAGE_NAME);
-    const viewQuery = `SELECT VIEW_UUID, VIEW_NAME FROM PAGE_VIEW WHERE PAGE_UUID='${page.PAGE_UUID}';`;
-    const viewData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, viewQuery, input);
-    for (const view of viewData) {
-      const updatedTcName = `${page.PAGE_NAME} - ${view.VIEW_NAME}`;
-      const testCaseQuery = `SELECT * FROM TEST_CASE WHERE ASSOCIATED_VIEW_UUID='${view.VIEW_UUID}';`;
-      const testCaseData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, testCaseQuery, input);
-      if (testCaseData && testCaseData.length > 0) {
-        if (testCaseData[0].TEST_CASE_NAME == updatedTcName) {
-          console.log('Test case name already starts with page name, skipping update for:', testCaseData[0].TEST_CASE_NAME);
-        } else {
-          console.log('::::::::::::: Updating test case name from ', testCaseData[0].TEST_CASE_NAME, ' to ', updatedTcName);
-          const oldData = { ...testCaseData[0] };
-          const updateTcQuery = `UPDATE TEST_CASE SET TEST_CASE_NAME = '${updatedTcName}', AE_UPDATE_ID = '${USER_ID}', AE_UPDATE_TS= :curr_dt, TEST_CASE_STATUS = 'DRAFT', TEST_CASE_OWNER='${oldData.AE_INSERT_ID}' WHERE TEST_CASE_UUID = '${oldData.TEST_CASE_UUID}'`;
-          await serviceOrchestrator.update(updateTcQuery, { curr_dt: formatDateToSQL(new Date()) }, 'PRIMARYSPRINGFM');
-          const auditObj = await createAuditObject(
-            { ...oldData, TEST_CASE_NAME: updatedTcName, AE_UPDATE_ID: USER_ID, AE_UPDATE_TS: formatDateToSQL(new Date()), TEST_CASE_STATUS: 'DRAFT', TEST_CASE_OWNER: oldData.AE_INSERT_ID},
-            'Update',
-            oldData,
-            USER_ID
-          );
-          const { PRE_EXISTING_DATA_JSON, USER_INPUT_JSON, ...finalAuditObj } = auditObj;
-          await serviceOrchestrator.insert(getInsertAuditQuery(finalAuditObj), finalAuditObj, 'PRIMARYSPRINGFM_AUDIT', 'AE_AUDIT_UUID');
-        }
-      }
-    }
+  const testCaseQuery = `SELECT tc.TEST_CASE_UUID , tc.TEST_CASE_ID , tc.TEST_CASE_NAME , tc.AE_INSERT_ID , tc.AE_UPDATE_ID , tc.AE_INSERT_TS , tc.AE_UPDATE_TS , tc.AE_TRANSACTION_ID , tc.FUNCTIONAL_AREA_UUID , tc.PRE_EXISTING_DATA_JSON , tc.USER_INPUT_JSON , tc.EXPECTED_RESULT_JSON , tc.TEST_SET_UUID , tc.TEST_CASE_SEQ_ID , tc.TEST_CASE_STATUS , tc.TEST_CASE_EXECUTON_TYPE , tc.TEST_CASE_DESCRIPTION_UUID , tc.USER_STORY_VERSION_UUID , tc.DEVELOPMENT_ACCEPTED_TS , tc.TEST_CASE_OWNER , tc.ASSOCIATED_VIEW_UUID , tc.USER_STORY_UUID , tc.SKIP_STEP_WITH_NO_UI_ELEMENT_VALUE FROM TEST_CASE tc JOIN TEST_SET ts ON tc.TEST_SET_UUID = ts.TEST_SET_UUID WHERE ts.TEST_SET_TYPE = 'Page Navigation' AND tc.TEST_CASE_EXECUTON_TYPE = 'Manual' AND ts.FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas}) AND tc.FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas});`;
+  const testCaseData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, testCaseQuery, input);
+  for (const testCase of testCaseData) {
+    console.log('Processing page:', testCase.TEST_CASE_NAME);
+
+    const oldData = { ...testCase };
+    const updateTcQuery = `UPDATE TEST_CASE SET TEST_CASE_EXECUTON_TYPE = 'Automated', AE_UPDATE_ID = '${USER_ID}', AE_UPDATE_TS= :curr_dt WHERE TEST_CASE_UUID = '${oldData.TEST_CASE_UUID}'`;
+    await serviceOrchestrator.update(updateTcQuery, { curr_dt: formatDateToSQL(new Date()) }, 'PRIMARYSPRINGFM');
+    const auditObj = await createAuditObject(
+      { ...oldData, AE_UPDATE_ID: USER_ID, AE_UPDATE_TS: formatDateToSQL(new Date()), TEST_CASE_EXECUTON_TYPE: 'Automated' },
+      'Update',
+      oldData,
+      USER_ID
+    );
+    const { PRE_EXISTING_DATA_JSON, USER_INPUT_JSON, ...finalAuditObj } = auditObj;
+    await serviceOrchestrator.insert(getInsertAuditQuery(finalAuditObj), finalAuditObj, 'PRIMARYSPRINGFM_AUDIT', 'AE_AUDIT_UUID');
   }
   msg.payload['result'] = mode;
   node.send(msg);

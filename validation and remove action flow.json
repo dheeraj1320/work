@@ -1,0 +1,438 @@
+[
+  {
+    "id": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "type": "tab",
+    "label": "Inbound Service Flow",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "80da4d06.d55a2",
+    "type": "inject",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Input",
+    "topic": "Input",
+    "payload": "{}",
+    "payloadType": "json",
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "x": 110,
+    "y": 120,
+    "wires": [
+      [
+        "1085dd3d.647cc3"
+      ]
+    ]
+  },
+  {
+    "id": "1085dd3d.647cc3",
+    "type": "switch",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "",
+    "property": "payload",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "hask",
+        "v": "entityName",
+        "vt": "str"
+      },
+      {
+        "t": "else"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 2,
+    "x": 220,
+    "y": 240,
+    "wires": [
+      [
+        "235cddsd.0d2423"
+      ],
+      [
+        "28147205.c984be"
+      ]
+    ]
+  },
+  {
+    "id": "235cddsd.0d2423",
+    "type": "generateRequestBody",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Create Request Body",
+    "outputs": 1,
+    "x": 480,
+    "y": 420,
+    "wires": [
+      [
+        "28147205.c984be"
+      ]
+    ]
+  },
+  {
+    "id": "28147205.c984be",
+    "type": "toLogicalData",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Transform to Logical Data",
+    "outputs": 1,
+    "x": 270,
+    "y": 60,
+    "wires": [
+      [
+        "dd6550d4.e2bce"
+      ]
+    ]
+  },
+  {
+    "id": "9f116870.1ef498",
+    "type": "finish",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Error Response",
+    "property": "payload",
+    "propertyType": "msg",
+    "outputs": 1,
+    "x": 970,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "dd6550d4.e2bce",
+    "type": "validateData",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Validate Data",
+    "outputs": 1,
+    "x": 510,
+    "y": 60,
+    "wires": [
+      [
+        "15d3d01.01e563"
+      ]
+    ]
+  },
+  {
+    "id": "15d3d01.01e563",
+    "type": "processLogicalData",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Process Logical Data",
+    "outputs": 1,
+    "x": 320,
+    "y": 140,
+    "wires": [
+      [
+        "15d3d01.workflow"
+      ]
+    ]
+  },
+  {
+    "id": "15d3d01.workflow",
+    "type": "processWorkflowAction",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "x": 400,
+    "y": 400,
+    "name": "Process Workflow Action",
+    "outputs": 1,
+    "wires": [
+      [
+        "5d38e157.b4d7e"
+      ]
+    ]
+  },{
+    "id": "5d38e157.b4d7e",
+    "type": "function",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Process length check",
+    "func": "try { let input = msg.payload.apiRequestBody.baseEntity.records; console.log('input[0]:::::', input[0]); msg.payload.result = {}; msg.payload.result.errors = []; let err_obj = {}; let errorData = []; function executeValidation(field_name, val_location) { console.log(field_name, val_location, 'field_name::::::'); if (field_name != null) { let phone_number = field_name; let resultPattern = '[^+0-9a-zA-Z]+'; let resultPatternRegEx = new RegExp(resultPattern); let result = phone_number.replace(resultPatternRegEx, ''); let mobilePattern = '^[+]91{1}|[+]1{1}'; let mobilePatternRegEx = new RegExp(mobilePattern); let mobile = result.replace(mobilePatternRegEx, ''); mobile = mobile.replace(/[&@/#, +()$~%.':*?<>{}]/g, ''); console.log(mobile, 'mobile number:::'); let pattern = '^(?!0+$)[0-9]{10}$'; let patternRegEx = new RegExp(pattern); let checkpattern = patternRegEx.test(mobile); console.log(checkpattern, 'checkpattern::::'); if (checkpattern == false) { console.log('Validation failed>>>>'); msg.payload.result.mode = 'Enable Message'; msg.payload.result.code = 406; err_obj = { message: 'Invalid Phone Number. Enter 10 Digit Phone Number Without Special Characters.', reason: 'Message below form field', warningMessage: '', location: val_location }; errorData.push(err_obj); console.log(errorData, 'errorss') }; if (errorData.length > 0) { console.log('has error'); msg.payload.result.errors = errorData; msg.payload['isErrorCheck'] = true; } else { msg.payload['isErrorCheck'] = false; } } else { msg.payload['isErrorCheck'] = false; }; return msg; } if (input[0].CND_PRIM_PH_NUM != null) { let msg = executeValidation(input[0].CND_PRIM_PH_NUM, 'bc06b4fb-a616-4b86-9a40-a71424e980a6=>0=>CND_PRIM_PH_NUM') }; if (input[0].CND_SCNDRY_PH_NUM != null) { let msg = executeValidation(input[0].CND_SCNDRY_PH_NUM, 'bc06b4fb-a616-4b86-9a40-a71424e980a6=>0=>CND_SCNDRY_PH_NUM') }; if (input[0].CONTACT_NO != null) { let val_location = ''; if (input[0].hasOwnProperty('CLIENT_NAME')) { val_location = '4183724a-3c8e-442d-8628-425db0093cd4=>0=>CONTACT_NO' } else if (input[0].hasOwnProperty('VENDOR_NAME')) { val_location = 'e9739322-79fd-4017-b778-6171c98ec2eb=>0=>CONTACT_NO' } else if (input[0].hasOwnProperty('END_CLIENT_NAME')) { val_location = '151011b7-b3b1-4ef4-94be-fee2a8860fa7=>0=>CONTACT_NO' }; let msg = executeValidation(input[0].CONTACT_NO, val_location) }; if (input[0].OFFICE_NO != null) { let val_location = ''; console.log(input[0].hasOwnProperty('CLIENT_NAME'), ':::::::>>>>>>>'); if (input[0].hasOwnProperty('CLIENT_NAME')) { console.log('Inside client form::::::'); val_location = '4183724a-3c8e-442d-8628-425db0093cd4=>0=>OFFICE_NO' } else if (input[0].hasOwnProperty('END_CLIENT_NAME')) { val_location = '151011b7-b3b1-4ef4-94be-fee2a8860fa7=>0=>OFFICE_NO' }; let msg = executeValidation(input[0].OFFICE_NO, val_location) }; if (input[0].EMPLOYER_PHONE_NUMBER != null) { let val_location = ''; if (!input[0].hasOwnProperty('CND_NM_TX')) { console.log('Inside employer form::::::'); val_location = '61bbb244-4d48-4f29-8116-aaaf47b1df62=>0=>EMPLOYER_PHONE_NUMBER' } else if (input[0].hasOwnProperty('CND_NM_TX')) { val_location = 'bc06b4fb-a616-4b86-9a40-a71424e980a6=>0=>EMPLOYER_PHONE_NUMBER' }; let msg = executeValidation(input[0].EMPLOYER_PHONE_NUMBER, val_location) }; if (input[0].OFFICE_NUM != null) { let msg = executeValidation(input[0].OFFICE_NUM, 'e9739322-79fd-4017-b778-6171c98ec2eb=>0=>OFFICE_NUM') }; if (input[0].MOB_NO != null) { let msg = executeValidation(input[0].MOB_NO, '151011b7-b3b1-4ef4-94be-fee2a8860fa7=>0=>MOB_NO') }; if (!input[0].CND_PRIM_PH_NUM && !input[0].CND_SCNDRY_PH_NUM && !input[0].CONTACT_NO && !input[0].OFFICE_NO && !input[0].EMPLOYER_PHONE_NUMBER && !input[0].VND_MOBILE_NO && !input[0].MOB_NO) { msg.payload['isErrorCheck'] = false; }; console.log('phn node',msg.payload['isErrorCheck']); node.send(msg) } catch (t) { console.log('Errorr Occured', t.message); return; }; ",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 540,
+    "y": 120,
+    "wires": [
+        ["5d38e157.b4r7e"]
+    ]
+  },
+  {
+   "id": "5d38e157.b4r7e",
+   "type": "switch",
+   "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+   "name": "Is ErrorCheck",
+   "property": "payload.isErrorCheck",
+   "propertyType": "msg",
+   "rules": [
+     {
+       "t": true
+     },
+     {
+       "t": false
+     }
+   ],
+   "checkall": true,
+   "repair": false,
+   "outputs": 2,
+   "x": 560,
+   "y": 340,
+   "wires": [ 
+     [
+      "23475cdd.0dcf24"
+     ],
+     [
+        "5d38e157.9874"
+     ]
+   ]
+ },
+ {
+    "id": "5d38e157.9874",
+    "type": "function",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Process length check",
+    "func": "const AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; const input = msg.payload.apiRequestBody.baseEntity.records; const InputChild =  msg.payload.apiRequestBody.baseEntity.childEntities[0].records[0] ; if (input[0].PAGENAME_KEY == 'CANDIDATE' && !input[0].CANDIDATE_ID) { if ((InputChild.ENGAGEMENT_TYPE == 'Corp-To-Corp(Employer and Vendor Different)')&& ((!input[0]['EMPLOYER_UUID'] && !input[0]['VENDOR_UUID'])||(input[0]['EMPLOYER_UUID'] && !input[0]['VENDOR_UUID'])|| (!input[0]['EMPLOYER_UUID'] && input[0]['VENDOR_UUID']) )){ msg.payload['isErrorCheck'] = true; msg.payload.result = { mode: 'Enable Message', code: 406, errors: [] }; msg.payload.result.errors.push({ message: 'Please add Employer and Vendor from Personal Details tab.', reason: 'Message below form field', warningMessage: '', location: 'bc06b4fb-a616-4b86-9a40-a71424e980a6=>0=>bda05374-749f-45ab-a39c-b714a692e381=>0=>ENGAGEMENT_TYPE' });  }else if ((InputChild.ENGAGEMENT_TYPE == 'Corp-To-Corp(Employer and Vendor Same)')&& !input[0]['EMPLOYER_UUID']){ msg.payload['isErrorCheck'] = true; msg.payload.result = { mode: 'Enable Message', code: 406, errors: [] }; msg.payload.result.errors.push({ message: 'Please add Employer from Personal Details tab.', reason: 'Message below form field', warningMessage: '', location: 'bc06b4fb-a616-4b86-9a40-a71424e980a6=>0=>bda05374-749f-45ab-a39c-b714a692e381=>0=>ENGAGEMENT_TYPE' });  }else{ msg.payload['isErrorCheck'] = false;} }else{ msg.payload['isErrorCheck'] = false;}  ;node.send(msg);",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 540,
+    "y": 120,
+    "wires": [
+        ["5d38e157.b4t99"]
+    ]
+  },
+  {
+   "id": "5d38e157.b4t99",
+   "type": "switch",
+   "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+   "name": "Is ErrorCheck",
+   "property": "payload.isErrorCheck",
+   "propertyType": "msg",
+   "rules": [
+     {
+       "t": true
+     },
+     {
+       "t": false
+     }
+   ],
+   "checkall": true,
+   "repair": false,
+   "outputs": 2,
+   "x": 560,
+   "y": 340,
+   "wires": [ 
+     [
+      "23475cdd.0dcf24"
+     ],
+     [
+        "5d38e157.b4c8f"
+     ]
+   ]
+ },
+ {
+    "id": "5d38e157.b4c8f",
+    "type": "function",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Process length check",
+    "func": "const AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; const input = msg.payload.apiRequestBody.baseEntity.records[0]; console.log('eml 2********************'); if (input.CND_EMAIL_ID || input.CND_LNKDN_ID) { msg.payload['isErrorCheck'] = false; } else { msg.payload['isErrorCheck'] = true; msg.payload.result = { code: 406, errors: [] }; msg.payload.result.errors.push({ message: `Please add Email ID or LinkedIn ID.`, location: 'bc06b4fb-a616-4b86-9a40-a71424e980a6=>0'},{ message: 'Is Required.', reason: 'Message below form field', warningMessage: '', location: 'bc06b4fb-a616-4b86-9a40-a71424e980a6=>0=>CND_EMAIL_ID' },{ message: 'Is Required.', reason: 'Message below form field', warningMessage: '', location: 'bc06b4fb-a616-4b86-9a40-a71424e980a6=>0=>CND_LNKDN_ID' });} node.send(msg);return",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 540,
+    "y": 120,
+    "wires": [
+        ["5d38e157.b4t8e"]
+    ]
+  },
+  {
+   "id": "5d38e157.b4t8e",
+   "type": "switch",
+   "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+   "name": "Is ErrorCheck",
+   "property": "payload.isErrorCheck",
+   "propertyType": "msg",
+   "rules": [
+     {
+       "t": true
+     },
+     {
+       "t": false
+     }
+   ],
+   "checkall": true,
+   "repair": false,
+   "outputs": 2,
+   "x": 560,
+   "y": 340,
+   "wires": [ 
+     [
+      "23475cdd.0dcf24"
+     ],
+     [
+        "5d38e157.b4l7e"
+     ]
+   ]
+ },
+ {
+    "id": "5d38e157.b4l7e",
+    "type": "toPhysicalData",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Transform To Physical Data",
+    "outputs": 1,
+    "x": 600,
+    "y": 140,
+    "wires": [
+      [
+        "166e2a96.294bc5"
+      ]
+    ]
+  },
+  {
+    "id": "166e2a96.294bc5",
+    "type": "setMasterEntity",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Set Master Physical Entity",
+    "outputs": 1,
+    "x": 890,
+    "y": 140,
+    "wires": [
+      [
+        "1ad49873.0d4c38"
+      ]
+    ]
+  },
+  {
+    "id": "1ad49873.0d4c38",
+    "type": "processPhysicalData",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Process Physical Data",
+    "outputs": 1,
+    "x": 240,
+    "y": 220,
+    "wires": [
+      [
+        "e45d0331.61ce"
+      ]
+    ]
+  },
+  {
+    "id": "36f8420.a6f1bbe",
+    "type": "switch",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Is Activity Tracking Enabled",
+    "property": "payload.isActivityTrackingEnabled",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": true
+      },
+      {
+        "t": false
+      }
+    ],
+    "checkall": true,
+    "repair": false,
+    "outputs": 2,
+    "x": 560,
+    "y": 340,
+    "wires": [
+      [
+        "7f91accc.d5e744"
+      ],
+      [
+        "82b2328.c756dd"
+      ]
+    ]
+  },
+  {
+    "id": "7f91accc.d5e744",
+    "type": "processActivityTracking",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Process Activity Tracking",
+    "outputs": 1,
+    "x": 790,
+    "y": 220,
+    "wires": [
+      [
+        "82b2328.c756dd"
+      ]
+    ]
+  },
+  {
+    "id": "e45d0331.61ce",
+    "type": "processAuditData",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Process Audit",
+    "outputs": 1,
+    "x": 500,
+    "y": 220,
+    "wires": [
+      [
+        "zxcbnh.61ce"
+      ]
+    ]
+  },
+  {
+    "id": "zxcbnh.61ce",
+    "type": "addTransactionDetails",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Process Transaction Detail Queue",
+    "outputs": 1,
+    "x": 500,
+    "y": 220,
+    "wires": [
+      [
+        "d07304729.54622"
+      ]
+    ]
+  },
+    {
+    "id": "d07304729.54622",
+    "type": "function",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Set mode to Update",
+     "func": "try {node.send(msg);} catch (error) {console.log('Errorr Occured ', error.message);}return;",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 540,
+    "y": 120,
+    "wires": [
+      [
+        "82b2328.c756ee"
+      ]
+    ]
+  },
+  {
+    "id": "82b2328.c756ee",
+    "type": "finish",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Success Response",
+    "property": "payload",
+    "propertyType": "msg",
+    "outputs": 1,
+    "x": 983,
+    "y": 280,
+    "wires": []
+  },
+  {
+    "id": "a169b948.7886b8",
+    "type": "catch",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Catch Exceptions",
+    "scope": null,
+    "uncaught": false,
+    "x": 240,
+    "y": 420,
+    "wires": [
+      [
+        "23475cdd.0dcf24"
+      ]
+    ]
+  },
+  {
+    "id": "23475cdd.0dcf24",
+    "type": "finish",
+    "z": "c9e4ea1a-bcb8-415d-85a5-ea2e0cfca371",
+    "name": "Catch Finish",
+    "property": "payload",
+    "propertyType": "msg",
+    "outputs": 1,
+    "x": 460,
+    "y": 420,
+    "wires": []
+  }
+]

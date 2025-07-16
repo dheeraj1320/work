@@ -93,6 +93,7 @@ if (input.compositeEntityAction == 'Upload') {
                     testCaseObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
                     testCaseObj['TEST_CASE_NAME'] = pageName + ' - Default View';
                     testCaseObj['TEST_CASE_STATUS'] = 'DRAFT';
+                    testCaseObj['TEST_CASE_OWNER'] = input.APP_LOGGED_IN_USER_ID;
                     testCaseObj['TEST_SET_UUID'] = TEST_SET_UUID;
                     testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Automated';
                     // testCaseObj['TEST_CASE_TYPE'] =

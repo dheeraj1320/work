@@ -43,11 +43,12 @@ try {
     auditObj.OPERATION_PERFORMED_BY = operationPerformedBy;
     return auditObj;
   }
-  /* Actual Script starts here */ const selectedFunctionalAreas = input.SELECTED_FUNCTIONAL_AREAS
+  const selectedFunctionalAreas = input.SELECTED_FUNCTIONAL_AREAS
     ? input.SELECTED_FUNCTIONAL_AREAS.split(',')
         .map((area) => `'${area.trim()}'`)
         .join(',')
     : `''`;
+  /* Actual Script starts here */
   const pageQuery = `SELECT PAGE_NAME, PAGE_UUID FROM PAGE WHERE FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas}) ORDER BY PAGE_ID DESC;`;
   const pageData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, pageQuery, input);
   for (const page of pageData) {
@@ -64,14 +65,9 @@ try {
         } else {
           console.log('::::::::::::: Updating test case name from ', testCaseData[0].TEST_CASE_NAME, ' to ', updatedTcName);
           const oldData = { ...testCaseData[0] };
-          const updateTcQuery = `UPDATE TEST_CASE SET TEST_CASE_NAME = '${updatedTcName}', AE_UPDATE_ID = '${USER_ID}', AE_UPDATE_TS= :curr_dt, TEST_CASE_STATUS = 'DRAFT', TEST_CASE_OWNER='${oldData.AE_INSERT_ID}' WHERE TEST_CASE_UUID = '${oldData.TEST_CASE_UUID}'`;
+          const updateTcQuery = `UPDATE TEST_CASE SET TEST_CASE_NAME = '${updatedTcName}', AE_UPDATE_ID = '${USER_ID}', AE_UPDATE_TS= :curr_dt WHERE TEST_CASE_UUID = '${oldData.TEST_CASE_UUID}'`;
           await serviceOrchestrator.update(updateTcQuery, { curr_dt: formatDateToSQL(new Date()) }, 'PRIMARYSPRINGFM');
-          const auditObj = await createAuditObject(
-            { ...oldData, TEST_CASE_NAME: updatedTcName, AE_UPDATE_ID: USER_ID, AE_UPDATE_TS: formatDateToSQL(new Date()), TEST_CASE_STATUS: 'DRAFT', TEST_CASE_OWNER: oldData.AE_INSERT_ID},
-            'Update',
-            oldData,
-            USER_ID
-          );
+          const auditObj = await createAuditObject({ ...oldData, TEST_CASE_NAME: updatedTcName, AE_UPDATE_ID: USER_ID, AE_UPDATE_TS: formatDateToSQL(new Date()) }, 'Update', oldData, USER_ID);
           const { PRE_EXISTING_DATA_JSON, USER_INPUT_JSON, ...finalAuditObj } = auditObj;
           await serviceOrchestrator.insert(getInsertAuditQuery(finalAuditObj), finalAuditObj, 'PRIMARYSPRINGFM_AUDIT', 'AE_AUDIT_UUID');
         }

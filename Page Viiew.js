@@ -167,6 +167,7 @@ if (input.compositeEntityAction == "Insert") {
     testCaseObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
     testCaseObj['TEST_CASE_NAME'] = testSetQueryData[0]['TEST_SET_NAME'] + ' - ' + input['VIEW_NAME'];
     testCaseObj['TEST_CASE_STATUS'] = 'DRAFT';
+    testCaseObj['TEST_CASE_OWNER'] = input.APP_LOGGED_IN_USER_ID;
     testCaseObj['TEST_SET_UUID'] = testSetQueryData[0]['TEST_SET_UUID'];
     testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Automated';
     testCaseObj['ASSOCIATED_VIEW_UUID'] = input['VIEW_UUID'];

@@ -541,6 +541,7 @@ if (input.compositeEntityAction == "Update") {
   testCaseObj['TEST_CASE_UUID'] = TEST_CASE_UUID;
   testCaseObj['TEST_CASE_NAME'] = input['PAGE_NAME'] + ' - ' + 'Default View';
   testCaseObj['TEST_CASE_STATUS'] = 'DRAFT';
+  testCaseObj['TEST_CASE_OWNER'] = input.APP_LOGGED_IN_USER_ID;
   testCaseObj['TEST_SET_UUID'] = TEST_SET_UUID;
   testCaseObj['TEST_CASE_EXECUTON_TYPE'] = 'Automated';
   testCaseObj['ASSOCIATED_VIEW_UUID'] = viewUUID;

@@ -35,7 +35,7 @@ try {
       }
     }
     auditObj.AE_OLD_NEW_COMPARISION_DETAILS = JSON.stringify(auditDetails);
-    const uuidQuery = `SELECT UUID() AS UNIQUE_UUID;`;
+    const uuidQuery = `SELECT uuid() AS UNIQUE_UUID;`;
     const uuidData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, uuidQuery, input);
     auditObj.AE_AUDIT_UUID = uuidData[0].UNIQUE_UUID;
     auditObj.AE_OPERATION_TYPE = operationType;

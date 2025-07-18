@@ -16,6 +16,7 @@ if (!input[0]['PREVIEW']) {
         return null;
       }
       return {
+        ATCHD_FILE_NM: record.ATCHD_FILE_NM,
         title: record.ATCHD_FILE_NM.includes('before') ? 'before - ' + fetchStepNameData[0].TEST_CASE_STEP_NAME : 'after - ' + fetchStepNameData[0].TEST_CASE_STEP_NAME,
         attachmentId: record.INFO_1,
         url: record.INFO_4
@@ -24,7 +25,7 @@ if (!input[0]['PREVIEW']) {
     .filter(Boolean);
 
   for (const attach of attachmentUrls) {
-    const sassUrl = await generateSASUrl({ fileName: attach.title, attachmentId: attach.attachmentId, description: 'BeforeExtension' }, input.userDetailsToken);
+    const sassUrl = await generateSASUrl({ fileName: attach.ATCHD_FILE_NM, attachmentId: attach.attachmentId, description: 'BeforeExtension' }, input.userDetailsToken);
     if (sassUrl && sassUrl.length > 0) attach.url = sassUrl;
   }
 

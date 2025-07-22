@@ -1,11 +1,13 @@
+debugger;
 console.log('is Requirement Title Tree.js node business rule :::::::::::::', input);
 const REQUIREMENT = [];
 const IMPACTED_PROCESS = [];
 const IMPACTED_USER_STORY = [];
-const IMPACTED_SUB_PROCESS = [];
+const IMPACTED_API = [];
 const TEST_CASE_REQUIREMENT = [];
 const REQUIREMENT_DATA_SET_DATA_ELEMENT = [];
 const INTEGRATION_TEST_CASE = [];
+const TEST_CASE_API_REQUIREMENT = [];
 
 function filterList(list, item) {
     let result = list.filter(data => data['REQUIREMENT_UUID'] === item);
@@ -33,8 +35,8 @@ function deleteRecord(primarykey, primarykeyvalue, tablename, functionalareauuid
     else if(tablename == 'IMPACTED_USER_STORY'){
         IMPACTED_USER_STORY.push(deleteTableData)
     }
-    else if(tablename == 'IMPACTED_SUB_PROCESS'){
-        IMPACTED_SUB_PROCESS.push(deleteTableData)
+    else if(tablename == 'IMPACTED_API'){
+        IMPACTED_API.push(deleteTableData)
     }
     else if(tablename == 'TEST_CASE_REQUIREMENT'){
         TEST_CASE_REQUIREMENT.push(deleteTableData)
@@ -81,16 +83,17 @@ if (input['className'] == 'CONDITION_SATISFACTION' && input['isNewCOS'] == 'New'
         }
 
         // Impacted feature
-        const impactedFeatureQuery = `SELECT IMPACTED_SUB_PROCESS_UUID, ASSOCIATION_TYPE, CONDITION_SATISFACTION_UUID FROM IMPACTED_SUB_PROCESS WHERE REQUIREMENT_UUID = '${input['parentNodeID']}' AND ASSOCIATION_TYPE = 'FEATURE'`
-        const impactedFeatureData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, impactedFeatureQuery, input);
+        
+        // const impactedFeatureQuery = `SELECT IMPACTED_SUB_PROCESS_UUID, ASSOCIATION_TYPE, CONDITION_SATISFACTION_UUID FROM IMPACTED_SUB_PROCESS WHERE REQUIREMENT_UUID = '${input['parentNodeID']}' AND ASSOCIATION_TYPE = 'FEATURE'`
+        // const impactedFeatureData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, impactedFeatureQuery, input);
 
-        for(const data of impactedFeatureData){
-            const obj = {...data};
-            obj['CONDITION_SATISFACTION_UUID'] = input['PRIMARY_KEY'];
-            obj['ASSOCIATION_TYPE'] = 'FEATURE';
+        // for(const data of impactedFeatureData){
+        //     const obj = {...data};
+        //     obj['CONDITION_SATISFACTION_UUID'] = input['PRIMARY_KEY'];
+        //     obj['ASSOCIATION_TYPE'] = 'FEATURE';
 
-            IMPACTED_SUB_PROCESS.push(obj);
-        }
+        //     IMPACTED_SUB_PROCESS.push(obj);
+        // }
 
         // Test Case Requirement
         const testCaseRequirement = `SELECT TEST_CASE_REQUIREMENT_UUID, CONDITION_SATISFACTION_UUID FROM TEST_CASE_REQUIREMENT WHERE REQUIREMENT_UUID = '${input['parentNodeID']}'`;
@@ -140,16 +143,16 @@ if (input['className'] == 'CONDITION_SATISFACTION' && input['isNewCOS'] == 'New'
     }
 
     // Impacted feature
-    const impactedFeatureQuery = `SELECT IMPACTED_SUB_PROCESS_UUID, ASSOCIATION_TYPE, CONDITION_SATISFACTION_UUID FROM IMPACTED_SUB_PROCESS WHERE REQUIREMENT_UUID = '${input['parentNodeID']}' AND CONDITION_SATISFACTION_UUID = '${input['PRIMARY_KEY']}' AND ASSOCIATION_TYPE = 'FEATURE'`
-    const impactedFeatureData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, impactedFeatureQuery,input);
+    // const impactedFeatureQuery = `SELECT IMPACTED_SUB_PROCESS_UUID, ASSOCIATION_TYPE, CONDITION_SATISFACTION_UUID FROM IMPACTED_SUB_PROCESS WHERE REQUIREMENT_UUID = '${input['parentNodeID']}' AND CONDITION_SATISFACTION_UUID = '${input['PRIMARY_KEY']}' AND ASSOCIATION_TYPE = 'FEATURE'`
+    // const impactedFeatureData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, impactedFeatureQuery,input);
 
-    for(const data of impactedFeatureData){
-        const obj = {...data};
-        obj['CONDITION_SATISFACTION_UUID'] = '';
-        obj['ASSOCIATION_TYPE'] = 'FEATURE';
+    // for(const data of impactedFeatureData){
+    //     const obj = {...data};
+    //     obj['CONDITION_SATISFACTION_UUID'] = '';
+    //     obj['ASSOCIATION_TYPE'] = 'FEATURE';
 
-        IMPACTED_SUB_PROCESS.push(obj);
-    }
+    //     IMPACTED_SUB_PROCESS.push(obj);
+    // }
 
     // Test Case Requirement
     const testCaseRequirement = `SELECT TEST_CASE_REQUIREMENT_UUID, REQUIREMENT_UUID, CONDITION_SATISFACTION_UUID  FROM TEST_CASE_REQUIREMENT WHERE REQUIREMENT_UUID = '${input['parentNodeID']}' AND CONDITION_SATISFACTION_UUID = '${input['PRIMARY_KEY']}'`;
@@ -231,15 +234,15 @@ if (input['className'] == 'CONDITION_SATISFACTION' && input['isNewCOS'] == 'New'
         }
  
         // Impacted feature
-        const impactedFeatureQuery = `SELECT IMPACTED_SUB_PROCESS_UUID, ASSOCIATION_TYPE, CONDITION_SATISFACTION_UUID, REQUIREMENT_UUID FROM IMPACTED_SUB_PROCESS WHERE CONDITION_SATISFACTION_UUID = '${input['primaryKey']}' AND ASSOCIATION_TYPE = 'FEATURE'`
-        const impactedFeatureData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, impactedFeatureQuery, input);
+        // const impactedFeatureQuery = `SELECT IMPACTED_SUB_PROCESS_UUID, ASSOCIATION_TYPE, CONDITION_SATISFACTION_UUID, REQUIREMENT_UUID FROM IMPACTED_SUB_PROCESS WHERE CONDITION_SATISFACTION_UUID = '${input['primaryKey']}' AND ASSOCIATION_TYPE = 'FEATURE'`
+        // const impactedFeatureData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, impactedFeatureQuery, input);
  
-        for(const data of impactedFeatureData){
-            const obj = {...data};
-            obj['REQUIREMENT_UUID'] = input['newParentRequirementID'];
+        // for(const data of impactedFeatureData){
+        //     const obj = {...data};
+        //     obj['REQUIREMENT_UUID'] = input['newParentRequirementID'];
  
-            IMPACTED_SUB_PROCESS.push(obj);
-        }
+        //     IMPACTED_SUB_PROCESS.push(obj);
+        // }
  
         // Test Case Requirement
         const testCaseRequirement = `SELECT TEST_CASE_REQUIREMENT_UUID, CONDITION_SATISFACTION_UUID, REQUIREMENT_UUID FROM TEST_CASE_REQUIREMENT WHERE CONDITION_SATISFACTION_UUID = '${input['primaryKey']}'`;
@@ -331,12 +334,12 @@ if (input['className'] == 'CONDITION_SATISFACTION' && input['isNewCOS'] == 'New'
 
     }
 
-    // Impacted feature
-    const impactedFeatureQuery = `SELECT IMPACTED_SUB_PROCESS_UUID FROM IMPACTED_SUB_PROCESS WHERE REQUIREMENT_UUID = '${input['primaryKey']}'`
+    // Impacted API
+    const impactedFeatureQuery = `SELECT IMPACTED_API_UUID FROM IMPACTED_API WHERE REQUIREMENT_UUID = '${input['primaryKey']}'`
     const impactedFeatureData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, impactedFeatureQuery, input);
 
     for(const data of impactedFeatureData){
-        deleteRecord('IMPACTED_SUB_PROCESS_UUID', data['IMPACTED_SUB_PROCESS_UUID'], 'IMPACTED_SUB_PROCESS', input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+        deleteRecord('IMPACTED_API_UUID', data['IMPACTED_API_UUID'], 'IMPACTED_API', input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
     }
 
     // Test Case Requirement
@@ -347,8 +350,16 @@ if (input['className'] == 'CONDITION_SATISFACTION' && input['isNewCOS'] == 'New'
         deleteRecord('TEST_CASE_REQUIREMENT_UUID', data['TEST_CASE_REQUIREMENT_UUID'], 'TEST_CASE_REQUIREMENT', input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
     }
 
+    // Test Case API Requirement
+    const testCaseApiRequirement = `SELECT TEST_CASE_API_REQUIREMENT_UUID FROM TEST_CASE_API_REQUIREMENT WHERE REQUIREMENT_UUID = '${input['primaryKey']}'`;
+    const testCaseApiRequirementData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, testCaseApiRequirement, input);
 
-    // Test Case Requirement
+    for(const data of testCaseApiRequirementData){
+        deleteRecord('TEST_CASE_API_REQUIREMENT_UUID', data['TEST_CASE_API_REQUIREMENT_UUID'], 'TEST_CASE_API_REQUIREMENT', input.APP_LOGGED_IN_FUNTIONAL_AREA_ID);
+    }
+
+
+    // REQUIREMENT_DATA_SET_DATA_ELEMENT
     const requirementDataSetDataElementQuery = `SELECT REQUIREMENT_DATA_SET_DATA_ELEMENT_UUID FROM REQUIREMENT_DATA_SET_DATA_ELEMENT WHERE REQUIREMENT_UUID = '${input['primaryKey']}'`;
     const requirementDataSetDataElementData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, requirementDataSetDataElementQuery, input);
 
@@ -369,7 +380,8 @@ if (input['className'] == 'CONDITION_SATISFACTION' && input['isNewCOS'] == 'New'
 input["AppEngChildEntity:REQUIREMENT"] = REQUIREMENT;
 input["AppEngChildEntity:IMPACTED_PROCESS"] = IMPACTED_PROCESS;
 input["AppEngChildEntity:IMPACTED_USER_STORY"] = IMPACTED_USER_STORY;
-input["AppEngChildEntity:IMPACTED_SUB_PROCESS"] = IMPACTED_SUB_PROCESS;
+input["AppEngChildEntity:IMPACTED_API"] = IMPACTED_API;
 input["AppEngChildEntity:INTEGRATION TEST CASE REQUIREMENT"] = TEST_CASE_REQUIREMENT;
+input["AppEngChildEntity:TEST_CASE_API_REQUIREMENT"] = TEST_CASE_API_REQUIREMENT;
 input["AppEngChildEntity:REQUIREMENT_DATA_SET_DATA_ELEMENT"] = REQUIREMENT_DATA_SET_DATA_ELEMENT;
 input['AppEngChildEntity:INTEGRATION_TEST_CASE'] = INTEGRATION_TEST_CASE;

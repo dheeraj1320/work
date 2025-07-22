@@ -11,10 +11,7 @@ try {
   if (input['PARENT_GRID_NAME'] == 'TEST_RUN') {
     selectQuery = `SELECT 'TEST_SUITE' AS GRID_NAME,'Yes' as 'IsGridAccessible', uuid() as DATA_UNIQUE_UUID, ted.TEST_RUN_UUID, ts.TEST_SUITE_UUID, ts.TEST_SUITE_ID, ts.TEST_SUITE_NAME, ted.TEST_SUITE_EXECUTION_DATE, ROUND(ted.TEST_SUITE_DURATION / 1000.0, 3) AS TEST_SUITE_DURATION, ted.TEST_SUITE_EXECUTION_STATUS FROM TEST_EXECUTION_DETAIL ted JOIN TEST_SUITE ts ON ted.TEST_SUITE_UUID = ts.TEST_SUITE_UUID WHERE ted.TEST_RUN_UUID=:TEST_RUN_UUID GROUP BY ted.TEST_RUN_UUID, ts.TEST_SUITE_UUID, ts.TEST_SUITE_ID, ts.TEST_SUITE_NAME, ted.TEST_SUITE_EXECUTION_DATE, ted.TEST_SUITE_DURATION, ted.TEST_SUITE_EXECUTION_STATUS ORDER BY ted.TEST_SUITE_EXECUTION_DATE ASC;`;
     queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
-    const filteredData = queryData.map((data) => ({
-      ...data,
-      TEST_SUITE_DURATION: Number(data.TEST_SUITE_DURATION).toFixed(3) + ' sec.'
-    }));
+    const filteredData = queryData.map((data) => ({ ...data, TEST_SUITE_DURATION: Number(data.TEST_SUITE_DURATION).toFixed(3) + ' sec.' }));
     queryData = filteredData;
   } else if (input['PARENT_GRID_NAME'] == 'TEST_SUITE') {
     if (!input['TEST_RUN_UUID'] && input['TEST_SUITE_UUID']) {
@@ -39,10 +36,7 @@ try {
       selectQuery = `SELECT 'TEST_SET' AS GRID_NAME, uuid() as DATA_UNIQUE_UUID, ts.TEST_SET_UUID, ts.TEST_SET_ID, ted.TEST_RUN_UUID, ts.TEST_SET_NAME, ted.TEST_SET_EXECUTION_DATE, ted.TEST_SUITE_UUID, ted.TEST_SET_EXECUTION_STATUS, ROUND(ted.TEST_SET_DURATION / 1000.0, 3) AS TEST_SET_DURATION,COUNT(DISTINCT CASE WHEN ted.TEST_CASE_EXECUTION_STATUS = 'Passed' THEN ted.TEST_CASE_UUID END) AS PASSED_TEST_CASES,COUNT(DISTINCT CASE WHEN ted.TEST_CASE_EXECUTION_STATUS = 'Failed' THEN ted.TEST_CASE_UUID END) AS FAILED_TEST_CASES FROM TEST_EXECUTION_DETAIL ted JOIN TEST_SET ts ON ted.TEST_SET_UUID = ts.TEST_SET_UUID WHERE ted.TEST_RUN_UUID=:TEST_RUN_UUID AND ted.TEST_SET_UUID IS NOT NULL GROUP BY ts.TEST_SET_UUID, ts.TEST_SET_ID, ted.TEST_RUN_UUID, ts.TEST_SET_NAME, ted.TEST_SET_EXECUTION_DATE, ted.TEST_SUITE_UUID, ted.TEST_SET_EXECUTION_STATUS, ted.TEST_SET_DURATION ORDER BY ted.TEST_SET_EXECUTION_DATE ASC;`;
     }
     queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
-    const filteredData = queryData.map((data) => ({
-      ...data,
-      TEST_SET_DURATION: Number(data.TEST_SET_DURATION).toFixed(3) + ' sec.'
-    }));
+    const filteredData = queryData.map((data) => ({ ...data, TEST_SET_DURATION: Number(data.TEST_SET_DURATION).toFixed(3) + ' sec.' }));
     queryData = filteredData;
   } else if (input['PARENT_GRID_NAME'] === 'TEST_SET') {
     console.log('running TEST_CASE query');
@@ -56,7 +50,6 @@ try {
           throw new Error('Unable to resolve TEST_RUN_UUID for selected test set');
         }
       }
-      //   new logic
       if (input['TEST_SUITE_UUID'] && input['TEST_SUITE_UUID'].trim() !== '') {
         console.log('With TEST_SUITE_UUID');
         selectQuery = `SELECT 'TEST_CASE' AS GRID_NAME, uuid() AS DATA_UNIQUE_UUID, tc.TEST_CASE_UUID, tc.TEST_CASE_ID, ted.TEST_RUN_UUID, tc.TEST_CASE_NAME, ted.TEST_CASE_EXECUTION_DATE, ted.TEST_SUITE_UUID, ted.TEST_CASE_EXECUTION_STATUS, ROUND(ted.TEST_CASE_DURATION / 1000.0, 3) AS TEST_CASE_DURATION, ted.TEST_SET_UUID FROM TEST_EXECUTION_DETAIL ted JOIN TEST_CASE tc ON ted.TEST_CASE_UUID = tc.TEST_CASE_UUID WHERE ted.TEST_RUN_UUID=:TEST_RUN_UUID AND ted.TEST_SUITE_UUID=:TEST_SUITE_UUID AND ted.TEST_SET_UUID IN ( SELECT TEST_SET_UUID FROM TEST_SET WHERE TEST_SET_NAME=:selectedTestSet AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ) GROUP BY tc.TEST_CASE_UUID, tc.TEST_CASE_ID, ted.TEST_RUN_UUID, tc.TEST_CASE_NAME, ted.TEST_CASE_EXECUTION_DATE, ted.TEST_SUITE_UUID, ted.TEST_CASE_EXECUTION_STATUS, ted.TEST_CASE_DURATION, ted.TEST_SET_UUID ORDER BY ted.TEST_CASE_EXECUTION_DATE ASC;`;
@@ -70,7 +63,6 @@ try {
         const runResult = await serviceOrchestrator.selectSingleRecordUsingQuery('PRIMARYSPRINGFM', getTestRunQuery, input);
         if (runResult?.TEST_RUN_UUID) input['TEST_RUN_UUID'] = runResult.TEST_RUN_UUID;
       }
-      // new logic
       if (input['TEST_SUITE_UUID'] && input['TEST_SUITE_UUID'].trim() !== '') {
         console.log('With TEST_SUITE_UUID');
         selectQuery = `SELECT 'TEST_CASE' AS GRID_NAME, uuid() AS DATA_UNIQUE_UUID, tc.TEST_CASE_UUID, tc.TEST_CASE_ID, ted.TEST_RUN_UUID, tc.TEST_CASE_NAME, ted.TEST_CASE_EXECUTION_DATE, ted.TEST_SUITE_UUID, ted.TEST_CASE_EXECUTION_STATUS, ROUND(ted.TEST_CASE_DURATION / 1000.0, 3) AS TEST_CASE_DURATION, ted.TEST_SET_UUID FROM TEST_EXECUTION_DETAIL ted JOIN TEST_CASE tc ON ted.TEST_CASE_UUID = tc.TEST_CASE_UUID WHERE ted.TEST_RUN_UUID=:TEST_RUN_UUID AND ted.TEST_SUITE_UUID=:TEST_SUITE_UUID AND ted.TEST_SET_UUID=:TEST_SET_UUID GROUP BY tc.TEST_CASE_UUID, tc.TEST_CASE_ID, ted.TEST_RUN_UUID, tc.TEST_CASE_NAME, ted.TEST_CASE_EXECUTION_DATE, ted.TEST_SUITE_UUID, ted.TEST_CASE_EXECUTION_STATUS, ted.TEST_CASE_DURATION, ted.TEST_SET_UUID ORDER BY ted.TEST_CASE_EXECUTION_DATE ASC;`;
@@ -80,22 +72,18 @@ try {
       }
     }
     queryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', selectQuery, input);
-    queryData = queryData.map((data) => ({
-      ...data,
-      TEST_CASE_DURATION: Number(data.TEST_CASE_DURATION).toFixed(3) + ' sec.'
-    }));
+    queryData = queryData.map((data) => ({ ...data, TEST_CASE_DURATION: Number(data.TEST_CASE_DURATION).toFixed(3) + ' sec.' }));
+  } else if (input['PARENT_GRID_NAME'] === 'Function') {
+    console.log('inside');
+    selectQuery = `SELECT 'TEST_CASE' AS GRID_NAME, uuid() AS DATA_UNIQUE_UUID, MAX(ted.TEST_CASE_EXECUTION_STATUS) AS TEST_CASE_EXECUTION_STATUS, ted.TEST_CASE_UUID, max(fn.FUNCTION_ID) as 'TEST_CASE_STEP_SEQ_ID', MAX(ted.TEST_RUN_UUID) AS TEST_RUN_UUID, MAX(fn.FUNCTION_NAME) AS Function_Name, MAX(TEST_CASE_STEP_EXECUTION_DATE) AS TEST_CASE_STEP_EXECUTION_DATE, CONCAT(ROUND(MAX(ted.TEST_CASE_DURATION) / 1000.0, 3), ' sec') AS TEST_CASE_STEP_DURATION, MAX(TEST_CASE_EXECUTION_STATUS) AS TEST_CASE_STEP_EXECUTION_STATUS FROM TEST_EXECUTION_DETAIL ted INNER JOIN featuremanagement_app.FUNCTION fn ON ted.TEST_CASE_UUID = fn.FUNCTION_UUID WHERE ted.TEST_RUN_UUID = :TEST_RUN_UUID GROUP BY ted.TEST_CASE_UUID;`;
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', selectQuery, input);
   }
-  msg.payload.result = {
-    gridData: queryData
-  };
+  msg.payload.result = { gridData: queryData };
   node.send(msg);
 } catch (error) {
   console.log('Error Occurred Process and Send Data to ui', error.message);
   console.log('Error stack:', error.stack);
-  msg.payload.result = {
-    gridData: [],
-    error: error.message
-  };
+  msg.payload.result = { gridData: [], error: error.message };
   node.send(msg);
 }
 return;

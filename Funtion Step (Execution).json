@@ -1,0 +1,100 @@
+[
+  {
+    "id": "6a5d9e3f-8715-414d-8018-c05d3c200c68",
+    "type": "tab",
+    "label": "Flow 2",
+    "disabled": false,
+    "info": "",
+    "env": []
+  },
+  {
+    "id": "07304729.12345",
+    "type": "inject",
+    "z": "6a5d9e3f-8715-414d-8018-c05d3c200c68",
+    "name": "Input",
+    "topic": "Input",
+    "payload": "{}",
+    "payloadType": "json",
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "x": 90,
+    "y": 120,
+    "wires": [
+      [
+        "07304729123.12345"
+      ]
+    ]
+  },
+  {
+    "id": "07304729123.12345",
+    "type": "function",
+    "z": "6a5d9e3f-8715-414d-8018-c05d3c200c68",
+    "name": "Fetch Iternation",
+    "func": "try{node.send(msg)}catch(t){console.log('Errorr Occured',t.message);return;};",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 300,
+    "y": 120,
+    "wires": [
+      [
+        "d40edc96b3b3dc61"
+      ]
+    ]
+  },
+  {
+    "id": "d40edc96b3b3dc61",
+    "type": "appeng-api-connector",
+    "z": "6a5d9e3f-8715-414d-8018-c05d3c200c68",
+    "name": "",
+    "x": 340,
+    "y": 60,
+    "wires": [
+      [
+        "07304729456.12345"
+      ]
+    ]
+  },
+  {
+    "id": "07304729456.12345",
+    "type": "function",
+    "z": "6a5d9e3f-8715-414d-8018-c05d3c200c68",
+    "name": "",
+    "func": "try { AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; let queryData = []; let input = Object.assign( msg.payload.apiRequestBody, msg.payload.referenceData ); let selectQuery; console.log('data is ', input); const getSecondCoverStepDetails = (group) => { if (group.includes('Navigation Step')) { const pageArr = group.split(' - '); const pageName = pageArr[pageArr.length - 2].trim().slice(0, -4).trim(); return { name: `User is on '${pageName}' Page`, type: 'Navigation Step' }; } else if (group.includes('UI Element Group')) { const uiElementGroupArr = group.split(' - '); const uiElementGroup = uiElementGroupArr[uiElementGroupArr.length - 1] .trim() .slice(0, -16) .trim(); return { name: `Call '${uiElementGroup}' UI Element Group`, type: 'UI Element Group', }; } return { name: '', type: '' }; }; const getPath = (path, level) => { if (path?.includes('-')) { return path.split('-')[level]?.trim(); } return path; }; const updateDuration = (timeMap, path, duration) => { let time = timeMap.get(path) ?? 0; time += Number(duration); timeMap.set(path, time); }; if (input['GRID_NAME'] === 'TEST_CASE') { selectQuery = `SELECT 'TEST_CASE_STEP_CHILD' as GRID_NAME, 'TEST_EXECUTION_DETAIL' as TABLE_NAME, 'TEST_EXECUTION_DETAIL_UUID' as KEY_NAME, TEST_EXECUTION_DETAIL_UUID as KEY_VALUE, uuid() as DATA_UNIQUE_UUID, TEST_CASE_STEP_UUID, TEST_EXECUTION_DETAIL_UUID, TEST_CASE_STEP_SEQ_ID, TEST_RUN_UUID, TEST_CASE_STEP_NAME, TEST_CASE_STEP_EXECUTION_DATE, TEST_SUITE_UUID, TEST_CASE_STEP_EXECUTION_STATUS, CONCAT(ROUND(TEST_CASE_STEP_DURATION / 1000.0, 3), ' sec.') as TEST_CASE_STEP_DURATION, ROUND(TEST_CASE_STEP_DURATION / 1000.0, 3) as TEST_CASE_STEP_DURATION_RAW, TEST_SET_UUID, TEST_CASE_UUID, TEST_CASE_STEP_GROUP_NAME, TEST_CASE_STEP_PATH FROM TEST_EXECUTION_DETAIL WHERE TEST_RUN_UUID = :TEST_RUN_UUID AND TEST_CASE_UUID = :TEST_CASE_UUID order by TEST_CASE_STEP_PATH`; queryData = await serviceOrchestrator.selectRecordsUsingQuery( `PRIMARYSPRINGFM`, selectQuery, input ); const pathSet = new Set(); const timeMap = new Map(); const statusMap = {}; const filteredData = queryData .filter((data) => { const path = data.TEST_CASE_STEP_PATH; if (path && path.split('-').length <= 2) return true; const parentPathArr = data.TEST_CASE_STEP_PATH.trim().split('-'); const parentPath = parentPathArr[0] + '-' + parentPathArr[1] + '-'; updateDuration(timeMap, parentPath, data.TEST_CASE_STEP_DURATION_RAW); if (!statusMap[parentPath]) statusMap[parentPath] = []; statusMap[parentPath].push(data.TEST_CASE_STEP_EXECUTION_STATUS); if (!pathSet.has(parentPath)) { pathSet.add(parentPath); return true; } return false; }) .map((data) => { data.TEST_CASE_STEP_PATH_ID = getPath(data.TEST_CASE_STEP_PATH, 1); if ( data.TEST_CASE_STEP_PATH && data.TEST_CASE_STEP_PATH.split('-').length > 2 ) { const parentPathArr = data.TEST_CASE_STEP_PATH.trim().split('-'); const parentPath = parentPathArr[0] + '-' + parentPathArr[1] + '-'; const duration = Number(timeMap.get(parentPath)).toFixed(3) + ' sec.'; const groupDetails = getSecondCoverStepDetails( data.TEST_CASE_STEP_GROUP_NAME ); const stepStatuses = statusMap[parentPath] || []; const groupStatus = stepStatuses.some((status) => status !== 'Passed') ? 'Failed' : 'Passed'; return { ...data, TEST_CASE_STEP_DURATION: duration, TEST_CASE_STEP_PATH: parentPath, TEST_CASE_STEP_NAME: groupDetails.name, CHILD_STEP_TYPE: groupDetails.type, TEST_CASE_STEP_EXECUTION_STATUS: groupStatus, }; } return { ...data, TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3) + ' sec.', CHILD_STEP_TYPE: null, }; }); queryData = filteredData; } else if (input['GRID_NAME'] === 'TEST_CASE_STEP_CHILD') { selectQuery = `SELECT 'TEST_CASE_STEP_LAST_CHILD' as GRID_NAME, 'TEST_EXECUTION_DETAIL' as TABLE_NAME, 'TEST_EXECUTION_DETAIL_UUID' as KEY_NAME, TEST_EXECUTION_DETAIL_UUID as KEY_VALUE, uuid() as DATA_UNIQUE_UUID, TEST_CASE_STEP_UUID, TEST_EXECUTION_DETAIL_UUID, TEST_CASE_STEP_SEQ_ID, TEST_RUN_UUID, TEST_CASE_STEP_NAME, TEST_CASE_STEP_EXECUTION_DATE, TEST_SUITE_UUID, TEST_CASE_STEP_EXECUTION_STATUS, CONCAT(ROUND(TEST_CASE_STEP_DURATION / 1000.0, 3), ' sec.') as TEST_CASE_STEP_DURATION, ROUND(TEST_CASE_STEP_DURATION / 1000.0, 3) as TEST_CASE_STEP_DURATION_RAW, TEST_SET_UUID, TEST_CASE_UUID, '' as TEST_CASE_STEP_GROUP_NAME, TEST_CASE_STEP_PATH FROM TEST_EXECUTION_DETAIL WHERE TEST_RUN_UUID = :TEST_RUN_UUID AND TEST_SUITE_UUID = :TEST_SUITE_UUID AND TEST_SET_UUID = :TEST_SET_UUID AND TEST_CASE_UUID = :TEST_CASE_UUID AND TEST_CASE_STEP_PATH like '${input['TEST_CASE_STEP_PATH']}%' group by TEST_CASE_STEP_UUID, TEST_EXECUTION_DETAIL_UUID, TEST_CASE_STEP_SEQ_ID, TEST_RUN_UUID, TEST_CASE_STEP_NAME, TEST_CASE_STEP_EXECUTION_DATE, TEST_SUITE_UUID, TEST_CASE_STEP_EXECUTION_STATUS, TEST_CASE_STEP_DURATION, TEST_SET_UUID, TEST_CASE_UUID, TEST_CASE_STEP_PATH order by TEST_CASE_STEP_EXECUTION_DATE ASC, TEST_CASE_STEP_SEQ_ID ASC;`; queryData = await serviceOrchestrator.selectRecordsUsingQuery( `PRIMARYSPRINGFM`, selectQuery, input ); console.log(queryData); const filteredData = queryData.map((data) => { return { ...data, TEST_CASE_STEP_PATH_ID: getPath(data.TEST_CASE_STEP_PATH, 2), TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3) + ' sec.', CHILD_STEP_TYPE: null, }; }); queryData = filteredData; } msg.payload.result = { gridData: queryData }; node.send(msg); } catch (error) { console.log('Error Occurred: Process and Send Data to UI', error.message); } return;",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 300,
+    "y": 120,
+    "wires": [
+      [
+        "a169b948.7886b"
+      ]
+    ]
+  },
+  {
+    "id": "a169b948.7886b",
+    "type": "catch",
+    "z": "6a5d9e3f-8715-414d-8018-c05d3c200c68",
+    "name": "Catch Exceptions",
+    "scope": null,
+    "uncaught": false,
+    "x": 520,
+      "y": 220,
+    "wires": [
+      [
+        "d0bc38b2.f067c"
+      ]
+    ]
+  },
+  {
+    "id": "d0bc38b2.f067c",
+    "type": "finish",
+    "z": "6a5d9e3f-8715-414d-8018-c05d3c200c68",
+    "name": "finish",
+    "targetType": "msg",
+    "x": 760,
+    "y": 120,
+    "wires": []
+  }
+]

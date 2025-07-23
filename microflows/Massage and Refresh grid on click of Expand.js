@@ -601,6 +601,7 @@ try {
     const selectQuery = `Select CONCAT( TEST_SET_ID, ' - ', TEST_SET_NAME ) as TEST_SET_UUID, CONCAT( TEST_CASE_ID, ' - ', TEST_CASE_NAME ) as TEST_CASE_UUID, TEST_CASE_STEP_ID, TEST_CASE_STEP_NAME, 'TEST_CASE_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'TEST_CASE_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'TEST_CASE_STEP_UUID' as PRIMARY_COLUMN_NAME, tsc.TEST_CASE_STEP_UUID as PRIMARY_COLUMN_VALUE, TEST_CASE_STEP_TYPE, NEXT_PAGE_CONTEXT, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID from TEST_CASE_STEP tsc, TEST_SET ts, TEST_CASE tc, TEST_CASE_STEP_ATTRIBUTE_VALUE tcsv where tsc.TEST_CASE_STEP_UUID = tcsv.TEST_CASE_STEP_UUID and tsc.TEST_SET_UUID = ts.TEST_SET_UUID and tsc.TEST_CASE_UUID = tc.TEST_CASE_UUID and tcsv.TEST_CASE_STEP_ATTRIBUTE_DATA=:UI_ELEMENT_GROUP_UUID and tsc.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID order by TEST_SET_ID, TEST_CASE_ID, TEST_CASE_STEP_SEQ_ID asc`;
     queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
   }
+  debugger;
   for (let data of queryData) {
     if (data && Object.keys(data).length) {
       const stepDefAttributeQuery = `SELECT * FROM STEP_DEFINITION_ATTRIBUTE where STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID='${data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID']}' order by STEP_DEFINITION_ATTRIBUTE_ID asc`;
@@ -612,6 +613,7 @@ try {
       let ui_element = '';
       let isEdit = false;
       if (stepDefAttributeQueryData && stepDefAttributeQueryData.length) {
+        debugger;
         const attributeValueQuery = `SELECT * FROM ${data['CHILD_ATTRIBUTE_TABLE_NAME']} WHERE ${data['PRIMARY_COLUMN_NAME']}='${data['PRIMARY_COLUMN_VALUE']}' and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
         let attributeValueQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', attributeValueQuery, input);
         let actualUIElementUUID = getUIElementData(stepDefAttributeQueryData, attributeValueQueryData, data);
@@ -1135,6 +1137,7 @@ try {
               }
               break;
             case 'd25a4d7f-5c5d-4117-b325-1c669b9a42ab':
+              debugger;
               {
                 let uiElementName = getDataFromAttributeValue(attributeValueQueryData, codeDesc['STEP_DEFINITION_ATTRIBUTE_UUID'], data['CHILD_ATTRIBUTE_DATA']);
                 if (uiElementName) {

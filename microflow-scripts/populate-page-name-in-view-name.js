@@ -35,7 +35,7 @@ try {
       }
     }
     auditObj.AE_OLD_NEW_COMPARISION_DETAILS = JSON.stringify(auditDetails);
-    const uuidQuery = `SELECT UUID() AS UNIQUE_UUID;`;
+    const uuidQuery = `SELECT uuid() AS UNIQUE_UUID;`;
     const uuidData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, uuidQuery, input);
     auditObj.AE_AUDIT_UUID = uuidData[0].UNIQUE_UUID;
     auditObj.AE_OPERATION_TYPE = operationType;
@@ -48,8 +48,7 @@ try {
         .map((area) => `'${area.trim()}'`)
         .join(',')
     : `''`;
-  /* Actual Script starts here */
-  const pageQuery = `SELECT PAGE_NAME, PAGE_UUID FROM PAGE WHERE FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas}) ORDER BY PAGE_ID DESC;`;
+  /* Actual Script starts here */ const pageQuery = `SELECT PAGE_NAME, PAGE_UUID FROM PAGE WHERE FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas}) ORDER BY PAGE_ID DESC;`;
   const pageData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, pageQuery, input);
   for (const page of pageData) {
     console.log('Processing page:', page.PAGE_NAME);
@@ -68,7 +67,7 @@ try {
           const updateTcQuery = `UPDATE TEST_CASE SET TEST_CASE_NAME = '${updatedTcName}', AE_UPDATE_ID = '${USER_ID}', AE_UPDATE_TS= :curr_dt WHERE TEST_CASE_UUID = '${oldData.TEST_CASE_UUID}'`;
           await serviceOrchestrator.update(updateTcQuery, { curr_dt: formatDateToSQL(new Date()) }, 'PRIMARYSPRINGFM');
           const auditObj = await createAuditObject({ ...oldData, TEST_CASE_NAME: updatedTcName, AE_UPDATE_ID: USER_ID, AE_UPDATE_TS: formatDateToSQL(new Date()) }, 'Update', oldData, USER_ID);
-          const { PRE_EXISTING_DATA_JSON, USER_INPUT_JSON, ...finalAuditObj } = auditObj;
+          const { PRE_EXISTING_DATA_JSON, USER_INPUT_JSON, EXPECTED_RESULT_JSON, ...finalAuditObj } = auditObj;
           await serviceOrchestrator.insert(getInsertAuditQuery(finalAuditObj), finalAuditObj, 'PRIMARYSPRINGFM_AUDIT', 'AE_AUDIT_UUID');
         }
       }

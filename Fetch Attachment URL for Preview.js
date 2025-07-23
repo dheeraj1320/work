@@ -6,7 +6,7 @@ if (!input[0]['PREVIEW']) {
   const fetchStepName = `SELECT TEST_CASE_STEP_NAME FROM TEST_EXECUTION_DETAIL WHERE TEST_EXECUTION_DETAIL_UUID = :KEY_VALUE;`
   const fetchStepNameData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', fetchStepName, input[0]);
 
-  const fetchAttachmentUrlQuery = `SELECT att.ATCHD_FILE_NM, attin.INFO_4, attin.INFO_1 FROM ATTACHMENT att JOIN ATTACHMENTINFO attin ON att.ATTACHMENT_INFO_ID = attin.ATTACHMENTINFO_ID WHERE att.TBL_NM = :TABLE_NAME AND att.KEY_NM = :KEY_NAME AND att.TBL_RW_ID = :KEY_VALUE ORDER BY CASE WHEN att.ATCHD_FILE_NM LIKE '%after%' THEN 0 WHEN att.ATCHD_FILE_NM LIKE '%before%' THEN 1 ELSE 2 END`;
+  const fetchAttachmentUrlQuery = `SELECT att.ATCHD_FILE_NM, attin.INFO_4, attin.INFO_1 FROM ATTACHMENT att JOIN ATTACHMENTINFO attin ON att.ATTACHMENT_INFO_ID = attin.ATTACHMENTINFO_ID WHERE att.TBL_NM = :TABLE_NAME AND att.KEY_NM = :KEY_NAME AND att.TBL_RW_ID = :KEY_VALUE ORDER BY CASE WHEN att.ATCHD_FILE_NM LIKE '%before%' THEN 0 WHEN att.ATCHD_FILE_NM LIKE '%after%' THEN 1 ELSE 2 END`;
 
   const fetchAttachmentUrlData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', fetchAttachmentUrlQuery, input[0]);
 

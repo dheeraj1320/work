@@ -75,10 +75,10 @@ try {
   };
   for (const selectedTable of Object.keys(tableConfigs)) {
     const cfg = tableConfigs[selectedTable];
-    let mainQuery = ` SELECT * FROM ${cfg.mainTable} WHERE FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas}) ORDER BY AE_INSERT_TS ASC LIMIT 5 `;
+    let mainQuery = ` SELECT * FROM ${cfg.mainTable} WHERE FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas || `''`}) ORDER BY AE_INSERT_TS ASC LIMIT 5 `;
     console.log(`[${selectedTable}] Running main query:========>`, mainQuery);
     const mainData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, mainQuery, input);
-    const mainUUIDs = mainData.map((s) => `'${s[cfg.mainPK]}'`).join(',');
+    const mainUUIDs = mainData.length > 0 ? mainData.map((s) => `'${s[cfg.mainPK]}'`).join(',') : `''`;
     const attrQuery = ` SELECT ${cfg.attrPK}, ${cfg.attrDataCol} FROM ${cfg.attrTable} WHERE ${cfg.attrPK} IN (${mainUUIDs}) AND ${cfg.attrDataCol} `;
     console.log(`[${selectedTable}] Running attr query:======>`, attrQuery);
     const attrData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, attrQuery, input);

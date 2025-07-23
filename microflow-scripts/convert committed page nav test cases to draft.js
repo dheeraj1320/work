@@ -61,7 +61,7 @@ try {
       oldData,
       USER_ID
     );
-    const { PRE_EXISTING_DATA_JSON, USER_INPUT_JSON, ...finalAuditObj } = auditObj;
+    const { PRE_EXISTING_DATA_JSON, USER_INPUT_JSON, EXPECTED_RESULT_JSON, ...finalAuditObj } = auditObj;
     await serviceOrchestrator.insert(getInsertAuditQuery(finalAuditObj), finalAuditObj, 'PRIMARYSPRINGFM_AUDIT', 'AE_AUDIT_UUID');
   }
   msg.payload['result'] = mode;

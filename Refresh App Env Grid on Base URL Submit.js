@@ -20,15 +20,17 @@ try {
         changedData: { APPLICATION_ENVIRONMENT_BASE_URL: input.BASE_URL }
       }
     ];
-    msg.payload.result.modifyOtherCard[baseUrlDatagridCard] = [
-      {
-        parameter: 'data',
-        parameterKey: 'APPLICATION_ENVIRONMENT_BASE_URL_UUID',
-        type: 'PortalDataGrid',
-        parameterKeyValue: OLD_DEFAULT_APPENV_BASE_URL_UUID,
-        changedData: { IS_DEFAULT_BASE_URL: 'No' }
-      }
-    ];
+    if (OLD_DEFAULT_APPENV_BASE_URL_UUID && OLD_DEFAULT_APPENV_BASE_URL_UUID.length > 0) {
+      msg.payload.result.modifyOtherCard[baseUrlDatagridCard] = [
+        {
+          parameter: 'data',
+          parameterKey: 'APPLICATION_ENVIRONMENT_BASE_URL_UUID',
+          type: 'PortalDataGrid',
+          parameterKeyValue: OLD_DEFAULT_APPENV_BASE_URL_UUID,
+          changedData: { IS_DEFAULT_BASE_URL: 'No' }
+        }
+      ];
+    }
   }
   node.send(msg);
 } catch (error) {

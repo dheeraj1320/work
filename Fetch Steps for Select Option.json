@@ -1,0 +1,100 @@
+[
+  {
+    "id": "ff558837-6959-4f14-9ea5-d31d5eee403c",
+    "type": "tab",
+    "label": "Flow 2",
+    "disabled": false,
+    "info": "",
+    "env": []
+  },
+  {
+    "id": "07304729.12345",
+    "type": "inject",
+    "z": "ff558837-6959-4f14-9ea5-d31d5eee403c",
+    "name": "Input",
+    "topic": "Input",
+    "payload": "{}",
+    "payloadType": "json",
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "x": 90,
+    "y": 120,
+    "wires": [
+      [
+        "07304729123.12345"
+      ]
+    ]
+  },
+  {
+    "id": "07304729123.12345",
+    "type": "function",
+    "z": "ff558837-6959-4f14-9ea5-d31d5eee403c",
+    "name": "Fetch Iternation",
+    "func": "try{node.send(msg)}catch(t){console.log('Errorr Occured',t.message);return;};",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 300,
+    "y": 120,
+    "wires": [
+      [
+        "d40edc96b3b3dc61"
+      ]
+    ]
+  },
+  {
+    "id": "d40edc96b3b3dc61",
+    "type": "appeng-api-connector",
+    "z": "ff558837-6959-4f14-9ea5-d31d5eee403c",
+    "name": "",
+    "x": 340,
+    "y": 60,
+    "wires": [
+      [
+        "07304729456.12345"
+      ]
+    ]
+  },
+  {
+    "id": "07304729456.12345",
+    "type": "function",
+    "z": "ff558837-6959-4f14-9ea5-d31d5eee403c",
+    "name": "",
+    "func": "",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 300,
+    "y": 120,
+    "wires": [
+      [
+        "a169b948.7886b"
+      ]
+    ]
+  },
+  {
+    "id": "a169b948.7886b",
+    "type": "catch",
+    "z": "ff558837-6959-4f14-9ea5-d31d5eee403c",
+    "name": "Catch Exceptions",
+    "scope": null,
+    "uncaught": false,
+    "x": 520,
+      "y": 220,
+    "wires": [
+      [
+        "d0bc38b2.f067c"
+      ]
+    ]
+  },
+  {
+    "id": "d0bc38b2.f067c",
+    "type": "finish",
+    "z": "ff558837-6959-4f14-9ea5-d31d5eee403c",
+    "name": "finish",
+    "targetType": "msg",
+    "x": 760,
+    "y": 120,
+    "wires": []
+  }
+]

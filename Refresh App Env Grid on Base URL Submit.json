@@ -1,6 +1,6 @@
 [
     {
-      "id": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "id": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "type": "tab",
       "label": "Inbound Service Flow",
       "disabled": false,
@@ -9,7 +9,7 @@
     {
       "id": "80da4d06.d55a2",
       "type": "inject",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Input",
       "topic": "Input",
       "payload": "{}",
@@ -25,7 +25,7 @@
     {
       "id": "1085dd3d.647cc3",
       "type": "switch",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "",
       "property": "payload",
       "propertyType": "msg",
@@ -49,7 +49,7 @@
     {
       "id": "235cddsd.0d2423",
       "type": "generateRequestBody",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Create Request Body",
       "outputs": 1,
       "x": 480,
@@ -59,7 +59,7 @@
     {
       "id": "28147205.c984be",
       "type": "toLogicalData",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Transform to Logical Data",
       "outputs": 1,
       "x": 270,
@@ -69,7 +69,7 @@
     {
       "id": "dd6550d4.e2bce",
       "type": "validateData",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Validate Data",
       "outputs": 1,
       "x": 510,
@@ -79,7 +79,7 @@
     {
       "id": "15d3d01.01e563",
       "type": "processLogicalData",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Process Logical Data",
       "outputs": 1,
       "x": 320,
@@ -89,7 +89,7 @@
     {
       "id": "15d3d01.workflow",
       "type": "processWorkflowAction",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Process Workflow Action",
       "outputs": 1,
       "wires": [["5d38e157.b4d7e"]]
@@ -97,7 +97,7 @@
     {
       "id": "5d38e157.b4d7e",
       "type": "toPhysicalData",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Transform To Physical Data",
       "outputs": 1,
       "x": 600,
@@ -107,7 +107,7 @@
     {
       "id": "166e2a96.294bc5",
       "type": "setMasterEntity",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Set Master Physical Entity",
       "outputs": 1,
       "x": 890,
@@ -117,7 +117,7 @@
     {
       "id": "1ad49873.0d4c38",
       "type": "processPhysicalData",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Process Physical Data",
       "outputs": 1,
       "x": 240,
@@ -127,7 +127,7 @@
     {
       "id": "36f8420.a6f1bbe",
       "type": "switch",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Is Activity Tracking Enabled",
       "property": "payload.isActivityTrackingEnabled",
       "propertyType": "msg",
@@ -149,7 +149,7 @@
     {
       "id": "7f91accc.d5e744",
       "type": "processActivityTracking",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Process Activity Tracking",
       "outputs": 1,
       "x": 790,
@@ -159,7 +159,7 @@
     {
       "id": "e45d0331.61ce",
       "type": "processAuditData",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Process Audit",
       "outputs": 1,
       "x": 500,
@@ -169,7 +169,7 @@
     {
       "id": "zxcbnh.61ce",
       "type": "addTransactionDetails",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Process Transaction Detail Queue",
       "outputs": 1,
       "x": 500,
@@ -179,7 +179,7 @@
     {
       "id": "d07304729.54609",
       "type": "function",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Process and Send Data to ui",
       "func": "try { debugger; let input = msg.payload.apiRequestBody.baseEntity.records[0]; const message = msg.payload.entityGroupData?.logicalData?.appData?.data?.[0]?.message; const action = msg.payload.apiRequestBody.action; const OLD_DEFAULT_APPENV_BASE_URL_UUID = msg.payload.entityGroupData?.logicalData?.appData?.data?.[0]?.OLD_DEFAULT_APPENV_BASE_URL_UUID; if (message) { msg.payload.result.message = message; } if (input.IS_DEFAULT_BASE_URL == 'Yes') { let dataGridCard = '0_9b5804b0-1850-41b5-8046-4a9e313fd5f3'; let baseUrlDatagridCard = input.APPLICATION_ENVIRONMENT_UUID + '_4cc5b870-625c-4149-a947-d11a8dc4234c_e951c288-5bd4-4305-b3e3-73a0e1bd72d2'; msg.payload.result['modifyOtherCard'] = {}; msg.payload.result.modifyOtherCard[dataGridCard] = [ { parameter: 'data', parameterKey: 'APPLICATION_ENVIRONMENT_UUID', type: 'PortalDataGrid', parameterKeyValue: input.APPLICATION_ENVIRONMENT_UUID, changedData: { APPLICATION_ENVIRONMENT_BASE_URL: input.BASE_URL } } ]; if (OLD_DEFAULT_APPENV_BASE_URL_UUID && OLD_DEFAULT_APPENV_BASE_URL_UUID.length > 0) { msg.payload.result.modifyOtherCard[baseUrlDatagridCard] = [ { parameter: 'data', parameterKey: 'APPLICATION_ENVIRONMENT_BASE_URL_UUID', type: 'PortalDataGrid', parameterKeyValue: OLD_DEFAULT_APPENV_BASE_URL_UUID, changedData: { IS_DEFAULT_BASE_URL: 'No' } } ]; } } node.send(msg); } catch (error) { console.log('Errorr Occured Process and Send Data to ui', error.message); } return;",
       "outputs": 1,
@@ -191,7 +191,7 @@
     {
       "id": "82b2328.c756dd",
       "type": "finish",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Success Response",
       "property": "payload",
       "propertyType": "msg",
@@ -203,7 +203,7 @@
     {
       "id": "a169b948.7886b8",
       "type": "catch",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Catch Exceptions",
       "scope": null,
       "uncaught": false,
@@ -214,7 +214,7 @@
     {
       "id": "23475cdd.0dcf24",
       "type": "finish",
-      "z": "e6e86f5b-1b14-4f13-81d1-48ef1fbebff7",
+      "z": "2c54d93e-14c8-4c0b-9ed4-9028997496c6",
       "name": "Catch Finish",
       "property": "payload",
       "propertyType": "msg",

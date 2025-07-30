@@ -79,3 +79,10 @@ try {
   console.log('Error Occurred', t.message);
   return;
 }
+
+// -------------------------------
+// -------------------------------
+
+debugger;
+msg.payload.result = { mode: 'Enable Message', message: 'Data Sync Completed.' };
+node.send(msg);

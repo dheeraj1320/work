@@ -56,7 +56,7 @@
     "y": 420,
     "wires": [["5d38e157.b4d7e"]]
   },
-    {
+  {
     "id": "5d38e157.b4d7e",
     "type": "function",
     "z": "cc4a7ada-a99a-4315-af34-920b721842f6",
@@ -99,18 +99,6 @@
     "x": 270,
     "y": 60,
     "wires": [["dd6550d4.e2bce"]]
-  },
-  {
-    "id": "9f116870.1ef498",
-    "type": "finish",
-    "z": "cc4a7ada-a99a-4315-af34-920b721842f6",
-    "name": "Error Response",
-    "property": "payload",
-    "propertyType": "msg",
-    "outputs": 1,
-    "x": 970,
-    "y": 60,
-    "wires": []
   },
   {
     "id": "dd6550d4.e2bce",
@@ -185,17 +173,19 @@
     "wires": [["e45d0331.61ce"]]
   },
   {
-    "id": "7f91accc.d5e744",
-    "type": "processActivityTracking",
+    "id": "e45d0331.61ce",
+    "type": "function",
     "z": "cc4a7ada-a99a-4315-af34-920b721842f6",
-    "name": "Process Activity Tracking",
+    "name": "Validation check",
+    "func": "debugger; msg.payload.result = { mode: 'Enable Message', message: 'Data Sync Completed.' }; node.send(msg);",
     "outputs": 1,
-    "x": 790,
-    "y": 220,
-    "wires": [["82b2328.c756dd"]]
+    "noerr": 0,
+    "x": 540,
+    "y": 120,
+    "wires": [["e45d0331.78po"]]
   },
   {
-    "id": "e45d0331.61ce",
+    "id": "e45d0331.78po",
     "type": "processAuditData",
     "z": "cc4a7ada-a99a-4315-af34-920b721842f6",
     "name": "Process Audit",

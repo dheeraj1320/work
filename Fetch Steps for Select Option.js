@@ -4,9 +4,7 @@ try {
   const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
   let queryData = [];
   const optionData = [];
-
   let input = Object.assign(msg.payload.apiRequestBody, msg.payload.referenceData);
-
   async function getStepDataUsingChild(currentStepKey, currentStepID, currentAttributeId) {
     const testCasefunctionStepAttributeValueQuery = `SELECT tcfs.VIEW_NAVIGATION_STEP_UUID,tcfs.FUNCTION_VIEW_NAVIGATION_STEP_UUID, FUNCTION_VIEW_NAVIGATION_STEP_ID, FUNCTION_VIEW_NAVIGATION_STEP_NAME, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, CURRENT_PAGE_CONTEXT, NEXT_PAGE_CONTEXT, FUNCTION_VIEW_NAVIGATION_STEP_TYPE, FUNCTION_VIEW_NAVIGATION_STEP_SEQ_ID, tcfs.FUNCTIONAL_AREA_UUID, tcfs.FUNCTION_UUID, tcfs.FUNCTION_STEP_UUID, tcfs.VIEW_UUID, FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID, FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_ID, STEP_DEFINITION_ATTRIBUTE_UUID, FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA AS 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA', PRE_DEFINED_VALUES_UUID, SCOPE_VARIABLE_TYPE, SCOPE_VARIABLE_UUID FROM FUNCTION_VIEW_NAVIGATION_STEP tcfs LEFT JOIN FUNCTION_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE tcfsav ON tcfs.FUNCTION_VIEW_NAVIGATION_STEP_UUID = tcfsav.FUNCTION_VIEW_NAVIGATION_STEP_UUID WHERE tcfs.FUNCTION_STEP_UUID=:FUNCTION_STEP_UUID AND tcfs.FUNCTION_UUID=:FUNCTION_UUID AND tcfs.VIEW_UUID=:VIEW_UUID AND tcfs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
     let stepAttrValueList = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCasefunctionStepAttributeValueQuery, input);
@@ -17,7 +15,6 @@ try {
       return [];
     }
   }
-
   async function getStepDataUsingChildForTestCaseFunctionUIElementGroupStep(currentStepKey, currentStepID, currentAttributeId) {
     const functionUIElementGroupStepQuery = `SELECT fuiegs.FUNCTION_UI_ELEMENT_GROUP_STEP_UUID, FUNCTION_UI_ELEMENT_GROUP_STEP_ID, FUNCTION_UI_ELEMENT_GROUP_STEP_NAME, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, CURRENT_PAGE_CONTEXT, FUNCTION_UI_ELEMENT_GROUP_STEP_TYPE, FUNCTION_UI_ELEMENT_GROUP_STEP_SEQ_ID,fuiegs.FUNCTION_STEP_UUID, fuiegs.FUNCTIONAL_AREA_UUID, fuiegs.FUNCTION_UUID, fuiegs.FUNCTION_STEP_UUID, FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_UUID, FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE_ID, STEP_DEFINITION_ATTRIBUTE_UUID, FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA AS 'UI_ELEMENT_GROUP_STEP_ATTRIBUTE_DATA', PRE_DEFINED_VALUES_UUID, SCOPE_VARIABLE_TYPE, SCOPE_VARIABLE_UUID,UI_ELEMENT_GROUP_STEP_UUID FROM FUNCTION_UI_ELEMENT_GROUP_STEP fuiegs LEFT JOIN FUNCTION_UI_ELEMENT_GROUP_STEP_ATTRIBUTE_VALUE fuiegsav ON fuiegs.FUNCTION_UI_ELEMENT_GROUP_STEP_UUID = fuiegsav.FUNCTION_UI_ELEMENT_GROUP_STEP_UUID WHERE fuiegs.FUNCTION_STEP_UUID=:FUNCTION_STEP_UUID AND fuiegs.FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
     let stepAttrValueList = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', functionUIElementGroupStepQuery, input);
@@ -28,7 +25,6 @@ try {
       return [];
     }
   }
-
   function getUIElementData(stepDefAttributeQueryData, attributeValueQueryData, data) {
     let getUIElementStepDefAttributeUUID = stepDefAttributeQueryData.filter((item) => item['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID'] == 'adcf6e25-f890-476c-bdcf-e723c6d7894c');
     let stepDefAttributeIdforUIElement = '';
@@ -42,7 +38,6 @@ try {
     }
     return actualUIElementUUID;
   }
-
   function getColumnHeaderData(stepDefAttributeQueryData, attributeValueQueryData, data) {
     let getColumnHeaderStepDefAttributeUUID = stepDefAttributeQueryData.filter((item) => item['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID'] == 'd797acb4-5e5c-447b-b0c5-60dad38e39a5');
     let stepDefAttributeIdforUIElement = '';
@@ -56,7 +51,6 @@ try {
     }
     return actualColumnHeaderUUID;
   }
-
   function decideAndSetOrder(stepDefAttributeQueryData) {
     let decideFieldOrder = 0;
     let object = {};
@@ -74,7 +68,6 @@ try {
     }
     return object;
   }
-
   function getUIElementValueAttributeValue(attributeValueQueryData, stepDefAttributeId) {
     let result = attributeValueQueryData.filter((item) => item['STEP_DEFINITION_ATTRIBUTE_UUID'] == stepDefAttributeId);
     if (result && result.length && input) {
@@ -83,18 +76,15 @@ try {
       return {};
     }
   }
-
   async function getAttributeValueDetails(attributeId, type) {
     let query = `SELECT 'No' as 'IS_FUNCTION_ATTRIBUTE',TEST_CASE_STEP_ATTRIBUTE_VALUE_UUID AS ID, TEST_CASE_STEP_ATTRIBUTE_DATA AS NAME,'Test Case' as SOURCE_TYPE,STEP_DEFINITION_ATTRIBUTE_UUID FROM TEST_CASE_STEP_ATTRIBUTE_VALUE WHERE TEST_CASE_STEP_ATTRIBUTE_VALUE_UUID='${attributeId}' UNION SELECT 'Yes' as 'IS_FUNCTION_ATTRIBUTE', FUNCTION_STEP_ATTRIBUTE_VALUE_UUID AS ID, FUNCTION_STEP_ATTRIBUTE_DATA AS NAME, 'Test Case' as SOURCE_TYPE, STEP_DEFINITION_ATTRIBUTE_UUID FROM FUNCTION_STEP_ATTRIBUTE_VALUE WHERE FUNCTION_STEP_ATTRIBUTE_VALUE_UUID = '${attributeId}' UNION SELECT 'Yes' as 'IS_FUNCTION_ATTRIBUTE', TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE_UUID AS ID, TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA AS NAME,'Function' as SOURCE_TYPE,STEP_DEFINITION_ATTRIBUTE_UUID FROM TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE WHERE TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE_UUID='${attributeId}'`;
     let res = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', query, input);
     return res && res.length ? res[0] : '';
   }
-
   function decideScopePrefix(uiElementValueData) {
     let str = uiElementValueData['SCOPE_VARIABLE_TYPE'] == 'Test Case' ? '@TCV:' : uiElementValueData['SCOPE_VARIABLE_TYPE'] == 'Test Set' ? '@TSV:' : '';
     return str;
   }
-
   function getFunctionDataFromAttributeValue(attributeValueQueryData, stepDefAttributeId) {
     let result = attributeValueQueryData.filter((item) => item['STEP_DEFINITION_ATTRIBUTE_UUID'] == stepDefAttributeId);
     if (
@@ -113,7 +103,6 @@ try {
       return '';
     }
   }
-
   function getDataFromAttributeValue(attributeValueQueryData, stepDefAttributeId, attributeData) {
     let result = attributeValueQueryData.filter((item) => item['STEP_DEFINITION_ATTRIBUTE_UUID'] == stepDefAttributeId);
     if (result && result.length) {
@@ -122,12 +111,10 @@ try {
       return '';
     }
   }
-
   function excludeAttribute(attributeList, stepAttributeID) {
     const filteredData = attributeList.filter((item) => item.STEP_DEFINITION_ATTRIBUTE_UUID !== stepAttributeID);
     return filteredData;
   }
-
   async function filterStepByCurrentStep(stepAttrValueList, currentStepKey, currentStepID, currentAttributeId) {
     let result = stepAttrValueList.filter((item) => item[currentStepKey] == currentStepID && item['STEP_DEFINITION_ATTRIBUTE_UUID'] == currentAttributeId);
     if (result && result.length) {
@@ -140,10 +127,13 @@ try {
       return [];
     }
   }
-
-  const selectQuery = `SELECT VIEW_UUID, CURRENT_PAGE_CONTEXT as PAGE_NAME, FUNCTION_STEP_ID, FUNCTION_STEP_NAME, FUNCTION_STEP_UUID, IS_PURE_NAVIGATION_STEP, NEXT_PAGE_CONTEXT, CURRENT_PAGE_CONTEXT, IS_OVERIDE_UI_ELEMENT_VALUE_ALLOWED, IS_UI_ELEMENT_VALUE_ATTRIBUTE_PRESENT, IS_UI_ELEMENT_GROUP_STEP, 'FUNCTION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'FUNCTION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'FUNCTION_STEP_UUID' as PRIMARY_COLUMN_NAME, FUNCTION_STEP_UUID as PRIMARY_COLUMN_VALUE, 'Function Step' as GRID_NAME, FUNCTION_STEP_TYPE, API_UUID, IS_API_ATTRIBUTE_VALUE_PRESENT, FUNCTION_STEP_SEQ_ID,STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,UI_ELEMENT_GROUP_UUID,FUNCTION_UUID FROM FUNCTION_STEP WHERE FUNCTION_UUID=:FUNCTION_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY FUNCTION_STEP_SEQ_ID asc`;
+  let selectQuery = '';
+  if (input.FUNCTION_UUID) {
+    selectQuery = `SELECT VIEW_UUID, CURRENT_PAGE_CONTEXT as PAGE_NAME, FUNCTION_STEP_ID, FUNCTION_STEP_NAME, FUNCTION_STEP_UUID, IS_PURE_NAVIGATION_STEP, NEXT_PAGE_CONTEXT, CURRENT_PAGE_CONTEXT, IS_OVERIDE_UI_ELEMENT_VALUE_ALLOWED, IS_UI_ELEMENT_VALUE_ATTRIBUTE_PRESENT, IS_UI_ELEMENT_GROUP_STEP, 'FUNCTION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'FUNCTION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'FUNCTION_STEP_UUID' as PRIMARY_COLUMN_NAME, FUNCTION_STEP_UUID as PRIMARY_COLUMN_VALUE, 'Function Step' as GRID_NAME, FUNCTION_STEP_TYPE, API_UUID, IS_API_ATTRIBUTE_VALUE_PRESENT, FUNCTION_STEP_SEQ_ID, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID,UI_ELEMENT_GROUP_UUID,FUNCTION_UUID FROM FUNCTION_STEP WHERE FUNCTION_UUID=:FUNCTION_UUID and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID ORDER BY FUNCTION_STEP_SEQ_ID asc`;
+  } else if (input.VIEW_UUID) {
+    selectQuery = `SELECT VIEW_NAVIGATION_STEP_UUID, VIEW_NAVIGATION_STEP_ID, VIEW_NAVIGATION_STEP_NAME, STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID, VIEW_NAVIGATION_STEP_TYPE, VIEW_NAVIGATION_STEP_SEQ_ID, CURRENT_PAGE_CONTEXT, NEXT_PAGE_CONTEXT, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE' as CHILD_ATTRIBUTE_TABLE_NAME, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as CHILD_ATTRIBUTE_DATA, 'VIEW_NAVIGATION_STEP_UUID' as PRIMARY_COLUMN_NAME, VIEW_NAVIGATION_STEP_UUID as PRIMARY_COLUMN_VALUE, VIEW_UUID, 'No' as IS_PURE_NAVIGATION_STEP, 'VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA' as REFERENCE_ATTRIBUTE_DATA FROM VIEW_NAVIGATION_STEP WHERE VIEW_UUID=:VIEW_UUID ORDER BY VIEW_NAVIGATION_STEP_SEQ_ID asc`;
+  }
   queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
-
   for (let data of queryData) {
     if (data && Object.keys(data).length) {
       const stepDefAttributeQuery = `SELECT * FROM STEP_DEFINITION_ATTRIBUTE where STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID='${data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID']}' order by STEP_DEFINITION_ATTRIBUTE_ID asc`;
@@ -162,7 +152,6 @@ try {
         let actualColumnHeaderUUID = getColumnHeaderData(stepDefAttributeQueryData, attributeValueQueryData, data);
         let isDataElementNameTypePassword = false;
         let isDataElementName1TypePassword = false;
-
         for (let codeDesc of stepDefAttributeQueryData) {
           switch (codeDesc['STEP_DEFINITION_ATTRIBUTE_MASTER_UUID']) {
             case '57b76ab3-8112-4343-af0f-49643c808bf7':
@@ -753,25 +742,31 @@ try {
           }
         }
       }
-      data['ATTRIBUTE_KEYS'] = stepDefTemplateVerbiageName;
-
-      const optn = {
-        label: `${data.FUNCTION_STEP_SEQ_ID} - ${stepDefTemplateVerbiageName}`,
-        NAME: `${data.FUNCTION_STEP_SEQ_ID} - ${stepDefTemplateVerbiageName}`,
-        ID: data.FUNCTION_UUID,
-        value: data.FUNCTION_UUID
+      const stepTypeObj = {
+        FUNCTION_STEP: { seqIdField: 'FUNCTION_STEP_SEQ_ID', idField: 'FUNCTION_STEP_SEQ_ID' },
+        VIEW_NAVIGATION_STEP: { seqIdField: 'VIEW_NAVIGATION_STEP_SEQ_ID', idField: 'VIEW_NAVIGATION_STEP_UUID' }
       };
-
-      optionData.push(optn);
+      data['ATTRIBUTE_KEYS'] = stepDefTemplateVerbiageName;
+      debugger;
+      let stepType = input.FUNCTION_UUID ? 'FUNCTION_STEP' : input.VIEW_UUID ? 'VIEW_NAVIGATION_STEP' : null;
+      if (stepType && stepTypeObj[stepType]) {
+        const config = stepTypeObj[stepType];
+        const optn = {
+          label: `${data[config.seqIdField]} - ${stepDefTemplateVerbiageName}`,
+          NAME: `${data[config.seqIdField]} - ${stepDefTemplateVerbiageName}`,
+          ID: data[config.idField],
+          value: data[config.idField]
+        };
+        optionData.push(optn);
+      }
     }
   }
-
   msg.payload.result = { optionData: optionData };
   node.send(msg);
 } catch (error) {
   console.log('Error Occurred Process and Send Data to ui', error.message);
   console.log('Error stack:', error.stack);
-  msg.payload.result = { gridData: [], error: error.message };
+  msg.payload.result = { gridData: [], error: error.message, type: input.FUNCTION_UUID ? 'FUNCTION_STEP' : 'VIEW_NAVIGATION_STEP' };
   node.send(msg);
 }
 return;

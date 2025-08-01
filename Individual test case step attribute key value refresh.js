@@ -2,7 +2,7 @@ try {
   debugger;
   AppengProcessConfig = global.get('AppengProcessConfig');
   const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
-  let input = msg.payload.apiRequestBody.baseEntity.records[0];
+  let input = Object.assign(msg.payload.apiRequestBody.baseEntity.records[0], msg.payload.referenceData);
   if (msg.payload.apiRequestBody.action === 'Test Data') {
     input.type = input.SCREEN_NAME;
     msg.payload.result['mode'] = 'Update';
@@ -1641,18 +1641,18 @@ try {
   } else if (input.type == 'UI Element Group Step') {
     dataGridCard = inputPrimaryDBCodeOFParentUUID + '_e339867b-25bb-4cf3-9bc7-c4a12d576a0f_59c08d77-f1b5-11ee-bbba-31faf16f32eb';
   } else if (input.type == 'Test Case UI Element Group Step') {
-    dataGridCard = inputPrimaryDBCodeOFParentUUID + '_76198730-a92c-4d7b-a455-47afe1c94c93_a8b99757-ddaf-4156-b673-b39990057a13';
+    dataGridCard = input.UNQ_UUID_FOR_REFRESH + '_76198730-a92c-4d7b-a455-47afe1c94c93_a8b99757-ddaf-4156-b673-b39990057a13';
     msg.payload.result['pk'] = inputPrimaryDBCodeOFChildUUID;
   } else if (input.type == 'Function Step') {
     dataGridCard = inputPrimaryDBCodeOFParentUUID + '_c48b1c6e-931a-4502-baf4-0453ed265921_474c8457-dc52-11ee-bbad-c3828f5505d2';
   } else if (input.type == 'Function UI Element Group Step') {
-    dataGridCard = inputPrimaryDBCodeOFParentUUID + '_f12752e7-6ed6-4bf1-8ba8-c701303e3a4d_1762d383-d818-4bbb-83a6-3cbefd4728a8';
+    dataGridCard = input.UNQ_UUID_FOR_REFRESH + '_f12752e7-6ed6-4bf1-8ba8-c701303e3a4d_1762d383-d818-4bbb-83a6-3cbefd4728a8';
     msg.payload.result['pk'] = inputPrimaryDBCodeOFChildUUID;
   } else if (input.type == 'Test Case Function Step') {
-    dataGridCard = inputPrimaryDBCodeOFParentUUID + '_76198730-a92c-4d7b-a455-47afe1c94c93_26986e06-5ad4-472e-8f01-04fde7ed0182';
+    dataGridCard = input.UNQ_UUID_FOR_REFRESH + '_76198730-a92c-4d7b-a455-47afe1c94c93_26986e06-5ad4-472e-8f01-04fde7ed0182';
     msg.payload.result['pk'] = inputPrimaryDBCodeOFChildUUID;
   } else if (input.type == 'Test Case Function UI Element Group Step') {
-    dataGridCard = inputPrimaryDBCodeOFParentUUID + '_3dcd6c34-ea14-4192-a7cb-4586280b0a2e_27b3d04a-ae67-4140-ace8-1d532fe56245';
+    dataGridCard = input.UNQ_UUID_FOR_REFRESH + '_3dcd6c34-ea14-4192-a7cb-4586280b0a2e_27b3d04a-ae67-4140-ace8-1d532fe56245';
     msg.payload.result['pk'] = inputPrimaryDBCodeOFChildUUID;
   } else if (input.type == 'View Navigation Step') {
     const pageViewQuery = `SELECT IS_DEFAULT_VIEW FROM PAGE_VIEW WHERE VIEW_UUID=:VIEW_UUID AND FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
@@ -1663,7 +1663,7 @@ try {
       dataGridCard = inputPrimaryDBCodeOFParentUUID + '_90d4210d-c3fe-4597-8f6d-94f25173c3d4_480f4c57-48b4-11ef-bdb4-bf6e65503eee';
     }
   } else if (input.type == 'Test Case View Navigation Step' && !input['FUNCTION_UUID'] && !input['FUNCTION_STEP_UUID']) {
-    dataGridCard = inputPrimaryDBCodeOFParentUUID + '_76198730-a92c-4d7b-a455-47afe1c94c93_4fe0ae52-6878-444e-a81c-783f9dce29bf';
+    dataGridCard = input.UNQ_UUID_FOR_REFRESH + '_76198730-a92c-4d7b-a455-47afe1c94c93_4fe0ae52-6878-444e-a81c-783f9dce29bf';
     msg.payload.result['pk'] = inputPrimaryDBCodeOFChildUUID;
   } else if (input.type == 'Test Case View Navigation Step' && input['FUNCTION_UUID'] && input['FUNCTION_STEP_UUID']) {
     const testCaseFunctionStepQuery = `SELECT * FROM TEST_CASE_FUNCTION_STEP WHERE FUNCTION_UUID=:FUNCTION_UUID AND FUNCTION_STEP_UUID=:FUNCTION_STEP_UUID AND TEST_CASE_STEP_UUID=:TEST_CASE_STEP_UUID`;
@@ -1671,10 +1671,10 @@ try {
     if (testCaseFunctionStepQueryData && Object.keys(testCaseFunctionStepQueryData).length) {
       inputPrimaryDBCodeOFParentUUID = testCaseFunctionStepQueryData['TEST_CASE_FUNCTION_STEP_UUID'];
     }
-    dataGridCard = inputPrimaryDBCodeOFParentUUID + '_3dcd6c34-ea14-4192-a7cb-4586280b0a2e_b1e92269-ce43-4965-96e8-59c48d6a6e7f';
+    dataGridCard = input.UNQ_UUID_FOR_REFRESH + '_3dcd6c34-ea14-4192-a7cb-4586280b0a2e_b1e92269-ce43-4965-96e8-59c48d6a6e7f';
     msg.payload.result['pk'] = inputPrimaryDBCodeOFChildUUID;
   } else if (input.type == 'Function View Navigation Step') {
-    dataGridCard = inputPrimaryDBCodeOFParentUUID + '_f12752e7-6ed6-4bf1-8ba8-c701303e3a4d_01d866ac-12e4-4d28-901c-8ac0b37918de';
+    dataGridCard = input.UNQ_UUID_FOR_REFRESH + '_f12752e7-6ed6-4bf1-8ba8-c701303e3a4d_01d866ac-12e4-4d28-901c-8ac0b37918de';
     msg.payload.result['pk'] = inputPrimaryDBCodeOFChildUUID;
   }
   msg.payload.result['message'] = 'Updated Successfully';

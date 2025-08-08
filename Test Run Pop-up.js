@@ -26,7 +26,7 @@ switch (sourceType) {
         break;
     case 'TEST_SET':
         input[0]['RUN_AUTOMATION_SOURCE_UUID'] = input[0]['TEST_SET_UUID'];
-        runQuery = `SELECT * FROM TEST_CASE_STEP tcs JOIN TEST_CASE tc ON tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID WHERE tc.TEST_CASE_EXECUTON_TYPE='Automated' AND tc.TEST_SET_UUID=:TEST_SET_UUID AND tc.TEST_CASE_STATUS='COMMITTED';; `;
+        runQuery = `SELECT * FROM TEST_CASE_STEP tcs JOIN TEST_CASE tc ON tc.TEST_CASE_UUID = tcs.TEST_CASE_UUID WHERE tc.TEST_CASE_EXECUTON_TYPE='Automated' AND tc.TEST_SET_UUID=:TEST_SET_UUID;`;
         testSetIds = `'${input[0]['TEST_SET_UUID']}'`;
         break;
     case 'PERSONAL_TEST_SET':
@@ -94,7 +94,7 @@ if (runQuery) {
             case 'TEST_SUITE':
             case 'MULTIPLE_TEST_SET':
             case 'USER_STORY_TEST_SET':
-                input[0]['showMessage'] = 'Cannot perform this action! There are no Automated Test Case Step to be executed.';
+                input[0]['showMessage'] = 'Cannot perform this action! There are no steps for Automated Test Case to be executed.';
                 break;
             case 'FUNCTION':
                 input[0]['showMessage'] = 'Cannot perform this action! There are no Function Step to be executed.';
@@ -103,7 +103,7 @@ if (runQuery) {
                 input[0]['showMessage'] = 'Cannot perform this action! There are no Navigation Step to be executed.';
                 break;
             default:
-                input[0]['showMessage'] = 'Cannot perform this action! There are no Automated Test Case Step to be executed.';
+                input[0]['showMessage'] = 'Cannot perform this action! There are no steps for Automated Test Case to be executed.';
         }
         input[0]['isErrorOccured'] = true;
     }

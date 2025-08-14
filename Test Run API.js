@@ -7,6 +7,8 @@ try {
       testUUUID = input['TEST_CASE_UUID'];
       break;
     case 'TEST_SET':
+          case 'FEATURE_TEST_SET':
+    case 'USER_STORY_TEST_SET':
       testUUUID = input['TEST_SET_UUID'];
       break;
     case 'FUNCTION':
@@ -21,7 +23,7 @@ try {
     case 'NAVIGATION_STEPS':
       testUUUID = input['VIEW_UUID'];
       break;
-    case 'FEATURE_TEST_SET':
+
       testUUUID = input['TEST_SET_UUID'];
       break;
     default:

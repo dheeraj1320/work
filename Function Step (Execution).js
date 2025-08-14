@@ -5,20 +5,6 @@ try {
   let input = Object.assign(msg.payload.apiRequestBody, msg.payload.referenceData);
   let selectQuery;
   console.log('data is ', input);
-  function formatDuration(seconds) {
-    if (!seconds || isNaN(Number(seconds))) {
-      return '0 sec.';
-    }
-    const totalSeconds = Number(seconds);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = Math.abs(totalSeconds % 60).toFixed(3);
-    const parts = [];
-    if (hours > 0) parts.push(`${hours} hr.`);
-    if (minutes > 0) parts.push(`${minutes} min.`);
-    parts.push(`${secs} sec.`);
-    return parts.join(' ');
-  }
   const getSecondCoverStepDetails = (group) => {
     if (group.includes('Navigation Step')) {
       const pageArr = group.split(' - ');
@@ -68,7 +54,7 @@ try {
         if (data.TEST_CASE_STEP_PATH && data.TEST_CASE_STEP_PATH.split('-').length > 2) {
           const parentPathArr = data.TEST_CASE_STEP_PATH.trim().split('-');
           const parentPath = parentPathArr[0] + '-' + parentPathArr[1] + '-';
-          const duration = formatDuration(timeMap.get(parentPath));
+          const duration = Number(timeMap.get(parentPath)).toFixed(3);
           const groupDetails = getSecondCoverStepDetails(data.TEST_CASE_STEP_GROUP_NAME);
           const stepStatuses = statusMap[parentPath] || [];
           const groupStatus = stepStatuses.some((status) => status !== 'Passed') ? 'Failed' : 'Passed';
@@ -81,7 +67,7 @@ try {
             TEST_CASE_STEP_EXECUTION_STATUS: groupStatus
           };
         }
-        return { ...data, TEST_CASE_STEP_DURATION: formatDuration(data.TEST_CASE_STEP_DURATION_RAW), CHILD_STEP_TYPE: null };
+        return { ...data, TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3), CHILD_STEP_TYPE: null };
       });
     queryData = filteredData;
   } else if (input['GRID_NAME'] === 'TEST_CASE_STEP_CHILD') {
@@ -89,7 +75,7 @@ try {
     queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
     console.log(queryData);
     const filteredData = queryData.map((data) => {
-      return { ...data, TEST_CASE_STEP_PATH_ID: getPath(data.TEST_CASE_STEP_PATH, 2), TEST_CASE_STEP_DURATION: formatDuration(data.TEST_CASE_STEP_DURATION_RAW), CHILD_STEP_TYPE: null };
+      return { ...data, TEST_CASE_STEP_PATH_ID: getPath(data.TEST_CASE_STEP_PATH, 2), TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3), CHILD_STEP_TYPE: null };
     });
     queryData = filteredData;
   }

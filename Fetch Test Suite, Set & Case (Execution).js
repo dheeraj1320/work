@@ -2,18 +2,19 @@ debugger;
 try {
   function formatDuration(seconds) {
     if (!seconds || isNaN(Number(seconds))) {
-      return '0 sec.';
+      return '00:00:00';
     }
-    const totalSeconds = Number(seconds);
+
+    const totalSeconds = Math.ceil(Number(seconds));
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = Math.abs(totalSeconds % 60).toFixed(3);
-    const parts = [];
-    if (hours > 0) parts.push(`${hours} hr.`);
-    if (minutes > 0) parts.push(`${minutes} min.`);
-    parts.push(`${secs} sec.`);
-    return parts.join(' ');
+    const secs = totalSeconds % 60;
+
+    const pad = (num) => String(num).padStart(2, '0');
+
+    return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
   }
+
   AppengProcessConfig = global.get('AppengProcessConfig');
   const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
   let queryData = [];
@@ -25,7 +26,6 @@ try {
   let selectQuery;
   if (input['RUN_AUTOMATION_SOURCE_TYPE'] == 'NAVIGATION_STEPS') {
     selectQuery = ` SELECT 'TEST_CASE' AS GRID_NAME,'VIEW_NAVIGATION' AS DOWNLOAD_NAME, :RUN_AUTOMATION_SOURCE_TYPE as RUN_AUTOMATION_SOURCE_TYPE, max(p.PAGE_ID) AS PAGE_ID, max(p.PAGE_NAME) AS PAGE_NAME, max(pv.VIEW_NAME) AS VIEW_NAME, max(ted.TEST_RUN_UUID) AS TEST_RUN_UUID, max(ted.TEST_CASE_UUID) AS TEST_CASE_UUID, max(ted.TEST_EXECUTION_DETAIL_UUID) AS TEST_EXECUTION_DETAIL_UUID, ted.TEST_SET_UUID, MAX(ted.TEST_CASE_EXECUTION_DATE) AS EXECUTED_ON, ROUND(MAX(ted.TEST_CASE_DURATION / 1000.0), 3) AS EXECUTION_DURATION, MAX(ted.TEST_CASE_EXECUTION_STATUS) AS EXECUTION_STATUS FROM TEST_EXECUTION_DETAIL ted JOIN PAGE_VIEW pv ON ted.TEST_CASE_UUID = pv.VIEW_UUID AND ted.TEST_SET_UUID = pv.PAGE_UUID JOIN PAGE p ON p.PAGE_UUID = pv.PAGE_UUID WHERE ted.TEST_RUN_UUID = :TEST_RUN_UUID AND ted.FUNCTIONAL_AREA_UUID = :FUNCTIONAL_AREA_UUID GROUP BY ted.TEST_SET_UUID ORDER BY EXECUTED_ON DESC;`;
-
     queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
     const filteredData = queryData.map((data) => ({ ...data, EXECUTION_DURATION: formatDuration(data.EXECUTION_DURATION) }));
     queryData = filteredData;

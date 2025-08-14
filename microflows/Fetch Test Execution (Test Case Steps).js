@@ -1,23 +1,10 @@
+debugger;
 try {
   AppengProcessConfig = global.get('AppengProcessConfig');
   const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
   let queryData = [];
   let input = Object.assign(msg.payload.apiRequestBody, msg.payload.referenceData);
   let selectQuery;
-  function formatDuration(seconds) {
-    if (!seconds || isNaN(Number(seconds))) {
-      return '0 sec.';
-    }
-    const totalSeconds = Number(seconds);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = Math.abs(totalSeconds % 60).toFixed(3);
-    const parts = [];
-    if (hours > 0) parts.push(`${hours} hr.`);
-    if (minutes > 0) parts.push(`${minutes} min.`);
-    parts.push(`${secs} sec.`);
-    return parts.join(' ');
-  }
   const getFirstCoverStepDetails = (group) => {
     if (group.endsWith('Function')) {
       const funcArr = group.split(' - ');
@@ -61,7 +48,7 @@ try {
     selectQuery = `SELECT 'TEST_EXECUTION_DETAIL' AS TABLE_NAME, 'TEST_EXECUTION_DETAIL_UUID' AS KEY_NAME, 'TEST_CASE' AS GRID_NAME, 'VIEW_NAVIGATION' AS DOWNLOAD_NAME, NULL AS CHILD_STEP_TYPE, ted.TEST_EXECUTION_DETAIL_UUID AS KEY_VALUE, vns.VIEW_NAVIGATION_STEP_UUID, vns.VIEW_NAVIGATION_STEP_ID, vns.VIEW_NAVIGATION_STEP_NAME, vns.VIEW_UUID, pv.PAGE_UUID, ted.TEST_RUN_UUID, ted.TEST_EXECUTION_DETAIL_UUID, ted.TEST_CASE_UUID, ted.TEST_CASE_STEP_UUID, ted.TEST_CASE_STEP_PATH, ted.TEST_CASE_STEP_EXECUTION_DATE AS EXECUTED_ON, ROUND(ted.TEST_CASE_STEP_DURATION / 1000.0, 3) AS EXECUTION_DURATION, ted.TEST_CASE_STEP_EXECUTION_STATUS AS EXECUTION_STATUS FROM TEST_EXECUTION_DETAIL ted JOIN VIEW_NAVIGATION_STEP vns ON ted.TEST_CASE_STEP_UUID = vns.VIEW_NAVIGATION_STEP_UUID JOIN PAGE_VIEW pv ON vns.VIEW_UUID = pv.VIEW_UUID WHERE ted.TEST_CASE_UUID = vns.VIEW_UUID AND ted.TEST_SET_UUID = pv.PAGE_UUID AND ted.TEST_RUN_UUID = :TEST_RUN_UUID ORDER BY ted.TEST_CASE_STEP_EXECUTION_DATE DESC;`;
     queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
     const filteredData = queryData.map((data) => {
-      return { ...data, EXECUTION_DURATION: formatDuration(data.EXECUTION_DURATION) };
+      return { ...data, EXECUTION_DURATION: Number(data.EXECUTION_DURATION).toFixed(3) };
     });
     queryData = filteredData;
   } else if (input['PARENT_GRID_NAME'] === 'TEST_CASE') {
@@ -87,21 +74,21 @@ try {
       .map((data) => {
         const parentPath = getPath(data.TEST_CASE_STEP_PATH, 0) + '-';
         data.TEST_CASE_STEP_PATH_ID = getPath(data.TEST_CASE_STEP_PATH, 0);
-        const duration = timeMap.get(parentPath);
+        const duration = Number(timeMap.get(parentPath)).toFixed(3);
         if (data.TEST_CASE_STEP_PATH && data.TEST_CASE_STEP_PATH.includes('-')) {
           const groupDetails = getFirstCoverStepDetails(data.TEST_CASE_STEP_GROUP_NAME);
           const stepStatuses = statusMap[parentPath] || [];
           const groupStatus = stepStatuses.some((status) => status !== 'Passed') ? 'Failed' : 'Passed';
           return {
             ...data,
-            TEST_CASE_STEP_DURATION: formatDuration(duration),
+            TEST_CASE_STEP_DURATION: duration,
             TEST_CASE_STEP_PATH: parentPath,
             TEST_CASE_STEP_NAME: groupDetails.name,
             CHILD_STEP_TYPE: groupDetails.type,
             TEST_CASE_STEP_EXECUTION_STATUS: groupStatus
           };
         }
-        return { ...data, TEST_CASE_STEP_DURATION: formatDuration(data.TEST_CASE_STEP_DURATION_RAW), CHILD_STEP_TYPE: null };
+        return { ...data, TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3), CHILD_STEP_TYPE: null };
       });
     queryData = filteredData;
   } else if (input['PARENT_GRID_NAME'] === 'TEST_CASE_STEP') {
@@ -130,27 +117,27 @@ try {
         if (data.TEST_CASE_STEP_PATH && data.TEST_CASE_STEP_PATH.split('-').length > 2) {
           const parentPathArr = data.TEST_CASE_STEP_PATH.trim().split('-');
           const parentPath = parentPathArr[0] + '-' + parentPathArr[1] + '-';
-          const duration = timeMap.get(parentPath);
+          const duration = Number(timeMap.get(parentPath)).toFixed(3);
           const groupDetails = getSecondCoverStepDetails(data.TEST_CASE_STEP_GROUP_NAME);
           const stepStatuses = statusMap[parentPath] || [];
           const groupStatus = stepStatuses.some((status) => status !== 'Passed') ? 'Failed' : 'Passed';
           return {
             ...data,
-            TEST_CASE_STEP_DURATION: formatDuration(duration),
+            TEST_CASE_STEP_DURATION: duration,
             TEST_CASE_STEP_PATH: parentPath,
             TEST_CASE_STEP_NAME: groupDetails.name,
             CHILD_STEP_TYPE: groupDetails.type,
             TEST_CASE_STEP_EXECUTION_STATUS: groupStatus
           };
         }
-        return { ...data, TEST_CASE_STEP_DURATION: formatDuration(data.TEST_CASE_STEP_DURATION_RAW), CHILD_STEP_TYPE: null };
+        return { ...data, TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3), CHILD_STEP_TYPE: null };
       });
     queryData = filteredData;
   } else if (input['PARENT_GRID_NAME'] === 'TEST_CASE_STEP_CHILD') {
     selectQuery = `SELECT 'TEST_CASE_STEP_LAST_CHILD' as GRID_NAME, 'TEST_EXECUTION_DETAIL' as TABLE_NAME, 'TEST_EXECUTION_DETAIL_UUID' as KEY_NAME, TEST_EXECUTION_DETAIL_UUID as KEY_VALUE, uuid() as DATA_UNIQUE_UUID, TEST_CASE_STEP_UUID, TEST_EXECUTION_DETAIL_UUID, TEST_CASE_STEP_SEQ_ID, TEST_RUN_UUID, TEST_CASE_STEP_NAME, TEST_CASE_STEP_EXECUTION_DATE, TEST_SUITE_UUID, TEST_CASE_STEP_EXECUTION_STATUS, CONCAT(ROUND(TEST_CASE_STEP_DURATION / 1000.0, 3), ' sec.') as TEST_CASE_STEP_DURATION, ROUND(TEST_CASE_STEP_DURATION / 1000.0, 3) as TEST_CASE_STEP_DURATION_RAW, TEST_SET_UUID, TEST_CASE_UUID, '' as TEST_CASE_STEP_GROUP_NAME, TEST_CASE_STEP_PATH, ERROR_MESSAGE FROM TEST_EXECUTION_DETAIL WHERE TEST_RUN_UUID = :TEST_RUN_UUID AND TEST_SET_UUID = :TEST_SET_UUID AND TEST_CASE_UUID = :TEST_CASE_UUID AND TEST_CASE_STEP_PATH like '${input['PARENT_TEST_CASE_STEP_PATH']}%' group by TEST_CASE_STEP_UUID, TEST_EXECUTION_DETAIL_UUID, TEST_CASE_STEP_SEQ_ID, TEST_RUN_UUID, TEST_CASE_STEP_NAME, TEST_CASE_STEP_EXECUTION_DATE, TEST_SUITE_UUID, TEST_CASE_STEP_EXECUTION_STATUS, TEST_CASE_STEP_DURATION, TEST_SET_UUID, TEST_CASE_UUID, TEST_CASE_STEP_PATH, ERROR_MESSAGE order by TEST_CASE_STEP_EXECUTION_DATE ASC, TEST_CASE_STEP_SEQ_ID ASC;`;
     queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
     const filteredData = queryData.map((data) => {
-      return { ...data, TEST_CASE_STEP_PATH_ID: getPath(data.TEST_CASE_STEP_PATH, 2), TEST_CASE_STEP_DURATION: formatDuration(data.TEST_CASE_STEP_DURATION_RAW), CHILD_STEP_TYPE: null };
+      return { ...data, TEST_CASE_STEP_PATH_ID: getPath(data.TEST_CASE_STEP_PATH, 2), TEST_CASE_STEP_DURATION: Number(data.TEST_CASE_STEP_DURATION_RAW).toFixed(3), CHILD_STEP_TYPE: null };
     });
     queryData = filteredData;
   }

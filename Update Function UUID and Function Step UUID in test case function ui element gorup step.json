@@ -1,0 +1,264 @@
+[
+  {
+    "id": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "type": "tab",
+    "label": "Inbound Service Flow",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "80da4d06.d55a2",
+    "type": "inject",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Input",
+    "topic": "Input",
+    "payload": "{}",
+    "payloadType": "json",
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "x": 110,
+    "y": 120,
+    "wires": [["1085dd3d.647cc3"]]
+  },
+  {
+    "id": "1085dd3d.647cc3",
+    "type": "switch",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "",
+    "property": "payload",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "hask",
+        "v": "entityName",
+        "vt": "str"
+      },
+      {
+        "t": "else"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 2,
+    "x": 220,
+    "y": 240,
+    "wires": [["235cddsd.0d2423"], ["5d38e157.b4d7e"]]
+  },
+  {
+    "id": "235cddsd.0d2423",
+    "type": "generateRequestBody",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Create Request Body",
+    "outputs": 1,
+    "x": 480,
+    "y": 420,
+    "wires": [["5d38e157.b4d7e"]]
+  },
+    {
+    "id": "5d38e157.b4d7e",
+    "type": "function",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Validation check",
+    "func": "try { let input = msg.payload.apiRequestBody.baseEntity.records[0]; console.log('input[0]:::::', input[0]); debugger; const selectedFunctionalAreas = input.SELECTED_FUNCTIONAL_AREAS ? input.SELECTED_FUNCTIONAL_AREAS.split(',') .map((area) => `'${area.trim()}'`) .join(',') : `''`; if (!selectedFunctionalAreas || selectedFunctionalAreas === `''`) { console.log('Validation failed>>>>'); msg.payload['isErrorCheck'] = true; msg.payload.result = {}; msg.payload.result.code = 406; msg.payload.result.mode = 'Enable Message'; const errorData = [{ message: 'Is Required.', reason: 'Message below form field', warningMessage: '', location: '5f17043c-3227-4545-87e3-c963b5e5d515=>0=>SELECTED_FUNCTIONAL_AREAS' }]; msg.payload.result.errors = errorData; } else { msg.payload['isErrorCheck'] = false; } node.send(msg); } catch (t) { console.log('Errorr Occured', t.message); return; }",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 540,
+    "y": 120,
+    "wires": [["5d38e157.b4r7e"]]
+  },
+  {
+    "id": "5d38e157.b4r7e",
+    "type": "switch",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Is ErrorCheck",
+    "property": "payload.isErrorCheck",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": true
+      },
+      {
+        "t": false
+      }
+    ],
+    "checkall": true,
+    "repair": false,
+    "outputs": 2,
+    "x": 560,
+    "y": 340,
+    "wires": [["23475cdd.0dcf24"], ["28147205.c984be"]]
+  },
+  {
+    "id": "28147205.c984be",
+    "type": "toLogicalData",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Transform to Logical Data",
+    "outputs": 1,
+    "x": 270,
+    "y": 60,
+    "wires": [["dd6550d4.e2bce"]]
+  },
+  {
+    "id": "9f116870.1ef498",
+    "type": "finish",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Error Response",
+    "property": "payload",
+    "propertyType": "msg",
+    "outputs": 1,
+    "x": 970,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "dd6550d4.e2bce",
+    "type": "validateData",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Validate Data",
+    "outputs": 1,
+    "x": 510,
+    "y": 60,
+    "wires": [["15d3d01.01e563"]]
+  },
+  {
+    "id": "15d3d01.01e563",
+    "type": "processLogicalData",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Process Logical Data",
+    "outputs": 1,
+    "x": 320,
+    "y": 140,
+    "wires": [["15d3d01.workflow"]]
+  },
+  {
+    "id": "15d3d01.workflow",
+    "type": "processWorkflowAction",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "x": 400,
+    "y": 400,
+    "name": "Process Workflow Action",
+    "outputs": 1,
+    "wires": [["5d38e157.9874"]]
+  },
+  {
+    "id": "5d38e157.9874",
+    "type": "function",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Actual Script",
+    "func": "try { function formatDateToSQL(date) { if (!(date instanceof Date)) return null; return date.toISOString().slice(0, 23).replace('T', ' '); } const getInsertAuditQuery = (auditObj) => { const fields = Object.keys(auditObj); const values = fields.map((field) => `:${field}`); return `INSERT INTO TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_AUDIT (${fields.join( ', ' )}) VALUES (${values.join(', ')});`; }; debugger; msg.payload.result = {}; const AppengProcessConfig = global.get('AppengProcessConfig'); const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator; let input = msg.payload.apiRequestBody.baseEntity.records[0]; const USER_ID = input.APP_LOGGED_IN_USER_ID; let mode = { mode: 'Enable Message', message: 'Data Sync Completed.' }; async function createAuditObject( newObject, operationType = 'Insert', oldObject = null, operationPerformedBy = USER_ID ) { const auditObj = { ...newObject }; let auditDetails = {}; if (operationType === 'Insert') { for (let key of Object.keys(newObject)) { auditDetails[key] = { oldValue: null, newValue: newObject[key] }; } } else if (operationType === 'Update') { if (!oldObject) { throw new Error('oldObject must be provided for Update operation.'); } for (let key of Object.keys(newObject)) { const oldVal = oldObject[key]; const newVal = newObject[key]; if (oldVal !== newVal) { auditDetails[key] = { oldValue: oldVal, newValue: newVal }; } } } auditObj.AE_OLD_NEW_COMPARISION_DETAILS = JSON.stringify(auditDetails); const uuidQuery = `SELECT uuid() AS UNIQUE_UUID;`; const uuidData = await serviceOrchestrator.selectRecordsUsingQuery( `PRIMARYSPRINGFM`, uuidQuery, input ); auditObj.AE_AUDIT_UUID = uuidData[0].UNIQUE_UUID; auditObj.AE_OPERATION_TYPE = operationType; auditObj.AE_TIMESTAMP = formatDateToSQL(new Date()); auditObj.OPERATION_PERFORMED_BY = operationPerformedBy; return auditObj; } /* Actual Script starts here */ const selectedFunctionalAreas = input.SELECTED_FUNCTIONAL_AREAS ? input.SELECTED_FUNCTIONAL_AREAS.split(',') .map((area) => `'${area.trim()}'`) .join(',') : `''`; const allTestCaseFuntionUIELemenetGroupQuery = `select tds.TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID, tds.TEST_CASE_STEP_UUID, tds.UI_ELEMENT_GROUP_UUID , tcs.FUNCTION_UUID from TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP tds inner join TEST_CASE_STEP tcs on tcs.TEST_CASE_STEP_UUID = tds.TEST_CASE_STEP_UUID where tds.FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas}) and tcs.FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas}) `; const allTestCaseFuntionUIELemenetGroupData = await serviceOrchestrator.selectRecordsUsingQuery( `PRIMARYSPRINGFM`, allTestCaseFuntionUIELemenetGroupQuery, input ); if ( allTestCaseFuntionUIELemenetGroupData && allTestCaseFuntionUIELemenetGroupData.length > 0 ) { for ( let index = 0; index < allTestCaseFuntionUIELemenetGroupData.length; index++ ) { const element = allTestCaseFuntionUIELemenetGroupData[index]; if (element['FUNCTION_UUID'] && element['UI_ELEMENT_GROUP_UUID']) { const functionStepQuery = `select * from FUNCTION_STEP where FUNCTION_UUID='${element['FUNCTION_UUID']}' and UI_ELEMENT_GROUP_UUID='${element['UI_ELEMENT_GROUP_UUID']}' `; const functionStep = await serviceOrchestrator.selectRecordsUsingQuery( `PRIMARYSPRINGFM`, functionStepQuery, input ); if ( functionStep && functionStep.length === 1 && functionStep[0]['FUNCTION_STEP_UUID'] ) { const ifFunctionOrFuntionStepExistsQuery = ` select * from TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP where TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID = '${element['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID']}' and FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas}) `; const ifFunctionOrFuntionStepExists = await serviceOrchestrator.selectRecordsUsingQuery( `PRIMARYSPRINGFM`, ifFunctionOrFuntionStepExistsQuery, input ); if ( ifFunctionOrFuntionStepExists && ifFunctionOrFuntionStepExists.length > 0 && (ifFunctionOrFuntionStepExists[0]['FUNCTION_UUID'] === null || ifFunctionOrFuntionStepExists[0]['FUNCTION_UUID'] === '' || ifFunctionOrFuntionStepExists[0]['FUNCTION_STEP_UUID'] === null || ifFunctionOrFuntionStepExists[0]['FUNCTION_STEP_UUID'] === '') ) { const testCaseFunctionUIElementGroupStepQuery = ` update TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP set FUNCTION_UUID = '${element['FUNCTION_UUID']}', FUNCTION_STEP_UUID= '${functionStep[0]['FUNCTION_STEP_UUID']}' where TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID='${element['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID']}' `; await serviceOrchestrator.update( testCaseFunctionUIElementGroupStepQuery, { curr_dt: formatDateToSQL(new Date()) }, 'PRIMARYSPRINGFM' ); let oldData = { ...ifFunctionOrFuntionStepExists[0] }; const auditObj = await createAuditObject( { ...oldData, AE_UPDATE_ID: USER_ID, AE_UPDATE_TS: formatDateToSQL(new Date()), FUNCTION_UUID: element['FUNCTION_UUID'], FUNCTION_STEP_UUID: functionStep[0]['FUNCTION_STEP_UUID'], }, 'Update', oldData, USER_ID ); await serviceOrchestrator.insert( getInsertAuditQuery(auditObj), auditObj, 'PRIMARYSPRINGFM_AUDIT', 'AE_AUDIT_UUID' ); } } else if (functionStep && functionStep.length > 0) { const ifFunctionOrFuntionStepExistsQuery = ` select * from TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP where TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID = '${element['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID']}' and FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas}) `; const ifFunctionOrFuntionStepExists = await serviceOrchestrator.selectRecordsUsingQuery( `PRIMARYSPRINGFM`, ifFunctionOrFuntionStepExistsQuery, input ); const testCaseFunctionUIElementGroupStepQuery = ` update TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP set FUNCTION_UUID = '${element['FUNCTION_UUID']}' where TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID='${element['TEST_CASE_FUNCTION_UI_ELEMENT_GROUP_STEP_UUID']}' `; await serviceOrchestrator.update( testCaseFunctionUIElementGroupStepQuery, { curr_dt: formatDateToSQL(new Date()) }, 'PRIMARYSPRINGFM' ); let oldData = { ...ifFunctionOrFuntionStepExists[0] }; const auditObj = await createAuditObject( { ...oldData, AE_UPDATE_ID: USER_ID, AE_UPDATE_TS: formatDateToSQL(new Date()), FUNCTION_UUID: element['FUNCTION_UUID'], }, 'Update', oldData, USER_ID ); await serviceOrchestrator.insert( getInsertAuditQuery(auditObj), auditObj, 'PRIMARYSPRINGFM_AUDIT', 'AE_AUDIT_UUID' ); } } } } msg.payload['result'] = mode; node.send(msg); } catch (t) { console.log('Error Occurred', t.message); return; }",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 540,
+    "y": 120,
+    "wires": [["5d38e157.b4c8f"]]
+  },
+  {
+    "id": "5d38e157.b4c8f",
+    "type": "toPhysicalData",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Transform To Physical Data",
+    "outputs": 1,
+    "x": 600,
+    "y": 140,
+    "wires": [["166e2a96.294bc5"]]
+  },
+  {
+    "id": "166e2a96.294bc5",
+    "type": "setMasterEntity",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Set Master Physical Entity",
+    "outputs": 1,
+    "x": 890,
+    "y": 140,
+    "wires": [["1ad49873.0d4c38"]]
+  },
+  {
+    "id": "1ad49873.0d4c38",
+    "type": "processPhysicalData",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Process Physical Data",
+    "outputs": 1,
+    "x": 240,
+    "y": 220,
+    "wires": [["e45d0331.61ce"]]
+  },
+  {
+    "id": "7f91accc.d5e744",
+    "type": "processActivityTracking",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Process Activity Tracking",
+    "outputs": 1,
+    "x": 790,
+    "y": 220,
+    "wires": [["82b2328.c756dd"]]
+  },
+  {
+    "id": "e45d0331.61ce",
+    "type": "processAuditData",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Process Audit",
+    "outputs": 1,
+    "x": 500,
+    "y": 220,
+    "wires": [["zxcbnh.61ce"]]
+  },
+  {
+    "id": "zxcbnh.61ce",
+    "type": "addTransactionDetails",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Process Transaction Detail Queue",
+    "outputs": 1,
+    "x": 500,
+    "y": 220,
+    "wires": [["d07304729.54622"]]
+  },
+  {
+    "id": "d07304729.54622",
+    "type": "function",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Set mode to Update",
+    "func": " msg.payload.result = { mode: 'Enable Message', message: 'Data Sync Completed.' }; node.send(msg);",
+    "outputs": 1,
+    "noerr": 0,
+    "x": 540,
+    "y": 120,
+    "wires": [["82b2328.c756ee"]]
+  },
+  {
+    "id": "82b2328.c756ee",
+    "type": "finish",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Success Response",
+    "property": "payload",
+    "propertyType": "msg",
+    "outputs": 1,
+    "x": 983,
+    "y": 280,
+    "wires": []
+  },
+  {
+    "id": "a169b948.7886b8",
+    "type": "catch",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Catch Exceptions",
+    "scope": null,
+    "uncaught": false,
+    "x": 240,
+    "y": 420,
+    "wires": [["23475cdd.0dcf24"]]
+  },
+  {
+    "id": "23475cdd.0dcf24",
+    "type": "finish",
+    "z": "757f14b2-28ff-4331-a6b9-8eb534ae1a00",
+    "name": "Catch Finish",
+    "property": "payload",
+    "propertyType": "msg",
+    "outputs": 1,
+    "x": 460,
+    "y": 420,
+    "wires": []
+  }
+]

@@ -1,20 +1,25 @@
-debugger;
 try {
   function formatDuration(seconds) {
     if (!seconds || isNaN(Number(seconds))) {
       return '00:00:00';
     }
-
     const totalSeconds = Math.ceil(Number(seconds));
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const secs = totalSeconds % 60;
-
     const pad = (num) => String(num).padStart(2, '0');
-
     return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
   }
-
+  function formatDurationShort(seconds) {
+    if (!seconds || isNaN(Number(seconds))) {
+      return '00:00';
+    }
+    const totalSeconds = Math.ceil(Number(seconds));
+    const minutes = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    const pad = (num) => String(num).padStart(2, '0');
+    return `${minutes < 10 ? pad(minutes) : minutes}:${pad(secs)}`;
+  }
   AppengProcessConfig = global.get('AppengProcessConfig');
   const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
   let queryData = [];
@@ -25,9 +30,9 @@ try {
   }
   let selectQuery;
   if (input['RUN_AUTOMATION_SOURCE_TYPE'] == 'NAVIGATION_STEPS') {
-    selectQuery = ` SELECT 'TEST_CASE' AS GRID_NAME,'VIEW_NAVIGATION' AS DOWNLOAD_NAME, :RUN_AUTOMATION_SOURCE_TYPE as RUN_AUTOMATION_SOURCE_TYPE, max(p.PAGE_ID) AS PAGE_ID, max(p.PAGE_NAME) AS PAGE_NAME, max(pv.VIEW_NAME) AS VIEW_NAME, max(ted.TEST_RUN_UUID) AS TEST_RUN_UUID, max(ted.TEST_CASE_UUID) AS TEST_CASE_UUID, max(ted.TEST_EXECUTION_DETAIL_UUID) AS TEST_EXECUTION_DETAIL_UUID, ted.TEST_SET_UUID, MAX(ted.TEST_CASE_EXECUTION_DATE) AS EXECUTED_ON, ROUND(MAX(ted.TEST_CASE_DURATION / 1000.0), 3) AS EXECUTION_DURATION, MAX(ted.TEST_CASE_EXECUTION_STATUS) AS EXECUTION_STATUS FROM TEST_EXECUTION_DETAIL ted JOIN PAGE_VIEW pv ON ted.TEST_CASE_UUID = pv.VIEW_UUID AND ted.TEST_SET_UUID = pv.PAGE_UUID JOIN PAGE p ON p.PAGE_UUID = pv.PAGE_UUID WHERE ted.TEST_RUN_UUID = :TEST_RUN_UUID AND ted.FUNCTIONAL_AREA_UUID = :FUNCTIONAL_AREA_UUID GROUP BY ted.TEST_SET_UUID ORDER BY EXECUTED_ON DESC;`;
+    selectQuery = ` SELECT uuid() as DATA_UNIQUE_UUID,'TEST_CASE' AS GRID_NAME,'VIEW_NAVIGATION' AS DOWNLOAD_NAME, :RUN_AUTOMATION_SOURCE_TYPE as RUN_AUTOMATION_SOURCE_TYPE, max(p.PAGE_ID) AS PAGE_ID, max(p.PAGE_NAME) AS PAGE_NAME, max(pv.VIEW_NAME) AS VIEW_NAME, max(ted.TEST_RUN_UUID) AS TEST_RUN_UUID, max(ted.TEST_CASE_UUID) AS TEST_CASE_UUID, max(ted.TEST_EXECUTION_DETAIL_UUID) AS TEST_EXECUTION_DETAIL_UUID, ted.TEST_SET_UUID, MAX(ted.TEST_CASE_EXECUTION_DATE) AS EXECUTED_ON, ROUND(MAX(ted.TEST_CASE_DURATION / 1000.0), 3) AS EXECUTION_DURATION, MAX(ted.TEST_CASE_EXECUTION_STATUS) AS EXECUTION_STATUS FROM TEST_EXECUTION_DETAIL ted JOIN PAGE_VIEW pv ON ted.TEST_CASE_UUID = pv.VIEW_UUID AND ted.TEST_SET_UUID = pv.PAGE_UUID JOIN PAGE p ON p.PAGE_UUID = pv.PAGE_UUID WHERE ted.TEST_RUN_UUID = :TEST_RUN_UUID AND ted.FUNCTIONAL_AREA_UUID = :FUNCTIONAL_AREA_UUID GROUP BY ted.TEST_SET_UUID ORDER BY EXECUTED_ON DESC;`;
     queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
-    const filteredData = queryData.map((data) => ({ ...data, EXECUTION_DURATION: formatDuration(data.EXECUTION_DURATION) }));
+    const filteredData = queryData.map((data) => ({ ...data, EXECUTION_DURATION: formatDurationShort(data.EXECUTION_DURATION) }));
     queryData = filteredData;
   } else if (input['PARENT_GRID_NAME'] == 'TEST_RUN') {
     selectQuery = `SELECT 'TEST_SUITE' AS GRID_NAME,'Yes' as 'IsGridAccessible', uuid() as DATA_UNIQUE_UUID, ted.TEST_RUN_UUID, ts.TEST_SUITE_UUID, ts.TEST_SUITE_ID, ts.TEST_SUITE_NAME, ted.TEST_SUITE_EXECUTION_DATE, ROUND(ted.TEST_SUITE_DURATION / 1000.0, 3) AS TEST_SUITE_DURATION, ted.TEST_SUITE_EXECUTION_STATUS FROM TEST_EXECUTION_DETAIL ted JOIN TEST_SUITE ts ON ted.TEST_SUITE_UUID = ts.TEST_SUITE_UUID WHERE ted.TEST_RUN_UUID=:TEST_RUN_UUID GROUP BY ted.TEST_RUN_UUID, ts.TEST_SUITE_UUID, ts.TEST_SUITE_ID, ts.TEST_SUITE_NAME, ted.TEST_SUITE_EXECUTION_DATE, ted.TEST_SUITE_DURATION, ted.TEST_SUITE_EXECUTION_STATUS ORDER BY ted.TEST_SUITE_EXECUTION_DATE ASC;`;
@@ -60,6 +65,7 @@ try {
     const filteredData = queryData.map((data) => ({ ...data, TEST_SET_DURATION: formatDuration(data.TEST_SET_DURATION) }));
     queryData = filteredData;
   } else if (input['PARENT_GRID_NAME'] === 'TEST_SET') {
+    debugger;
     console.log('running TEST_CASE query');
     if (input['selectedTestSet'] && input['selectedTestSet'] != 'null') {
       if (!input['TEST_RUN_UUID']) {
@@ -92,12 +98,13 @@ try {
         selectQuery = `SELECT 'TEST_CASE' AS GRID_NAME, 'TEST_CASE' AS DOWNLOAD_NAME ,uuid() AS DATA_UNIQUE_UUID, tc.TEST_CASE_UUID, tc.TEST_CASE_ID, ted.TEST_RUN_UUID, tc.TEST_CASE_NAME, ted.TEST_CASE_EXECUTION_DATE, ted.TEST_SUITE_UUID, ted.TEST_CASE_EXECUTION_STATUS, ROUND(ted.TEST_CASE_DURATION / 1000.0, 3) AS TEST_CASE_DURATION, ted.TEST_SET_UUID FROM TEST_EXECUTION_DETAIL ted JOIN TEST_CASE tc ON ted.TEST_CASE_UUID = tc.TEST_CASE_UUID WHERE ted.TEST_RUN_UUID=:TEST_RUN_UUID AND ted.TEST_SET_UUID=:TEST_SET_UUID GROUP BY tc.TEST_CASE_UUID, tc.TEST_CASE_ID, ted.TEST_RUN_UUID, tc.TEST_CASE_NAME, ted.TEST_CASE_EXECUTION_DATE, ted.TEST_SUITE_UUID, ted.TEST_CASE_EXECUTION_STATUS, ted.TEST_CASE_DURATION, ted.TEST_SET_UUID ORDER BY ted.TEST_CASE_EXECUTION_DATE ASC;`;
       }
     }
-    queryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', selectQuery, input);
-    queryData = queryData.map((data) => ({ ...data, TEST_CASE_DURATION: formatDuration(data.TEST_CASE_DURATION) }));
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+    const filteredData = queryData.map((data) => ({ ...data, TEST_CASE_DURATION: formatDurationShort(data.TEST_CASE_DURATION) }));
+    queryData = filteredData;
   } else if (input['PARENT_GRID_NAME'] === 'Function') {
     selectQuery = `SELECT 'TEST_CASE' AS GRID_NAME, 'FUNCTION' AS DOWNLOAD_NAME , uuid() AS DATA_UNIQUE_UUID, MAX(ted.TEST_CASE_EXECUTION_STATUS) AS TEST_CASE_EXECUTION_STATUS, ted.TEST_CASE_UUID, max(fn.FUNCTION_ID) as 'TEST_CASE_STEP_SEQ_ID', MAX(ted.TEST_RUN_UUID) AS TEST_RUN_UUID, MAX(fn.FUNCTION_NAME) AS Function_Name, MAX(TEST_CASE_STEP_EXECUTION_DATE) AS TEST_CASE_STEP_EXECUTION_DATE, ROUND(ted.TEST_CASE_DURATION / 1000.0, 3) AS TEST_CASE_STEP_DURATION, MAX(TEST_CASE_EXECUTION_STATUS) AS TEST_CASE_STEP_EXECUTION_STATUS FROM TEST_EXECUTION_DETAIL ted INNER JOIN featuremanagement_app.FUNCTION fn ON ted.TEST_CASE_UUID = fn.FUNCTION_UUID WHERE ted.TEST_RUN_UUID = :TEST_RUN_UUID GROUP BY ted.TEST_CASE_UUID ORDER BY MAX(ted.TEST_CASE_EXECUTION_DATE) ASC;`;
-    queryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', selectQuery, input);
-    const filteredData = queryData.map((data) => ({ ...data, TEST_CASE_STEP_DURATION: formatDuration(data.TEST_CASE_STEP_DURATION) }));
+    queryData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, selectQuery, input);
+    const filteredData = queryData.map((data) => ({ ...data, TEST_CASE_STEP_DURATION: formatDurationShort(data.TEST_CASE_STEP_DURATION) }));
     queryData = filteredData;
   }
   msg.payload.result = { gridData: queryData };

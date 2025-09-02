@@ -1,4 +1,5 @@
 try {
+  const now = formatDateToSQL(new Date());
   function formatDateToSQL(date) {
     if (!(date instanceof Date)) return null;
     return date.toISOString().slice(0, 23).replace('T', ' ');
@@ -23,16 +24,16 @@ try {
     const seqData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, seqQuery, input);
     if (seqData.length > 0) {
       console.log('Got sequence for table: ✅ ', tableName);
-      return Number(result[0]['MAX_TABLE_SEQ_ID']);
+      return Number(seqData[0]['MAX_TABLE_SEQ_ID']);
     } else {
       console.log('Initializing sequence for table: ✨ ', tableName);
       const obj = {
         TABLE_NAME: tableName,
         MAX_TABLE_SEQ_ID: 0,
         AE_INSERT_ID: USER_ID,
-        AE_INSERT_TS: formatDateToSQL(new Date())
+        AE_INSERT_TS: now
       };
-      await serviceOrchestrator.insert(getInsertQuery(obj), obj, 'PRIMARYSPRINGFM', 'TABLE_NAME');
+      await serviceOrchestrator.insert(getInsertQuery(obj, 'SEQUENCE'), obj, 'PRIMARYSPRINGFM', 'TABLE_NAME');
       return 0;
     }
   };
@@ -61,7 +62,7 @@ try {
     auditObj.AE_OLD_NEW_COMPARISION_DETAILS = JSON.stringify(auditDetails);
     auditObj.AE_AUDIT_UUID = await getNewUUID();
     auditObj.AE_OPERATION_TYPE = operationType;
-    auditObj.AE_TIMESTAMP = formatDateToSQL(new Date());
+    auditObj.AE_TIMESTAMP = now;
     auditObj.OPERATION_PERFORMED_BY = operationPerformedBy;
     return auditObj;
   }
@@ -94,9 +95,9 @@ try {
         TEST_SUITE_CREATION_TYPE: 'System',
         TEST_SUITE_TYPE: 'API',
         AE_INSERT_ID: USER_ID,
-        AE_INSERT_TS: formatDateToSQL(new Date()),
+        AE_INSERT_TS: now,
         AE_UPDATE_ID: USER_ID,
-        AE_UPDATE_TS: formatDateToSQL(new Date()),
+        AE_UPDATE_TS: now,
         AE_TRANSACTION_ID: await getNewUUID()
       };
       await serviceOrchestrator.insert(
@@ -114,7 +115,7 @@ try {
       currentSuiteUUID = currSuite.TEST_SUITE_UUID;
     }
 
-    const apiQuery = `SELECT API_UUID, API_NAME, FUNCTIONAL_AREA_UUID FROM API_NEW WHERE FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas})`;
+    const apiQuery = `SELECT API_UUID, API_NAME, FUNCTIONAL_AREA_UUID FROM API_NEW WHERE FUNCTIONAL_AREA_UUID = '${funcAreaId}'`;
     const apiData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', apiQuery, input);
     for (const api of apiData) {
       const { API_UUID, API_NAME, FUNCTIONAL_AREA_UUID } = api;
@@ -135,7 +136,7 @@ try {
           API_UUID,
           FUNCTIONAL_AREA_UUID: funcAreaId,
           AE_INSERT_ID: USER_ID,
-          AE_INSERT_TS: formatDateToSQL(new Date()),
+          AE_INSERT_TS: now,
           AE_TRANSACTION_ID: await getNewUUID()
         };
         await serviceOrchestrator.insert(
@@ -165,7 +166,7 @@ try {
           TEST_SET_UUID,
           FUNCTIONAL_AREA_UUID: funcAreaId,
           AE_INSERT_ID: USER_ID,
-          AE_INSERT_TS: formatDateToSQL(new Date()),
+          AE_INSERT_TS: now,
           AE_TRANSACTION_ID: await getNewUUID()
         };
         await serviceOrchestrator.insert(

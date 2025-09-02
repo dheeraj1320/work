@@ -1,68 +1,216 @@
 try {
+  function formatDateToSQL(date) {
+    if (!(date instanceof Date)) return null;
+    return date.toISOString().slice(0, 23).replace('T', ' ');
+  }
+  const getInsertAuditQuery = (auditObj, auditTable) => {
+    const fields = Object.keys(auditObj);
+    const values = fields.map((field) => `:${field}`);
+    return `INSERT INTO ${auditTable} (${fields.join(', ')}) VALUES (${values.join(', ')});`;
+  };
   const AppengProcessConfig = global.get('AppengProcessConfig');
   const serviceOrchestrator = AppengProcessConfig.serviceOrchestrator;
-  let input = msg.payload.apiRequestBody;
-  if (input[0]['PAGE_UUID']) {
-    let data =
-      input[0]['UI_ELEMENT_STEP_FILTER_TYPE'] == 'User Input' ? `'Input/Output','Input'` : `'Input/Output','Output'`;
-    let dataForVerbage =
-      input[0]['UI_ELEMENT_STEP_FILTER_TYPE'] == 'User Input' ? `'Input Step'` : `'Expected Result Step'`;
-    let stepDefTemplateVerbaleQuery = '';
-    stepDefTemplateVerbaleQuery =
-      input[0]['UI_ELEMENT_STEP_FILTER_TYPE'] == 'User Input'
-        ? `SELECT * FROM STEP_DEFINITION_TEMPLATE_VERBIAGE WHERE STEP_FILTER=${dataForVerbage} AND IS_ACTIVE_STEP_DEFINITION_TEMPLATE_VERBIAGE='Yes'`
-        : `SELECT * FROM STEP_DEFINITION_TEMPLATE_VERBIAGE SDTV INNER JOIN STEP_DEFINITION_ATTRIBUTE SDA ON SDTV.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID = SDA.STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID WHERE SDTV.STEP_FILTER=${dataForVerbage} AND SDTV.IS_ACTIVE_STEP_DEFINITION_TEMPLATE_VERBIAGE='Yes' AND SDA.STEP_DEFINITION_ATTRIBUTE_MASTER_UUID='adcf6e25-f890-476c-bdcf-e723c6d7894c'`;
-    let uiElementQuery = `SELECT UI_ELEMENT_UUID, UI_ELEMENT_TYPE FROM UI_ELEMENT WHERE PAGE_NEW_UUID='${input[0]['PAGE_UUID']}' AND FUNCTIONAL_AREA_UUID='${input[0]['APP_LOGGED_IN_FUNTIONAL_AREA_ID']}' AND UI_ELEMENT_MODE IN (${data})`;
-    let uiElementQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
-      'PRIMARYSPRINGFM',
-      uiElementQuery,
-      input
-    );
-    let stepDefTemplateVerbaleQueryData = await serviceOrchestrator.selectRecordsUsingQuery(
-      'PRIMARYSPRINGFM',
-      stepDefTemplateVerbaleQuery,
-      input
-    );
-    input[0]['count'] = 0;
-    for (let element of uiElementQueryData) {
-      let uiElementTypeQuery = `SELECT UI_ELEMENT_TYPE_NAME FROM UI_ELEMENT_TYPE_MASTER WHERE UI_ELEMENT_TYPE_UUID='${element['UI_ELEMENT_TYPE']}'`;
-      let uiElementTypeQueryData = await serviceOrchestrator.selectSingleRecordUsingQuery(
-        'PRIMARYSPRINGFM',
-        uiElementTypeQuery,
-        input
-      );
-      for (let verbale of stepDefTemplateVerbaleQueryData) {
-        if (
-          input[0]['UI_ELEMENT_STEP_FILTER_TYPE'] === 'User Input' &&
-          uiElementTypeQueryData['UI_ELEMENT_TYPE_NAME'] === verbale['APPLICABLE_UI_ELEMENT_TYPE']
-        ) {
-          input[0]['count'] = input[0]['count'] + 1;
-        } else if (input[0]['UI_ELEMENT_STEP_FILTER_TYPE'] !== 'User Input') {
-          input[0]['count'] = input[0]['count'] + 1;
+  let input = msg.payload.apiRequestBody.baseEntity.records[0];
+  const USER_ID = input.APP_LOGGED_IN_USER_ID;
+  let mode = { mode: 'Enable Message', message: 'Data Sync Completed.' };
+  async function getNewUUID() {
+    const uuidQuery = `SELECT uuid() AS UNIQUE_UUID;`;
+    const uuidData = await serviceOrchestrator.selectRecordsUsingQuery(`PRIMARYSPRINGFM`, uuidQuery, input);
+    return uuidData[0].UNIQUE_UUID;
+  }
+  async function createAuditObject(newObject, operationType = 'Insert', oldObject = null, operationPerformedBy = USER_ID) {
+    const auditObj = { ...newObject };
+    let auditDetails = {};
+    if (operationType === 'Insert') {
+      for (let key of Object.keys(newObject)) {
+        auditDetails[key] = { oldValue: null, newValue: newObject[key] };
+      }
+    } else if (operationType === 'Update') {
+      if (!oldObject) throw new Error('oldObject must be provided for Update operation.');
+      for (let key of Object.keys(newObject)) {
+        const oldVal = oldObject[key];
+        const newVal = newObject[key];
+        if (oldVal !== newVal) {
+          auditDetails[key] = { oldValue: oldVal, newValue: newVal };
         }
       }
     }
-    if (input[0]['count'] == 0) {
-      msg.payload.result = { mode: 'Enable Message', code: 406 };
-      msg.payload.result.errors = [
-        {
-          message: 'UI Element Group Cannot be Created For this Group',
-          reason: 'Message below form field',
-          warningMessage: '',
-          location: '2f7b9034-b7e9-4210-abc5-2f048d545f5d=>0=>PAGE_UUID',
-        },
-      ];
-    } else {
-      input[0]['IsEnable'] = 'Hello';
-      msg.payload.result = { formData: input };
-    }
-  } else {
-    input[0]['IsEnable'] = 'Hello';
-    msg.payload.result = { formData: input };
+    auditObj.AE_OLD_NEW_COMPARISION_DETAILS = JSON.stringify(auditDetails);
+    auditObj.AE_AUDIT_UUID = await getNewUUID();
+    auditObj.AE_OPERATION_TYPE = operationType;
+    auditObj.AE_TIMESTAMP = formatDateToSQL(new Date());
+    auditObj.OPERATION_PERFORMED_BY = operationPerformedBy;
+    return auditObj;
   }
+  const selectedFunctionalAreas = input.SELECTED_FUNCTIONAL_AREAS
+    ? input.SELECTED_FUNCTIONAL_AREAS.split(',')
+        .map((area) => `'${area.trim()}'`)
+        .join(',')
+    : `''`;
+  const entries = [
+    { uuid: '46079c9d-4ddc-11f0-a5ca-02a48541b261', area: '0b9a22a2-a490-4474-9fd5-6fe79b38a419' },
+    { uuid: '46079d12-4ddc-11f0-a5ca-02a48541b261', area: '0cf4bf15-811c-4617-8ad8-40b574c94043' },
+    { uuid: '46079d54-4ddc-11f0-a5ca-02a48541b261', area: '13a1ce59-8f75-4692-bde9-50be897f2eea' },
+    { uuid: '46079d91-4ddc-11f0-a5ca-02a48541b261', area: '22b06f3e-4277-4d54-8f85-3d3809c053f5' },
+    { uuid: '46079daa-4ddc-11f0-a5ca-02a48541b261', area: '271a647f-ca81-11ee-89d8-0a8d0133dbd7' },
+    { uuid: '46079dda-4ddc-11f0-a5ca-02a48541b261', area: '2e850899-ca81-11ee-89d8-0a8d0133dbd7' },
+    { uuid: '46079dfe-4ddc-11f0-a5ca-02a48541b261', area: '3537b0ff-ca81-11ee-89d8-0a8d0133dbd7' },
+    { uuid: '46079e15-4ddc-11f0-a5ca-02a48541b261', area: '3537b0ff-ca81-12ee-89d8-0a8d0133dbd7' },
+    { uuid: '46079e30-4ddc-11f0-a5ca-02a48541b261', area: '3537b0ff-ca81-13ee-89d8-0a8d0133dbd7' },
+    { uuid: '46079e46-4ddc-11f0-a5ca-02a48541b261', area: '3537b0ff-ca81-14ee-89d8-0a8d0133dbd7' },
+    { uuid: '46079ebf-4ddc-11f0-a5ca-02a48541b261', area: '559ae7ec-db4b-4989-8911-5989043478b3' },
+    { uuid: '46079efc-4ddc-11f0-a5ca-02a48541b261', area: '7c1b0dc1-b2f6-4799-9508-0870ed7acb37' },
+    { uuid: '46079f16-4ddc-11f0-a5ca-02a48541b261', area: '9090a08c-bf28-425b-b1fd-c364ba668451' },
+    { uuid: '46079f30-4ddc-11f0-a5ca-02a48541b261', area: '90a54187-58d5-4eb6-838b-a98b4eb6766b' },
+    { uuid: '46079f62-4ddc-11f0-a5ca-02a48541b261', area: '9d32e702-8921-4707-ab91-5f3b0c2e8dac' },
+    { uuid: '46079f8a-4ddc-11f0-a5ca-02a48541b261', area: 'acb2e581-6178-4afe-bba3-c348ade65dd2' },
+    { uuid: '46079fcb-4ddc-11f0-a5ca-02a48541b261', area: 'c126381e-dfe1-4b36-b738-3a33ba2c9633' },
+    { uuid: '4607a005-4ddc-11f0-a5ca-02a48541b261', area: 'cd49ab48-b931-4a19-90dc-98e026406d0d' },
+    { uuid: '4607a020-4ddc-11f0-a5ca-02a48541b261', area: 'cff686ee-b117-4b96-95e2-d6bad27cf2e6' },
+    { uuid: '4607a037-4ddc-11f0-a5ca-02a48541b261', area: 'f746e178-7057-4b3d-9771-6bd8aed8a3be' },
+    { uuid: '4607a074-4ddc-11f0-a5ca-02a48541b261', area: 'ff75d601-2473-4cc8-875a-a4e46caabbc0' }
+  ];
+  const existingSuites = await serviceOrchestrator.selectRecordsUsingQuery(
+    'PRIMARYSPRINGFM',
+    `SELECT TEST_SUITE_UUID FROM TEST_SUITE WHERE TEST_SUITE_CREATION_TYPE = 'System' AND TEST_SUITE_TYPE = 'API'`,
+    input
+  );
+  const existingSuiteUUIDs = new Set((existingSuites || []).map((row) => row.TEST_SUITE_UUID));
+  for (const entry of entries) {
+    if (existingSuiteUUIDs.has(entry.uuid)) {
+      console.log(`TEST_SUITE exists: ${entry.uuid}, skipping.`);
+      continue;
+    }
+    const maxSuiteIdArr = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', 'SELECT COALESCE(MAX(TEST_SUITE_ID),0) AS maxId FROM TEST_SUITE;', input);
+    const TEST_SUITE_ID = Number(maxSuiteIdArr[0].maxId) + 1;
+    const TEST_SUITE_NAME = 'API Test Suite';
+    const TEST_SUITE_CREATION_TYPE = 'System';
+    const TEST_SUITE_TYPE = 'API';
+    const AE_TRANSACTION_ID = await getNewUUID();
+    const newSuite = {
+      TEST_SUITE_UUID: entry.uuid,
+      TEST_SUITE_ID,
+      TEST_SUITE_NAME,
+      FUNCTIONAL_AREA_UUID: entry.area,
+      TEST_SUITE_CREATION_TYPE,
+      TEST_SUITE_TYPE,
+      AE_INSERT_ID: USER_ID,
+      AE_INSERT_TS: formatDateToSQL(new Date()),
+      AE_UPDATE_ID: USER_ID,
+      AE_UPDATE_TS: formatDateToSQL(new Date()),
+      AE_TRANSACTION_ID
+    };
+    await serviceOrchestrator.insert(
+      `INSERT INTO TEST_SUITE (${Object.keys(newSuite).join(', ')}) VALUES (${Object.keys(newSuite)
+        .map((k) => `:${k}`)
+        .join(', ')})`,
+      newSuite,
+      'PRIMARYSPRINGFM',
+      'TEST_SUITE_UUID'
+    );
+    console.log(`Inserted TEST_SUITE with Audit: ${entry.uuid}`);
+    const suiteAudit = await createAuditObject(newSuite, 'Insert', null, USER_ID);
+    await serviceOrchestrator.insert(getInsertAuditQuery(suiteAudit, 'TEST_SUITE_AUDIT'), suiteAudit, 'PRIMARYSPRINGFM_AUDIT', 'AE_AUDIT_UUID');
+  }
+  const selectedFunctionalAreasArr = input.SELECTED_FUNCTIONAL_AREAS ? input.SELECTED_FUNCTIONAL_AREAS.split(',').map((area) => area.trim()) : [];
+  let functionalAreaToSuiteUUID = {};
+  if (selectedFunctionalAreasArr.length > 0) {
+    const suiteRows = await serviceOrchestrator.selectRecordsUsingQuery(
+      'PRIMARYSPRINGFM',
+      `SELECT FUNCTIONAL_AREA_UUID, TEST_SUITE_UUID FROM TEST_SUITE WHERE TEST_SUITE_CREATION_TYPE = 'System' AND TEST_SUITE_TYPE = 'API' AND FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreasArr
+        .map((a) => `'${a}'`)
+        .join(',')})`,
+      input
+    );
+    for (const row of suiteRows) {
+      functionalAreaToSuiteUUID[row.FUNCTIONAL_AREA_UUID] = row.TEST_SUITE_UUID;
+    }
+  }
+  const apiQuery = ` SELECT API_UUID, API_NAME, FUNCTIONAL_AREA_UUID FROM API_NEW WHERE FUNCTIONAL_AREA_UUID IN (${selectedFunctionalAreas})`;
+  const apis = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', apiQuery, input);
+  let insertCount = 0;
+  for (const api of apis) {
+    const { API_UUID, API_NAME, FUNCTIONAL_AREA_UUID } = api;
+    const testSetQuery = ` SELECT * FROM TEST_SET WHERE API_UUID = '${API_UUID}' AND TEST_SET_TYPE = 'API' `;
+    const existingTestSetArr = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testSetQuery, input);
+    let TEST_SET_UUID;
+    let newTestSet = null;
+    if (existingTestSetArr && existingTestSetArr.length > 0) {
+      TEST_SET_UUID = existingTestSetArr[0].TEST_SET_UUID;
+      console.log(`TEST_SET already exists for API_UUID: ${API_UUID} (${API_NAME}), will check mapping.`);
+    } else {
+      TEST_SET_UUID = await getNewUUID();
+      const API_TRANSACTION_ID = await getNewUUID();
+      const maxTestSetIdArr = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', 'SELECT COALESCE(MAX(TEST_SET_ID),0) AS maxId FROM TEST_SET;', input);
+      const TEST_SET_ID = Number(maxTestSetIdArr[0].maxId) + 1;
+      newTestSet = {
+        TEST_SET_UUID,
+        TEST_SET_ID,
+        TEST_SET_NAME: API_NAME,
+        TEST_SET_TYPE: 'API',
+        API_UUID,
+        FUNCTIONAL_AREA_UUID,
+        AE_INSERT_ID: USER_ID,
+        AE_INSERT_TS: formatDateToSQL(new Date()),
+        AE_UPDATE_ID: USER_ID,
+        AE_UPDATE_TS: formatDateToSQL(new Date()),
+        AE_TRANSACTION_ID: API_TRANSACTION_ID
+      };
+      await serviceOrchestrator.insert(
+        `INSERT INTO TEST_SET (${Object.keys(newTestSet).join(', ')}) VALUES (${Object.keys(newTestSet)
+          .map((k) => `:${k}`)
+          .join(', ')})`,
+        newTestSet,
+        'PRIMARYSPRINGFM',
+        'TEST_SET_UUID'
+      );
+      console.log(`Inserted TEST_SET and Audit for API: ${API_NAME} (${API_UUID})`);
+      const testSetAudit = await createAuditObject(newTestSet, 'Insert', null, USER_ID);
+      await serviceOrchestrator.insert(getInsertAuditQuery(testSetAudit, 'TEST_SET_AUDIT'), testSetAudit, 'PRIMARYSPRINGFM_AUDIT', 'AE_AUDIT_UUID');
+    }
+    const TARGET_TEST_SUITE_UUID = functionalAreaToSuiteUUID[FUNCTIONAL_AREA_UUID];
+    if (!TARGET_TEST_SUITE_UUID) {
+      console.log(`No TEST_SUITE_UUID found for FUNCTIONAL_AREA_UUID: ${FUNCTIONAL_AREA_UUID}, skipping TEST_SUITE_TEST_SET.`);
+      continue;
+    }
+    const suiteTestSetQuery = ` SELECT * FROM TEST_SUITE_TEST_SET WHERE TEST_SUITE_UUID = '${TARGET_TEST_SUITE_UUID}' AND TEST_SET_UUID = '${TEST_SET_UUID}' `;
+    const existingSuiteTestSetArr = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', suiteTestSetQuery, input);
+    if (existingSuiteTestSetArr && existingSuiteTestSetArr.length > 0) {
+      console.log(`TEST_SUITE_TEST_SET already exists for TEST_SET_UUID: ${TEST_SET_UUID}, skipping mapping.`);
+      continue;
+    }
+    const TEST_SUITE_TEST_SET_UUID = await getNewUUID();
+    const SUITE_MAPPING_TRANSACTION_ID = await getNewUUID();
+    const maxSuiteTestSetIdArr = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', 'SELECT COALESCE(MAX(TEST_SUITE_TEST_SET_ID),0) AS maxId FROM TEST_SUITE_TEST_SET;', input);
+    const TEST_SUITE_TEST_SET_ID = Number(maxSuiteTestSetIdArr[0].maxId) + 1;
+    const testSuiteTestSet = {
+      TEST_SUITE_TEST_SET_UUID,
+      TEST_SUITE_TEST_SET_ID,
+      TEST_SUITE_UUID: TARGET_TEST_SUITE_UUID,
+      TEST_SET_UUID,
+      FUNCTIONAL_AREA_UUID,
+      AE_INSERT_ID: USER_ID,
+      AE_INSERT_TS: formatDateToSQL(new Date()),
+      AE_UPDATE_ID: USER_ID,
+      AE_UPDATE_TS: formatDateToSQL(new Date()),
+      AE_TRANSACTION_ID: SUITE_MAPPING_TRANSACTION_ID
+    };
+    await serviceOrchestrator.insert(
+      `INSERT INTO TEST_SUITE_TEST_SET (${Object.keys(testSuiteTestSet).join(', ')}) VALUES (${Object.keys(testSuiteTestSet)
+        .map((k) => `:${k}`)
+        .join(', ')})`,
+      testSuiteTestSet,
+      'PRIMARYSPRINGFM',
+      'TEST_SUITE_TEST_SET_UUID'
+    );
+    console.log(`Inserted TEST_SUITE_TEST_SET and Audit for API: ${API_NAME}`);
+    const suiteAudit = await createAuditObject(testSuiteTestSet, 'Insert', null, USER_ID);
+    await serviceOrchestrator.insert(getInsertAuditQuery(suiteAudit, 'TEST_SUITE_TEST_SET_AUDIT'), suiteAudit, 'PRIMARYSPRINGFM_AUDIT', 'AE_AUDIT_UUID');
+    insertCount++;
+  }
+  msg.payload['result'] = mode;
   node.send(msg);
-  console.log('#########', input);
-} catch (e) {
-  console.log('Error occurred:', e.message);
+} catch (t) {
+  console.log('Error Occurred', t.message);
   return;
 }

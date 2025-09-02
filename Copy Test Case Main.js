@@ -2272,43 +2272,7 @@ if (input.compositeEntityAction != "UploadAttachment") {
           }
 
           if (data['IS_UI_ELEMENT_GROUP_STEP'] == 'No' && data['IS_FUNCTION_STEP'] == 'No') {
-            let viewNavStepId = uuid();
-
-            let viewNavStepObj = {
-              VIEW_NAVIGATION_STEP_UUID: viewNavStepId,
-              VIEW_NAVIGATION_STEP_NAME: data['TEST_CASE_STEP_NAME'],
-              STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID: data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'],
-              VIEW_NAVIGATION_STEP_TYPE: data['TEST_CASE_STEP_TYPE'] && data['TEST_CASE_STEP_TYPE'] == 'Data' ? 'Given' : data['TEST_CASE_STEP_TYPE'],
-              VIEW_NAVIGATION_STEP_SEQ_ID: count,
-              CURRENT_PAGE_CONTEXT: data['CURRENT_PAGE_CONTEXT'],
-              NEXT_PAGE_CONTEXT: data['NEXT_PAGE_CONTEXT'],
-              VIEW_UUID: destinationViewId,
-              FUNCTIONAL_AREA_UUID: data['FUNCTIONAL_AREA_UUID'],
-              IS_ANY_VALUE_CHANGED: 'Yes'
-            };
-            count++;
-            viewNavigationStepList.push(viewNavStepObj);
-
-            const testCaseStepAttributeValueQuery = `SELECT * FROM TEST_CASE_STEP_ATTRIBUTE_VALUE where TEST_CASE_STEP_UUID in(${existingTestCaseStepId}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
-            let testCaseStepAttributeValueQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseStepAttributeValueQuery, input);
-
-            for (let attribute of testCaseStepAttributeValueQueryData) {
-              let viewNavStepAttrId = uuid();
-
-              let viewNavStepAttrObject = {
-                VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID: viewNavStepAttrId,
-                STEP_DEFINITION_ATTRIBUTE_UUID: attribute['STEP_DEFINITION_ATTRIBUTE_UUID'],
-                VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA: await setAttributeValue(attribute['SCOPE_VARIABLE_UUID'], attribute['TEST_CASE_STEP_ATTRIBUTE_DATA']),
-                VIEW_NAVIGATION_STEP_UUID: viewNavStepId,
-                VIEW_UUID: destinationViewId,
-                FUNCTIONAL_AREA_UUID: attribute['FUNCTIONAL_AREA_UUID'],
-                PRE_DEFINED_VALUES_UUID: attribute['PRE_DEFINED_VALUES_UUID'],
-                EXISTING_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID: attribute['TEST_CASE_STEP_ATTRIBUTE_VALUE_UUID'],
-                IS_ANY_VALUE_CHANGED: 'Yes'
-              };
-              viewNavigationStepAttributeList.push(viewNavStepAttrObject);
-            }
-
+            
             if (data['IS_PURE_NAVIGATION_STEP'] && data['IS_PURE_NAVIGATION_STEP'] == 'Yes') {
 
               const testCaseNavigationQuery = `SELECT * FROM TEST_CASE_VIEW_NAVIGATION_STEP where TEST_CASE_STEP_UUID in(${existingTestCaseStepId}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND FUNCTION_UUID IS NULL AND FUNCTION_STEP_UUID IS NULL order by TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID asc`;
@@ -2396,6 +2360,45 @@ if (input.compositeEntityAction != "UploadAttachment") {
                 }
               }
             }
+            else {
+              let viewNavStepId = uuid();
+
+              let viewNavStepObj = {
+                VIEW_NAVIGATION_STEP_UUID: viewNavStepId,
+                VIEW_NAVIGATION_STEP_NAME: data['TEST_CASE_STEP_NAME'],
+                STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID: data['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'],
+                VIEW_NAVIGATION_STEP_TYPE: data['TEST_CASE_STEP_TYPE'] && data['TEST_CASE_STEP_TYPE'] == 'Data' ? 'Given' : data['TEST_CASE_STEP_TYPE'],
+                VIEW_NAVIGATION_STEP_SEQ_ID: count,
+                CURRENT_PAGE_CONTEXT: data['CURRENT_PAGE_CONTEXT'],
+                NEXT_PAGE_CONTEXT: data['NEXT_PAGE_CONTEXT'],
+                VIEW_UUID: destinationViewId,
+                FUNCTIONAL_AREA_UUID: data['FUNCTIONAL_AREA_UUID'],
+                IS_ANY_VALUE_CHANGED: 'Yes'
+              };
+              count++;
+              viewNavigationStepList.push(viewNavStepObj);
+
+              const testCaseStepAttributeValueQuery = `SELECT * FROM TEST_CASE_STEP_ATTRIBUTE_VALUE where TEST_CASE_STEP_UUID in(${existingTestCaseStepId}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+              let testCaseStepAttributeValueQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseStepAttributeValueQuery, input);
+
+              for (let attribute of testCaseStepAttributeValueQueryData) {
+                let viewNavStepAttrId = uuid();
+
+                let viewNavStepAttrObject = {
+                  VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID: viewNavStepAttrId,
+                  STEP_DEFINITION_ATTRIBUTE_UUID: attribute['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                  VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA: await setAttributeValue(attribute['SCOPE_VARIABLE_UUID'], attribute['TEST_CASE_STEP_ATTRIBUTE_DATA']),
+                  VIEW_NAVIGATION_STEP_UUID: viewNavStepId,
+                  VIEW_UUID: destinationViewId,
+                  FUNCTIONAL_AREA_UUID: attribute['FUNCTIONAL_AREA_UUID'],
+                  PRE_DEFINED_VALUES_UUID: attribute['PRE_DEFINED_VALUES_UUID'],
+                  EXISTING_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID: attribute['TEST_CASE_STEP_ATTRIBUTE_VALUE_UUID'],
+                  IS_ANY_VALUE_CHANGED: 'Yes'
+                };
+                viewNavigationStepAttributeList.push(viewNavStepAttrObject);
+              }
+
+            }
           } else if (data['IS_UI_ELEMENT_GROUP_STEP'] == 'No' && data['IS_FUNCTION_STEP'] == 'Yes') {
 
             const testCaseFunctionStepQuery = `SELECT * FROM TEST_CASE_FUNCTION_STEP where TEST_CASE_STEP_UUID in(${
@@ -2408,7 +2411,7 @@ if (input.compositeEntityAction != "UploadAttachment") {
 
             if (functionStepData && functionStepData.length) {
               for (let fsData of functionStepData) {
-                let viewNavStepId3 = uuid();
+
 
                 const existingFunctionStep = testCaseFunctionStepData.find((step) => step.FUNCTION_STEP_UUID === fsData['FUNCTION_STEP_UUID']);
 
@@ -2418,79 +2421,6 @@ if (input.compositeEntityAction != "UploadAttachment") {
 
                 let existingFuncStepId = `'${fsData['FUNCTION_STEP_UUID']}'`;
                 let existingTestCaseFunctionStepId = existingFunctionStep ? `'${existingFunctionStep['TEST_CASE_FUNCTION_STEP_UUID']}'` : `''`;
-
-                if (existingFunctionStep && Object.keys(existingFunctionStep).length > 0) {
-                  let viewNavStepObj3 = {
-                    VIEW_NAVIGATION_STEP_UUID: viewNavStepId3,
-                    VIEW_UUID: destinationViewId,
-                    VIEW_NAVIGATION_STEP_NAME: existingFunctionStep['TEST_CASE_FUNCTION_STEP_NAME'],
-                    STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID: existingFunctionStep['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'],
-                    CURRENT_PAGE_CONTEXT: existingFunctionStep['CURRENT_PAGE_CONTEXT'],
-                    VIEW_NAVIGATION_STEP_TYPE: existingFunctionStep['TEST_CASE_FUNCTION_STEP_TYPE'],
-                    NEXT_PAGE_CONTEXT: existingFunctionStep['NEXT_PAGE_CONTEXT'],
-                    VIEW_NAVIGATION_STEP_SEQ_ID: count,
-                    FUNCTIONAL_AREA_UUID: existingFunctionStep['FUNCTIONAL_AREA_UUID'],
-                    IS_ANY_VALUE_CHANGED: 'Yes'
-                  };
-                  viewNavigationStepList.push(viewNavStepObj3);
-                } else {
-                  let viewNavStepObj3 = {
-                    VIEW_NAVIGATION_STEP_UUID: viewNavStepId3,
-                    VIEW_UUID: destinationViewId,
-                    VIEW_NAVIGATION_STEP_NAME: fsData['FUNCTION_STEP_NAME'],
-                    STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID: fsData['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'],
-                    CURRENT_PAGE_CONTEXT: fsData['CURRENT_PAGE_CONTEXT'],
-                    VIEW_NAVIGATION_STEP_TYPE: fsData['FUNCTION_STEP_TYPE'],
-                    NEXT_PAGE_CONTEXT: fsData['NEXT_PAGE_CONTEXT'],
-                    VIEW_NAVIGATION_STEP_SEQ_ID: count,
-                    FUNCTIONAL_AREA_UUID: fsData['FUNCTIONAL_AREA_UUID'],
-                    IS_ANY_VALUE_CHANGED: 'Yes'
-                  };
-                  viewNavigationStepList.push(viewNavStepObj3);
-                }
-                count++;
-
-                const testCaseFunctionStepAttributeValueQuery = `SELECT * FROM TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE where TEST_CASE_FUNCTION_STEP_UUID in (${existingTestCaseFunctionStepId}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
-                let testCaseFunctionStepAttributeValueQueryData = existingTestCaseFunctionStepId
-                  ? await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionStepAttributeValueQuery, input)
-                  : [];
-
-                const funcStepAttributeQuery = `SELECT * FROM FUNCTION_STEP_ATTRIBUTE_VALUE WHERE FUNCTION_STEP_UUID IN (${existingFuncStepId})`;
-                const funcStepAttributeData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', funcStepAttributeQuery, input);
-
-                for (let fsAttrData of funcStepAttributeData) {
-                  let viewNavStepAttrId3 = uuid();
-
-                  const existingAttri = testCaseFunctionStepAttributeValueQueryData.find((attr) => attr.STEP_DEFINITION_ATTRIBUTE_UUID === fsAttrData.STEP_DEFINITION_ATTRIBUTE_UUID);
-
-                  if (existingAttri && Object.keys(existingAttri).length > 0) {
-                    let viewNavStepAttrObject3 = {
-                      VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID: viewNavStepAttrId3,
-                      STEP_DEFINITION_ATTRIBUTE_UUID: existingAttri['STEP_DEFINITION_ATTRIBUTE_UUID'],
-                      VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA: await setAttributeValue(existingAttri['SCOPE_VARIABLE_UUID'], existingAttri['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'] ),
-                      VIEW_NAVIGATION_STEP_UUID: viewNavStepId3,
-                      VIEW_UUID: destinationViewId,
-                      PRE_DEFINED_VALUES_UUID: existingAttri['PRE_DEFINED_VALUES_UUID'],
-                      FUNCTIONAL_AREA_UUID: existingAttri['FUNCTIONAL_AREA_UUID'],
-                      IS_ANY_VALUE_CHANGED: 'Yes',
-                      EXISTING_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID: existingAttri['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE_UUID']                      
-                    };
-                    viewNavigationStepAttributeList.push(viewNavStepAttrObject3);
-                  } else {
-                    let viewNavStepAttrObject3 = {
-                      VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID: viewNavStepAttrId3,
-                      STEP_DEFINITION_ATTRIBUTE_UUID: fsAttrData['STEP_DEFINITION_ATTRIBUTE_UUID'],
-                      VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA:  await setAttributeValue(fsAttrData['SCOPE_VARIABLE_UUID'], fsAttrData['FUNCTION_STEP_ATTRIBUTE_DATA'] ),
-                      VIEW_NAVIGATION_STEP_UUID: viewNavStepId3,
-                      VIEW_UUID: destinationViewId,
-                      PRE_DEFINED_VALUES_UUID: fsAttrData['PRE_DEFINED_VALUES_UUID'],
-                      FUNCTIONAL_AREA_UUID: fsAttrData['FUNCTIONAL_AREA_UUID'],
-                      IS_ANY_VALUE_CHANGED: 'Yes',
-                      EXISTING_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID: fsAttrData['FUNCTION_STEP_ATTRIBUTE_VALUE_UUID']                      
-                    };
-                    viewNavigationStepAttributeList.push(viewNavStepAttrObject3);
-                  }
-                }
 
                 if (fsData['IS_UI_ELEMENT_GROUP_STEP'] == 'Yes') {
                   
@@ -2505,9 +2435,8 @@ if (input.compositeEntityAction != "UploadAttachment") {
                   const uielGs = `SELECT * FROM UI_ELEMENT_GROUP_STEP where UI_ELEMENT_GROUP_UUID = '${fsData['UI_ELEMENT_GROUP_UUID']}' ORDER BY UI_ELEMENT_GROUP_STEP_SEQ_ID ASC`;
                   let uielGsData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', uielGs, input);
 
-              
                 
-                for (let uiel of uielGsData) {
+                  for (let uiel of uielGsData) {
                     let viewNavStepId4 = uuid();
                     
                     const existingTcfugs = testCaseFunctionUIElementGroupStepQueryData.find((tcFugs) => tcFugs.UI_ELEMENT_GROUP_STEP_UUID === uiel.UI_ELEMENT_GROUP_STEP_UUID &&  tcFugs.FUNCTION_STEP_UUID === fsData.FUNCTION_STEP_UUID);
@@ -2625,7 +2554,7 @@ if (input.compositeEntityAction != "UploadAttachment") {
                   }
                 }
 
-                if (fsData['IS_PURE_NAVIGATION_STEP'] && fsData['IS_PURE_NAVIGATION_STEP'] == 'Yes') {
+                else if (fsData['IS_PURE_NAVIGATION_STEP'] && fsData['IS_PURE_NAVIGATION_STEP'] == 'Yes') {
                 
                   const testCaseNavigationQuery = `SELECT * FROM TEST_CASE_VIEW_NAVIGATION_STEP where TEST_CASE_STEP_UUID in(${existingTestCaseStepId}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID AND FUNCTION_STEP_UUID in (${existingFuncStepId}) order by TEST_CASE_VIEW_NAVIGATION_STEP_SEQ_ID asc`;
                   let testCaseNavigationQueryData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseNavigationQuery, input);
@@ -2749,6 +2678,84 @@ if (input.compositeEntityAction != "UploadAttachment") {
                         };
                         viewNavigationStepAttributeList.push(viewNavStepAttrObject5);
                       }
+                    }
+                  }
+                }
+
+                else {
+                  let viewNavStepId3 = uuid();
+
+
+                  if (existingFunctionStep && Object.keys(existingFunctionStep).length > 0) {
+                    let viewNavStepObj3 = {
+                      VIEW_NAVIGATION_STEP_UUID: viewNavStepId3,
+                      VIEW_UUID: destinationViewId,
+                      VIEW_NAVIGATION_STEP_NAME: existingFunctionStep['TEST_CASE_FUNCTION_STEP_NAME'],
+                      STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID: existingFunctionStep['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'],
+                      CURRENT_PAGE_CONTEXT: existingFunctionStep['CURRENT_PAGE_CONTEXT'],
+                      VIEW_NAVIGATION_STEP_TYPE: existingFunctionStep['TEST_CASE_FUNCTION_STEP_TYPE'],
+                      NEXT_PAGE_CONTEXT: existingFunctionStep['NEXT_PAGE_CONTEXT'],
+                      VIEW_NAVIGATION_STEP_SEQ_ID: count,
+                      FUNCTIONAL_AREA_UUID: existingFunctionStep['FUNCTIONAL_AREA_UUID'],
+                      IS_ANY_VALUE_CHANGED: 'Yes'
+                    };
+                    viewNavigationStepList.push(viewNavStepObj3);
+                  } else {
+                    let viewNavStepObj3 = {
+                      VIEW_NAVIGATION_STEP_UUID: viewNavStepId3,
+                      VIEW_UUID: destinationViewId,
+                      VIEW_NAVIGATION_STEP_NAME: fsData['FUNCTION_STEP_NAME'],
+                      STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID: fsData['STEP_DEFINITION_TEMPLATE_VERBIAGE_UUID'],
+                      CURRENT_PAGE_CONTEXT: fsData['CURRENT_PAGE_CONTEXT'],
+                      VIEW_NAVIGATION_STEP_TYPE: fsData['FUNCTION_STEP_TYPE'],
+                      NEXT_PAGE_CONTEXT: fsData['NEXT_PAGE_CONTEXT'],
+                      VIEW_NAVIGATION_STEP_SEQ_ID: count,
+                      FUNCTIONAL_AREA_UUID: fsData['FUNCTIONAL_AREA_UUID'],
+                      IS_ANY_VALUE_CHANGED: 'Yes'
+                    };
+                    viewNavigationStepList.push(viewNavStepObj3);
+                  }
+                  count++;
+
+                  const testCaseFunctionStepAttributeValueQuery = `SELECT * FROM TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE where TEST_CASE_FUNCTION_STEP_UUID in (${existingTestCaseFunctionStepId}) and FUNCTIONAL_AREA_UUID=:APP_LOGGED_IN_FUNTIONAL_AREA_ID`;
+                  let testCaseFunctionStepAttributeValueQueryData = existingTestCaseFunctionStepId
+                    ? await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', testCaseFunctionStepAttributeValueQuery, input)
+                    : [];
+
+                  const funcStepAttributeQuery = `SELECT * FROM FUNCTION_STEP_ATTRIBUTE_VALUE WHERE FUNCTION_STEP_UUID IN (${existingFuncStepId})`;
+                  const funcStepAttributeData = await serviceOrchestrator.selectRecordsUsingQuery('PRIMARYSPRINGFM', funcStepAttributeQuery, input);
+
+                  for (let fsAttrData of funcStepAttributeData) {
+                    let viewNavStepAttrId3 = uuid();
+
+                    const existingAttri = testCaseFunctionStepAttributeValueQueryData.find((attr) => attr.STEP_DEFINITION_ATTRIBUTE_UUID === fsAttrData.STEP_DEFINITION_ATTRIBUTE_UUID);
+
+                    if (existingAttri && Object.keys(existingAttri).length > 0) {
+                      let viewNavStepAttrObject3 = {
+                        VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID: viewNavStepAttrId3,
+                        STEP_DEFINITION_ATTRIBUTE_UUID: existingAttri['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA: await setAttributeValue(existingAttri['SCOPE_VARIABLE_UUID'], existingAttri['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_DATA'] ),
+                        VIEW_NAVIGATION_STEP_UUID: viewNavStepId3,
+                        VIEW_UUID: destinationViewId,
+                        PRE_DEFINED_VALUES_UUID: existingAttri['PRE_DEFINED_VALUES_UUID'],
+                        FUNCTIONAL_AREA_UUID: existingAttri['FUNCTIONAL_AREA_UUID'],
+                        IS_ANY_VALUE_CHANGED: 'Yes',
+                        EXISTING_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID: existingAttri['TEST_CASE_FUNCTION_STEP_ATTRIBUTE_VALUE_UUID']                      
+                      };
+                      viewNavigationStepAttributeList.push(viewNavStepAttrObject3);
+                    } else {
+                      let viewNavStepAttrObject3 = {
+                        VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID: viewNavStepAttrId3,
+                        STEP_DEFINITION_ATTRIBUTE_UUID: fsAttrData['STEP_DEFINITION_ATTRIBUTE_UUID'],
+                        VIEW_NAVIGATION_STEP_ATTRIBUTE_DATA:  await setAttributeValue(fsAttrData['SCOPE_VARIABLE_UUID'], fsAttrData['FUNCTION_STEP_ATTRIBUTE_DATA'] ),
+                        VIEW_NAVIGATION_STEP_UUID: viewNavStepId3,
+                        VIEW_UUID: destinationViewId,
+                        PRE_DEFINED_VALUES_UUID: fsAttrData['PRE_DEFINED_VALUES_UUID'],
+                        FUNCTIONAL_AREA_UUID: fsAttrData['FUNCTIONAL_AREA_UUID'],
+                        IS_ANY_VALUE_CHANGED: 'Yes',
+                        EXISTING_VIEW_NAVIGATION_STEP_ATTRIBUTE_VALUE_UUID: fsAttrData['FUNCTION_STEP_ATTRIBUTE_VALUE_UUID']                      
+                      };
+                      viewNavigationStepAttributeList.push(viewNavStepAttrObject3);
                     }
                   }
                 }

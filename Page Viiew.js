@@ -156,7 +156,7 @@ if (input.compositeEntityAction == "Insert") {
   console.log("input :::::;:::::::::::::", input);
 
   // Fetching TEST_SET_UUID & TEST_SET_NAME
-  const testSetQuery = `SELECT TEST_SET_UUID, TEST_SET_NAME FROM TEST_SET WHERE PAGE_UUID = :PAGE_UUID AND FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID AND TEST_SET_TYPE='Page Navigation'`;
+  const testSetQuery = `SELECT TEST_SET_UUID, TEST_SET_NAME FROM TEST_SET WHERE PAGE_UUID = :PAGE_UUID AND FUNCTIONAL_AREA_UUID = :APP_LOGGED_IN_FUNTIONAL_AREA_ID AND TEST_SET_TYPE='UI Locator Verification'`;
   const testSetQueryData = await serviceOrchestrator.selectRecordsUsingQuery("PRIMARYSPRINGFM",testSetQuery, input );
 
   if(testSetQueryData && testSetQueryData[0]['TEST_SET_UUID']){
